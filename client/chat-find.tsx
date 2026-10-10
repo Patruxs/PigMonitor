@@ -8,7 +8,7 @@ import { timelineSearch } from "../shared/rpc.ts";
 import type { StreamItem } from "../shared/stream.ts";
 import { TIMELINE_FETCH_PAGE_SIZE } from "../shared/timeline.ts";
 import { RADIUS, SPACING } from "./kit/theme.ts";
-import type { ViewportHandle } from "./stream.tsx";
+import type { ViewportHandle } from "./stream-viewport.tsx";
 
 const isWeb = Platform.OS === "web";
 const SelectedMessage = createContext<string | null>(null);

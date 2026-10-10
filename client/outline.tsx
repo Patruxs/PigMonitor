@@ -7,7 +7,7 @@ import type { StreamItem } from "../shared/stream.ts";
 import { getStreamItemMessageId } from "../shared/stream-presentation.ts";
 import type { AgentHistory } from "./chat-find.tsx";
 import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
-import type { ViewportHandle } from "./stream.tsx";
+import type { ViewportHandle } from "./stream-viewport.tsx";
 
 const RAIL_WIDTH = 36;
 const SLOT_HEIGHT = 8;
