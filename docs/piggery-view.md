@@ -17,6 +17,10 @@ The field names are piggery's, so they can't be renamed here. The less obvious o
 - `Column.word`: the word that titles a Board column, not a row's state text.
 - `daemon.outdated`: the notice piggery top shows when installs need `piggery setup --outdated`; empty or absent when there is none.
 
+## `piggery tail --view`
+
+One JSON document: a `version`, then `lines` as piggery top shows them. A line's `text` reads as top draws it, glyphs included. `rest` exists only on tool lines and holds the arguments, which the plugin draws muted after the text.
+
 ## The "pigmonitor-view" setting
 
 What the user chooses in the surface is kept in Paseo's host setting `pigmonitor-view` (`viewSettings` in `shared/rpc.ts`, read and changed through `shared/folds.ts`), not in piggery. Its keys live in users' saved settings, so renaming one loses what they saved:
