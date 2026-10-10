@@ -39,7 +39,7 @@ export function PigMonitorSettings({ theme }: PluginSurfaceProps) {
   return (
     <View style={{ padding: SPACING[3], gap: SPACING[4] }}>
       <Field theme={theme} label="piggery binary" hint="A full path. Leave it empty to use the piggery that installed this plugin, or else the one in the Paseo daemon's PATH." value={pathValue} placeholder="piggery" onChange={setPath} />
-      <Field theme={theme} label="piggery database" hint="The piggery.db the Mail tab reads (read-only). Leave it empty for ~/.piggery/piggery.db, in piggery's home." value={databaseValue} placeholder="~/.piggery/piggery.db" onChange={setDatabase} />
+      <Field theme={theme} label="piggery database" hint="The piggery.db PigMonitor reads (read-only). Leave it empty for ~/.piggery/piggery.db, in piggery's home." value={databaseValue} placeholder="~/.piggery/piggery.db" onChange={setDatabase} />
       {state.saveError ? <Text style={text(theme, "meta", "statusDanger")}>{state.saveError}</Text> : null}
       <Pressable
         disabled={!changed || state.saving}

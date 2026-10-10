@@ -16,3 +16,10 @@ test("hidden projects survive a prune and an odd stored document", () => {
   assert.deepEqual(foldsOf(null).hidden, {});
   assert.deepEqual(foldsOf({ hidden: { "/x": true } }).hidden, { "/x": true });
 });
+
+test("a tab saved by an older version opens where it went: the Board became the Graph, the Mail tab is gone", () => {
+  assert.equal(foldsOf({ tab: "board" }).tab, "graph");
+  assert.equal(foldsOf({ tab: "mail" }).tab, "overview");
+  assert.equal(foldsOf({ tab: "sessions" }).tab, "sessions");
+  assert.equal(foldsOf({ tab: "nonsense" }).tab, "overview");
+});

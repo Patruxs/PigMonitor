@@ -16,11 +16,19 @@ export interface Folds {
 
 export type StoredFolds = Partial<Omit<Folds, "tab"> & { tab: string }>;
 
+const SURFACE_TABS: readonly SurfaceTab[] = ["overview", "graph", "sessions"];
+
+const RETIRED_TABS: Record<string, SurfaceTab> = { board: "graph", mail: "overview" };
+
+function tabOf(stored: string | undefined): SurfaceTab {
+  return SURFACE_TABS.find((tab) => tab === stored) ?? RETIRED_TABS[stored ?? ""] ?? "overview";
+}
+
 export const NO_FOLDS: Folds = { teams: {}, gone: {}, tab: "overview", hidden: {} };
 
 /** Folds as the host stored them, tolerating a missing or odd document. */
 export function foldsOf(values: StoredFolds | null | undefined): Folds {
-  return { teams: { ...values?.teams }, gone: { ...values?.gone }, tab: values?.tab === "graph" || values?.tab === "sessions" ? values.tab : values?.tab === "board" ? "graph" : "overview", hidden: { ...values?.hidden } };
+  return { teams: { ...values?.teams }, gone: { ...values?.gone }, tab: tabOf(values?.tab), hidden: { ...values?.hidden } };
 }
 
 export const teamOpen = (f: Folds, id: string, byDefault: boolean): boolean => f.teams[id] ?? byDefault;
