@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ChatFindModel } from "./chat-find.ts";
+import { createChatFindModel } from "./chat-find.ts";
 import type { StreamItem } from "./stream.ts";
 
 const at = (seq: number, kind: "user_message" | "assistant_message"): StreamItem => ({ kind, id: `m${seq}`, text: "x", timestamp: new Date(0), timelineCursor: { epoch: "e", seq } }) as StreamItem;
 
 test("find lands on the first matching message, counts every occurrence in the chat, and Next walks into the next message", async () => {
   const revealed: string[] = [];
-  const model = new ChatFindModel({
+  const model = createChatFindModel({
     search: async () => ({ epoch: "e", locations: [{ seq: 2, role: "assistant", count: 2 }, { seq: 4, role: "user", count: 1 }], nextCursor: null }),
     load: async () => undefined,
     reveal: async (messageId, _query, occurrence) => {

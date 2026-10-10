@@ -16,19 +16,23 @@ interface Target {
 }
 export type ChatFindFailure = "connection" | "historyChanged" | "reveal";
 
-class ChatFindFailureError extends Error {
-  readonly failure: ChatFindFailure;
-  constructor(failure: ChatFindFailure, options?: { cause: unknown }) {
-    super(`Chat find failed: ${failure}`, options);
-    this.failure = failure;
-  }
+interface ChatFindFailureError extends Error {
+  failure: ChatFindFailure;
+}
+
+function chatFindFailure(failure: ChatFindFailure, cause?: unknown): ChatFindFailureError {
+  const error = new Error(`Chat find failed: ${failure}`, cause === undefined ? undefined : { cause }) as ChatFindFailureError;
+  error.failure = failure;
+  return error;
+}
+
+function isChatFindFailure(error: unknown): error is ChatFindFailureError {
+  return error instanceof Error && typeof (error as ChatFindFailureError).failure === "string";
 }
 
 function tagged<T>(failure: ChatFindFailure, operation: Promise<T>): Promise<T> {
   return operation.catch((cause: unknown) => {
-    throw cause instanceof ChatFindFailureError
-      ? cause
-      : new ChatFindFailureError(failure, { cause });
+    throw isChatFindFailure(cause) ? cause : chatFindFailure(failure, cause);
   });
 }
 
@@ -53,8 +57,20 @@ export interface ChatFindOperations {
   clear(): void;
 }
 
-export class ChatFindModel {
-  private state: Snapshot = {
+export interface ChatFindModel {
+  getSnapshot: () => Snapshot;
+  subscribe: (listener: () => void) => () => void;
+  open: () => void;
+  close: () => void;
+  setQuery: (query: string) => void;
+  retry: () => void;
+  updateHistory: (epoch: string | null, items: StreamItem[]) => void;
+  next: () => void;
+  previous: () => void;
+}
+
+export function createChatFindModel(operations: ChatFindOperations): ChatFindModel {
+  let state: Snapshot = {
     open: false,
     query: "",
     phase: "idle",
@@ -63,119 +79,40 @@ export class ChatFindModel {
     count: 0,
     failure: null,
   };
-  private listeners = new Set<() => void>();
-  private historyListeners = new Set<() => void>();
-  private items: StreamItem[] = [];
-  private epoch: string | null = null;
-  private resultEpoch: string | null = null;
-  private locations: Location[] = [];
-  private resolved = new Map<Location, Target>();
-  private current = -1;
-  private inMessage = { occurrence: 0, count: 0 };
-  private abort = new AbortController();
-  private timer: ReturnType<typeof setTimeout> | undefined;
-  private operations: ChatFindOperations;
-  constructor(operations: ChatFindOperations) {
-    this.operations = operations;
-  }
-  readonly getSnapshot = () => this.state;
-  readonly subscribe = (listener: () => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
+  const listeners = new Set<() => void>();
+  const historyListeners = new Set<() => void>();
+  let items: StreamItem[] = [];
+  let epoch: string | null = null;
+  let resultEpoch: string | null = null;
+  let locations: Location[] = [];
+  const resolved = new Map<Location, Target>();
+  let current = -1;
+  let inMessage = { occurrence: 0, count: 0 };
+  let abort = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const publish = (change: Partial<Snapshot>) => {
+    state = { ...state, ...change };
+    listeners.forEach((listener) => listener());
   };
-  private publish(change: Partial<Snapshot>) {
-    this.state = { ...this.state, ...change };
-    this.listeners.forEach((listener) => listener());
-  }
-  private cancel() {
-    this.abort.abort();
-    this.abort = new AbortController();
-    clearTimeout(this.timer);
-    this.operations.clear();
-  }
-  readonly open = () => {
-    if (this.state.open) return;
-    this.publish({ open: true });
-    if (this.state.query) this.setQuery(this.state.query);
+  const cancel = () => {
+    abort.abort();
+    abort = new AbortController();
+    clearTimeout(timer);
+    operations.clear();
   };
-  readonly close = () => {
-    this.cancel();
-    this.publish({ open: false, phase: "idle", selectedItemId: null, count: 0, failure: null });
-  };
-  readonly setQuery = (query: string) => {
-    this.cancel();
-    this.locations = [];
-    this.resultEpoch = null;
-    this.resolved.clear();
-    this.current = -1;
-    this.inMessage = { occurrence: 0, count: 0 };
-    this.publish({
-      query,
-      phase: query.trim() ? "searching" : "idle",
-      selectedItemId: null,
-      occurrence: 0,
-      count: 0,
-      failure: null,
-    });
-    if (!query.trim()) return;
-    const signal = this.abort.signal;
-    this.timer = setTimeout(() => {
-      void this.search(signal);
-    }, 120);
-  };
-  readonly retry = () => this.setQuery(this.state.query);
-  private fail(error: unknown, signal: AbortSignal) {
+  const fail = (error: unknown, signal: AbortSignal) => {
     if (signal.aborted) return;
-    this.cancel();
-    this.publish({
+    cancel();
+    publish({
       phase: "error",
       selectedItemId: null,
-      failure: error instanceof ChatFindFailureError ? error.failure : "connection",
+      failure: isChatFindFailure(error) ? error.failure : "connection",
     });
-  }
-  private async search(signal: AbortSignal) {
-    try {
-      let cursor: number | undefined;
-      do {
-        const result = await tagged("connection", this.operations.search(this.state.query, cursor));
-        if (signal.aborted) return;
-        const historyChanged = this.epoch !== null && result.epoch !== this.epoch;
-        const searchChanged = this.resultEpoch !== null && result.epoch !== this.resultEpoch;
-        if (historyChanged || searchChanged) throw new ChatFindFailureError("historyChanged");
-        this.resultEpoch = result.epoch;
-        this.locations.push(
-          ...result.locations.map((location) => ({
-            seq: location.seq,
-            role: location.role,
-            count: location.count ?? 1,
-          })),
-        );
-        cursor = result.nextCursor ?? undefined;
-      } while (cursor !== undefined);
-      await this.navigate(0, 1, signal);
-    } catch (error) {
-      this.fail(error, signal);
-    }
-  }
-  updateHistory(epoch: string | null, items: StreamItem[]) {
-    if (
-      this.resultEpoch !== null &&
-      epoch !== null &&
-      epoch !== this.resultEpoch &&
-      this.state.open
-    ) {
-      this.fail(new ChatFindFailureError("historyChanged"), this.abort.signal);
-    }
-    this.epoch = epoch;
-    this.items = items;
-    this.historyListeners.forEach((listener) => listener());
-  }
-  private target(location: Location, exact: boolean): Target | null {
+  };
+  const target = (location: Location, exact: boolean): Target | null => {
     let before = 0;
-    for (const item of this.items) {
-      if (item.timelineCursor?.epoch !== this.resultEpoch) continue;
+    for (const item of items) {
+      if (item.timelineCursor?.epoch !== resultEpoch) continue;
       const seq = item.timelineCursor.seq;
       if (seq < location.seq) {
         before = Math.max(before, seq);
@@ -186,111 +123,184 @@ export class ChatFindModel {
       if (item.kind === "user_message") return null;
     }
     return null;
-  }
-  private waitForTarget(location: Location, signal: AbortSignal): Promise<Target> {
-    return new Promise((resolve, reject) => {
-      const finish = (target?: Target) => {
+  };
+  const waitForTarget = (location: Location, signal: AbortSignal): Promise<Target> =>
+    new Promise((resolve, reject) => {
+      const finish = (found?: Target) => {
         clearTimeout(timeout);
-        this.historyListeners.delete(check);
+        historyListeners.delete(check);
         signal.removeEventListener("abort", cancelled);
-        if (target) resolve(target);
-        else reject(new ChatFindFailureError("reveal"));
+        if (found) resolve(found);
+        else reject(chatFindFailure("reveal"));
       };
       const check = () => {
-        const target = this.target(location, false);
-        if (target) finish(target);
+        const found = target(location, false);
+        if (found) finish(found);
       };
       const cancelled = () => finish();
       const timeout = setTimeout(() => finish(), 5000);
-      this.historyListeners.add(check);
+      historyListeners.add(check);
       signal.addEventListener("abort", cancelled, { once: true });
       if (signal.aborted) cancelled();
       else check();
     });
-  }
-  private async navigate(index: number, direction: 1 | -1, signal: AbortSignal) {
-    const epoch = this.resultEpoch;
-    if (epoch === null) return;
-    this.publish({ phase: "loading", failure: null });
-    let remaining = this.locations.length;
-    while (remaining-- > 0 && this.locations.length) {
-      index = (index + this.locations.length) % this.locations.length;
-      const location = this.locations[index]!;
-      const cached = this.resolved.get(location);
-      const stillLoaded =
-        cached &&
-        this.items.some((item) => item.id === cached.id && item.timelineCursor?.seq === cached.seq);
-      let target = stillLoaded ? cached : this.target(location, true);
-      if (!target) {
-        await tagged("connection", this.operations.load(epoch, location.seq));
-        if (signal.aborted) return;
-        target = await this.waitForTarget(location, signal);
-      }
-      if (signal.aborted) return;
-      this.resolved.set(location, target);
-      this.locations = this.locations.filter(
-        (candidate) =>
-          candidate === location ||
-          candidate.role !== location.role ||
-          candidate.seq <= target.before ||
-          candidate.seq > target.seq,
-      );
-      index = this.locations.indexOf(location);
-      this.publish({ selectedItemId: target.id });
-      const result = await tagged(
-        "reveal",
-        this.operations.reveal(target.id, this.state.query, direction === 1 ? 0 : -1, signal),
-      );
-      if (signal.aborted) return;
-      if (result.count) {
-        this.current = index;
-        this.publish({ phase: "ready", ...this.position(location, result) });
-        return;
-      }
-      this.locations.splice(index, 1);
-      if (direction === -1) index--;
-    }
-    this.operations.clear();
-    this.publish({ phase: "ready", selectedItemId: null, count: 0, occurrence: 0 });
-  }
-  private position(location: Location, revealed: { occurrence: number; count: number }) {
-    this.inMessage = revealed;
+  const position = (location: Location, revealed: { occurrence: number; count: number }) => {
+    inMessage = revealed;
     location.count = revealed.count;
     let before = 0;
     let total = 0;
-    for (const candidate of this.locations) {
+    for (const candidate of locations) {
       if (candidate === location) before = total;
       total += candidate.count;
     }
     return { occurrence: before + revealed.occurrence, count: total };
-  }
-  private async move(direction: 1 | -1) {
-    if (this.state.phase !== "ready" || !this.state.count) return;
-    this.cancel();
-    const signal = this.abort.signal;
+  };
+  const navigate = async (index: number, direction: 1 | -1, signal: AbortSignal) => {
+    const searched = resultEpoch;
+    if (searched === null) return;
+    publish({ phase: "loading", failure: null });
+    let remaining = locations.length;
+    while (remaining-- > 0 && locations.length) {
+      index = (index + locations.length) % locations.length;
+      const location = locations[index]!;
+      const cached = resolved.get(location);
+      const stillLoaded =
+        cached &&
+        items.some((item) => item.id === cached.id && item.timelineCursor?.seq === cached.seq);
+      let found = stillLoaded ? cached : target(location, true);
+      if (!found) {
+        await tagged("connection", operations.load(searched, location.seq));
+        if (signal.aborted) return;
+        found = await waitForTarget(location, signal);
+      }
+      if (signal.aborted) return;
+      resolved.set(location, found);
+      const kept = found;
+      locations = locations.filter(
+        (candidate) =>
+          candidate === location ||
+          candidate.role !== location.role ||
+          candidate.seq <= kept.before ||
+          candidate.seq > kept.seq,
+      );
+      index = locations.indexOf(location);
+      publish({ selectedItemId: found.id });
+      const result = await tagged(
+        "reveal",
+        operations.reveal(found.id, state.query, direction === 1 ? 0 : -1, signal),
+      );
+      if (signal.aborted) return;
+      if (result.count) {
+        current = index;
+        publish({ phase: "ready", ...position(location, result) });
+        return;
+      }
+      locations.splice(index, 1);
+      if (direction === -1) index--;
+    }
+    operations.clear();
+    publish({ phase: "ready", selectedItemId: null, count: 0, occurrence: 0 });
+  };
+  const search = async (signal: AbortSignal) => {
     try {
-      const occurrence = this.inMessage.occurrence + direction;
-      if (occurrence >= 0 && occurrence < this.inMessage.count && this.state.selectedItemId) {
-        this.publish({ phase: "loading" });
+      let cursor: number | undefined;
+      do {
+        const result = await tagged("connection", operations.search(state.query, cursor));
+        if (signal.aborted) return;
+        const historyChanged = epoch !== null && result.epoch !== epoch;
+        const searchChanged = resultEpoch !== null && result.epoch !== resultEpoch;
+        if (historyChanged || searchChanged) throw chatFindFailure("historyChanged");
+        resultEpoch = result.epoch;
+        locations.push(
+          ...result.locations.map((location) => ({
+            seq: location.seq,
+            role: location.role,
+            count: location.count ?? 1,
+          })),
+        );
+        cursor = result.nextCursor ?? undefined;
+      } while (cursor !== undefined);
+      await navigate(0, 1, signal);
+    } catch (error) {
+      fail(error, signal);
+    }
+  };
+  const setQuery = (query: string) => {
+    cancel();
+    locations = [];
+    resultEpoch = null;
+    resolved.clear();
+    current = -1;
+    inMessage = { occurrence: 0, count: 0 };
+    publish({
+      query,
+      phase: query.trim() ? "searching" : "idle",
+      selectedItemId: null,
+      occurrence: 0,
+      count: 0,
+      failure: null,
+    });
+    if (!query.trim()) return;
+    const signal = abort.signal;
+    timer = setTimeout(() => {
+      void search(signal);
+    }, 120);
+  };
+  const move = async (direction: 1 | -1) => {
+    if (state.phase !== "ready" || !state.count) return;
+    cancel();
+    const signal = abort.signal;
+    try {
+      const occurrence = inMessage.occurrence + direction;
+      if (occurrence >= 0 && occurrence < inMessage.count && state.selectedItemId) {
+        publish({ phase: "loading" });
         const result = await tagged(
           "reveal",
-          this.operations.reveal(this.state.selectedItemId, this.state.query, occurrence, signal),
+          operations.reveal(state.selectedItemId, state.query, occurrence, signal),
         );
         if (signal.aborted) return;
         if (result.count) {
-          this.publish({ phase: "ready", ...this.position(this.locations[this.current]!, result) });
+          publish({ phase: "ready", ...position(locations[current]!, result) });
           return;
         }
       }
-      await this.navigate(this.current + direction, direction, signal);
+      await navigate(current + direction, direction, signal);
     } catch (error) {
-      this.fail(error, signal);
+      fail(error, signal);
     }
-  }
-  readonly next = () => {
-    void this.move(1);
   };
-  readonly previous = () => {
-    void this.move(-1);
+  return {
+    getSnapshot: () => state,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    open: () => {
+      if (state.open) return;
+      publish({ open: true });
+      if (state.query) setQuery(state.query);
+    },
+    close: () => {
+      cancel();
+      publish({ open: false, phase: "idle", selectedItemId: null, count: 0, failure: null });
+    },
+    setQuery,
+    retry: () => setQuery(state.query),
+    updateHistory: (nextEpoch, nextItems) => {
+      if (resultEpoch !== null && nextEpoch !== null && nextEpoch !== resultEpoch && state.open) {
+        fail(chatFindFailure("historyChanged"), abort.signal);
+      }
+      epoch = nextEpoch;
+      items = nextItems;
+      historyListeners.forEach((listener) => listener());
+    },
+    next: () => {
+      void move(1);
+    },
+    previous: () => {
+      void move(-1);
+    },
   };
 }

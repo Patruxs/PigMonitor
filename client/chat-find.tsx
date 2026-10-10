@@ -3,7 +3,7 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Platform, Pressable, Text, TextInput, View, type TextStyle } from "react-native";
-import { ChatFindModel, type ChatFindFailure, type ChatFindOperations } from "../shared/chat-find.ts";
+import { createChatFindModel, type ChatFindFailure, type ChatFindOperations } from "../shared/chat-find.ts";
 import { timelineSearch } from "../shared/rpc.ts";
 import type { StreamItem } from "../shared/stream.ts";
 import { TIMELINE_FETCH_PAGE_SIZE } from "../shared/timeline.ts";
@@ -278,7 +278,7 @@ export function ChatFind({ theme, agentId, epoch, items, viewportRef, revealLoad
     });
   const model = useMemo(
     () =>
-      new ChatFindModel({
+      createChatFindModel({
         async search(query, cursor) {
           const result = await callRef.current({ agentId, query, ...(cursor !== undefined ? { cursor } : {}) });
           if (!result.ok) throw new Error(result.error);
