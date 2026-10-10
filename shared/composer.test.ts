@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createQueueDrainer, resolveComposerKey, resolvePrimaryActionKind, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer.ts";
+import { createQueueDrainer, isMacLike, resolveComposerKey, resolvePrimaryActionKind, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer.ts";
 
 function memoryQueue(initial: QueuedComposerMessage[]): QueueWriter & { items: () => QueuedComposerMessage[] } {
   let state = new Map([["a", initial]]);
@@ -109,4 +109,8 @@ test("after a resume the participant's queue drains to the new agent, not the ol
   for (const listener of [...fresh.listeners]) listener("idle");
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual({ sent, oldWatched: old.listeners.size }, { sent: ["agent-2:next task"], oldWatched: 0 });
+});
+
+test("Apple keyboards use ⌘ for find and focus on a Mac, an iPad and an iPhone alike, and Ctrl elsewhere", () => {
+  assert.deepEqual([{ platform: "MacIntel" }, { platform: "iPad" }, { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)" }, { platform: "Win32" }, { platform: "Linux x86_64" }, undefined].map(isMacLike), [true, true, true, false, false, false]);
 });

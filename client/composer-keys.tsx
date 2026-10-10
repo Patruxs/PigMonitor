@@ -3,11 +3,10 @@ import { resolveComposerKey, type ComposerFocus, type ComposerKeyAction } from "
 import type { DictationStatus } from "../shared/speech.ts";
 import { useChatPaneArea } from "./chat-pane-scope.tsx";
 import { nodeOf } from "./composer-height.ts";
+import { dom, isMac } from "./kit/platform.ts";
 
 type KeyChord = { key: string; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean };
 
-const dom = globalThis as { document?: Document; navigator?: Navigator };
-const isMac = /Macintosh|Mac OS|iPhone|iPad|iPod/i.test(dom.navigator?.userAgent ?? "") || /Mac|iPhone|iPad|iPod/i.test(dom.navigator?.platform ?? "");
 
 export const FOCUS_HINT = isMac ? "⌘L to focus" : "Ctrl+L to focus";
 

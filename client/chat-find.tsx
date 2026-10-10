@@ -11,7 +11,7 @@ import { RADIUS, SPACING } from "./kit/theme.ts";
 import type { ViewportHandle } from "./stream-viewport.tsx";
 import { useChatPaneArea } from "./chat-pane-scope.tsx";
 import { FIND_IGNORED_SELECTOR, findWidgetIn, findWidgetProps, historyRowOf, MARKDOWN_BLOCK_SELECTOR, messageRows, messageTextBlocks } from "./find-anchors.ts";
-import { NO_OUTLINE, isWeb } from "./kit/platform.ts";
+import { isMac, isWeb, NO_OUTLINE } from "./kit/platform.ts";
 
 const SelectedMessage = createContext<string | null>(null);
 const FAILURE_TEXT: Record<ChatFindFailure, string> = {
@@ -27,13 +27,8 @@ export function useChatFindSelectedMessageId(): string | null {
   return useContext(SelectedMessage);
 }
 
-function isMac(): boolean {
-  const nav = (globalThis as { navigator?: { platform?: string; userAgent?: string } }).navigator;
-  return /mac/i.test(nav?.platform ?? nav?.userAgent ?? "");
-}
-
 function isFindShortcut(event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey">): boolean {
-  const primary = isMac() ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+  const primary = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
   return primary && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "f";
 }
 
