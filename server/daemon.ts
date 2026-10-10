@@ -2,13 +2,32 @@ import { spawn } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+
+export interface PaseoDaemonClient {
+  setAgentModel(agentId: string, modelId: string | null): Promise<void>;
+  setAgentMode(agentId: string, modeId: string): Promise<unknown>;
+  setAgentThinkingOption(agentId: string, thinkingOptionId: string | null): Promise<unknown>;
+  setAgentFeature(agentId: string, featureId: string, value: unknown): Promise<void>;
+  listUsageReports(options?: { agentId?: string; forceRefresh?: boolean }): Promise<unknown>;
+  uploadFile(input: { fileName: string; mimeType: string; bytes: Uint8Array }): Promise<unknown>;
+  searchForge(options: { cwd: string; query: string; limit?: number }): Promise<unknown>;
+  listAgentTimelinePrompts(agentId: string): Promise<unknown>;
+  rewindAgent(agentId: string, messageId: string, mode: "conversation" | "files" | "both"): Promise<unknown>;
+  searchAgentTimeline(options: { agentId: string; query: string; cursor?: number }): Promise<unknown>;
+  getDirectorySuggestions(options: { query: string; limit?: number; cwd?: string; includeFiles?: boolean; includeDirectories?: boolean }): Promise<unknown>;
+  getCheckoutStatus(cwd: string): Promise<unknown>;
+  getLastServerInfoMessage(): unknown;
+  startDictationStream(dictationId: string, format: string): Promise<void>;
+  sendDictationStreamChunk(dictationId: string, seq: number, audio: string, format: string): void;
+  finishDictationStream(dictationId: string, finalSeq: number): Promise<unknown>;
+  cancelDictationStream(dictationId: string): void;
+}
 
 export const DAEMON_TIMEOUT_MS = 30000;
 
-export const DAEMON_METHODS = ["setAgentModel", "setAgentMode", "setAgentThinkingOption", "setAgentFeature", "listUsageReports", "uploadFile", "searchForge", "listAgentTimelinePrompts", "rewindAgent", "searchAgentTimeline", "getDirectorySuggestions", "getCheckoutStatus", "getLastServerInfoMessage"] as const satisfies readonly (keyof DaemonClient)[];
+export const DAEMON_METHODS = ["setAgentModel", "setAgentMode", "setAgentThinkingOption", "setAgentFeature", "listUsageReports", "uploadFile", "searchForge", "listAgentTimelinePrompts", "rewindAgent", "searchAgentTimeline", "getDirectorySuggestions", "getCheckoutStatus", "getLastServerInfoMessage"] as const satisfies readonly (keyof PaseoDaemonClient)[];
 
-export const DICTATION_METHODS = ["startDictationStream", "sendDictationStreamChunk", "finishDictationStream", "cancelDictationStream"] as const satisfies readonly (keyof DaemonClient)[];
+export const DICTATION_METHODS = ["startDictationStream", "sendDictationStreamChunk", "finishDictationStream", "cancelDictationStream"] as const satisfies readonly (keyof PaseoDaemonClient)[];
 
 export const CLI_MODULES = { "client.js": "connectToDaemon", "daemon-target.js": "selectDaemonTarget" } as const;
 
@@ -93,7 +112,7 @@ function run(method: string, args: unknown[], timeoutMs: number): Promise<Daemon
   });
 }
 
-export function daemonCall<M extends DaemonMethod>(method: M, args: Parameters<DaemonClient[M]>, timeoutMs = DAEMON_TIMEOUT_MS): Promise<DaemonReply> {
+export function daemonCall<M extends DaemonMethod>(method: M, args: Parameters<PaseoDaemonClient[M]>, timeoutMs = DAEMON_TIMEOUT_MS): Promise<DaemonReply> {
   return run(method, args, timeoutMs);
 }
 
