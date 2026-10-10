@@ -1,0 +1,62 @@
+# PigMonitor
+
+A [Paseo](https://github.com/getpaseo/paseo) plugin that shows your piggery agent teams inside Paseo.
+
+## Install
+
+```
+paseo plugin install github:Patruxs/PigMonitor
+```
+
+PigMonitor then appears in Paseo's sidebar and as a workspace panel.
+
+To update to the latest version:
+
+```
+paseo plugin update pigmonitor
+```
+
+## What it shows
+
+- **Overview**: a timeline of every team and agent, coloured by state (working, waiting, idle, exited), with counts of who needs you and unread mail.
+- **Graph**: each team as an org chart.
+- **Sessions**: read an agent's transcript and mail, and write to it. Pasted images are attached.
+- Open any agent or team for its details and resume its session in Paseo.
+
+The plugin only reads: it runs `piggery ps --view` and `piggery tail --view` with `--no-start`, and reads piggery's SQLite database read-only. Sending mail registers the plugin as its own piggery person.
+
+## Requirements
+
+- Paseo 0.9.1 or newer.
+- piggery on the Paseo daemon's PATH.
+- Node 22.5 or newer (for `node:sqlite`).
+
+## Settings
+
+In Paseo, Settings → PigMonitor:
+
+- **piggery binary**: full path to piggery. Empty means `piggery` on PATH.
+- **piggery database**: the database the Sessions tab reads. Empty means `~/.piggery/piggery.db`, or `$PIGGERY_HOME/piggery.db`.
+
+## Development
+
+```
+git clone https://github.com/Patruxs/PigMonitor.git
+paseo plugin install ./PigMonitor
+```
+
+No build step: Paseo loads the TypeScript sources directly. After changing the code:
+
+```
+paseo plugin reload pigmonitor
+```
+
+Tests:
+
+```
+node --test --experimental-strip-types shared/*.test.ts server/*.test.ts
+```
+
+## License
+
+MIT
