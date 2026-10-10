@@ -16,6 +16,7 @@ import { AttachmentFrame, AttachmentLabel, AttachmentThumbnail } from "./attachm
 import { useCompact } from "./kit/platform.ts";
 import { CONTENT_FONT, CONTENT_LINE, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, RADIUS, SPACING, STREAM_METADATA_FONT } from "./kit/theme.ts";
 import { ToolCallDetailsContent } from "./tool-details.tsx";
+import { formatMessageTimestamp } from "../shared/view.ts";
 import { messageTextProps } from "./find-anchors.ts";
 
 const isWeb = Platform.OS === "web";
@@ -42,23 +43,6 @@ export function formatDuration(durationMs: number): string {
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 }
 
-let timeFormatter: Intl.DateTimeFormat | null = null;
-
-function formatTime(date: Date): string {
-  if (!timeFormatter) {
-    const resolved = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).resolvedOptions();
-    timeFormatter = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", hourCycle: resolved.hourCycle });
-  }
-  return timeFormatter.format(date);
-}
-
-export function formatMessageTimestamp(date: Date, now: Date = new Date()): string {
-  const time = formatTime(date);
-  if (date.toDateString() === now.toDateString()) return time;
-  const days = Math.floor((now.getTime() - date.getTime()) / 86400000);
-  if (days >= 0 && days < 7) return `${date.toLocaleDateString(undefined, { weekday: "long" })} ${time}`;
-  return `${date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}, ${time}`;
-}
 
 export function TurnCopyButton({ theme, getContent, label = "Copy turn", style }: { theme: PluginTheme; getContent: () => string; label?: string; style?: ViewStyle }) {
   const [copied, setCopied] = useState(false);

@@ -241,3 +241,21 @@ export const URGENCY: Record<Status, number> = { waiting: 0, working: 1, idle: 2
 export function taskWords(title: string): string {
   return title.replace(/^#\d+\s*/, "").trim();
 }
+
+let timeFormatter: Intl.DateTimeFormat | null = null;
+
+function formatTime(date: Date): string {
+  if (!timeFormatter) {
+    const resolved = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).resolvedOptions();
+    timeFormatter = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", hourCycle: resolved.hourCycle });
+  }
+  return timeFormatter.format(date);
+}
+
+export function formatMessageTimestamp(date: Date, now: Date = new Date()): string {
+  const time = formatTime(date);
+  if (date.toDateString() === now.toDateString()) return time;
+  const days = Math.floor((now.getTime() - date.getTime()) / 86400000);
+  if (days >= 0 && days < 7) return `${date.toLocaleDateString(undefined, { weekday: "long" })} ${time}`;
+  return `${date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}, ${time}`;
+}
