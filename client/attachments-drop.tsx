@@ -6,7 +6,7 @@ import { rasterImageMimeType, type ImageMetadata } from "../shared/composer.ts";
 import { readImageFile } from "./attachments.tsx";
 import { SPACING } from "./kit/theme.ts";
 
-export interface FileDropSink {
+interface FileDropSink {
   onFiles: (images: ImageMetadata[]) => void;
   onGenericFiles: (files: File[]) => void;
 }

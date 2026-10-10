@@ -6,9 +6,9 @@ import { hostColours, mix, SPACING } from "./kit/theme.ts";
 
 export const FONT_BASE = 14;
 export const FONT_SM = 12;
-export const RADIUS_LG = 8;
-export const RADIUS_XL = 12;
-export const RADIUS_2XL = 16;
+const RADIUS_LG = 8;
+const RADIUS_XL = 12;
+const RADIUS_2XL = 16;
 export const PALETTE = { blue400: "#60a5fa", green400: "#4ade80", yellow400: "#fbbf24", amber500: "#f59e0b" } as const;
 
 const NO_OUTLINE = { outlineStyle: "none", outlineWidth: 0 } as unknown as TextStyle;
@@ -32,7 +32,7 @@ function isDark(theme: PluginTheme): boolean {
   return 0.299 * r + 0.587 * g + 0.114 * b < 128;
 }
 
-export function popoverColour(theme: PluginTheme): string {
+function popoverColour(theme: PluginTheme): string {
   return isDark(theme) ? theme.colors.surface2 : theme.colors.surface0;
 }
 
@@ -40,11 +40,11 @@ export function sidebarColour(theme: PluginTheme): string {
   return isDark(theme) ? mix(theme.colors.surface0, "#000000", 0.17) : theme.colors.surface2;
 }
 
-export function shadowMd(theme: PluginTheme): ViewStyle {
+function shadowMd(theme: PluginTheme): ViewStyle {
   return isDark(theme) ? { shadowColor: "rgba(0, 0, 0, 0.20)", shadowOffset: { width: 0, height: 4 }, shadowRadius: 8, elevation: 8 } : { shadowColor: "rgba(0, 0, 0, 0.04)", shadowOffset: { width: 0, height: 4 }, shadowRadius: 16, elevation: 4 };
 }
 
-export type DesktopKey = "ArrowDown" | "ArrowUp" | "Enter" | "Escape";
+type DesktopKey = "ArrowDown" | "ArrowUp" | "Enter" | "Escape";
 
 function clampLeft(anchorX: number | null, preferred: number, width: number, windowWidth: number): number {
   if (anchorX === null || width <= 0) return preferred;
@@ -165,7 +165,7 @@ export function HeaderRow({ theme, title, leading, onBack }: { theme: PluginThem
   );
 }
 
-export function ComboItem({ theme, label, description, leading, selected, active, elevated, onPress }: { theme: PluginTheme; label: string; description?: string; leading?: ReactNode; selected?: boolean; active?: boolean; elevated?: boolean; onPress: () => void }) {
+function ComboItem({ theme, label, description, leading, selected, active, elevated, onPress }: { theme: PluginTheme; label: string; description?: string; leading?: ReactNode; selected?: boolean; active?: boolean; elevated?: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}

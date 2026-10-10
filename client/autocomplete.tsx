@@ -23,7 +23,7 @@ import { BoundedMap } from "../shared/bounded-map.ts";
 const COMMAND_CACHE_LIMIT = 50;
 const DIRECTORY_CACHE_LIMIT = 100;
 
-export interface AutocompleteOption {
+interface AutocompleteOption {
   id: string;
   label: string;
   detail?: string;
@@ -32,7 +32,7 @@ export interface AutocompleteOption {
   entryPath?: string;
 }
 
-export interface AgentAutocomplete {
+interface AgentAutocomplete {
   isVisible: boolean;
   options: AutocompleteOption[];
   selectedIndex: number;

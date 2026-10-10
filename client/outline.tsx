@@ -54,7 +54,7 @@ function promptTickMagnification(slotDistance: number): number {
   return (1 + Math.cos((Math.PI * distance) / OUTLINE_MAGNIFY_RADIUS)) / 2;
 }
 
-export interface ChatOutline {
+interface ChatOutline {
   prompts: OutlinePrompt[];
   activePrompt: ActivePromptSource;
   jumpToPrompt: (seq: number) => void;

@@ -18,7 +18,7 @@ type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
 type StepInInput = { verb: "kill" | "resume" | "release"; id: string } | { verb: "model"; id: string; model?: string; thinking?: ThinkingLevel };
 
-export interface StepInNote {
+interface StepInNote {
   text: string;
   error: boolean;
 }

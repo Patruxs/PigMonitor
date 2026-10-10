@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
 import { View } from "react-native";
 
-export interface ChatPaneArea {
+interface ChatPaneArea {
   contains: (target: EventTarget | null) => boolean;
 }
 

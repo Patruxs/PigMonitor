@@ -4,7 +4,7 @@ import type { DictationStatus } from "../shared/speech.ts";
 import { useChatPaneArea } from "./chat-pane-scope.tsx";
 import { nodeOf } from "./composer-height.ts";
 
-export type KeyChord = { key: string; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean };
+type KeyChord = { key: string; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean };
 
 const dom = globalThis as { document?: Document; navigator?: Navigator };
 const isMac = /Macintosh|Mac OS|iPhone|iPad|iPod/i.test(dom.navigator?.userAgent ?? "") || /Mac|iPhone|iPad|iPod/i.test(dom.navigator?.platform ?? "");
@@ -34,7 +34,7 @@ export function useRegisterModeCycle(cycle: (() => void) | null): void {
   }, [slot, present]);
 }
 
-export interface ComposerKeyState {
+interface ComposerKeyState {
   dictation: DictationStatus;
   isAgentRunning: boolean;
   isCancelling: boolean;

@@ -37,7 +37,7 @@ const PROMPT_JUMP_FRAME_BUDGET = 24;
 const SCROLL_AFFECTING_KEYS = new Set(["ArrowDown", "ArrowUp", "End", "Home", "PageDown", "PageUp", " "]);
 const NATIVE_PINNED_SLACK = 40;
 
-export interface ScrollOccurrence {
+interface ScrollOccurrence {
   signal: AbortSignal;
   targetTop: () => number | null;
 }

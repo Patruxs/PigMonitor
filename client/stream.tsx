@@ -18,7 +18,7 @@ import type { PermissionRequest, PermissionResponse } from "./timeline.ts";
 
 const isWeb = Platform.OS === "web";
 
-export interface StreamHistory {
+interface StreamHistory {
   hasOlder: boolean;
   isLoadingOlder: boolean;
   progressKey: string | null;
@@ -26,7 +26,7 @@ export interface StreamHistory {
 }
 
 
-export interface StreamViewProps {
+interface StreamViewProps {
   theme: PluginTheme;
   streamKey: string;
   tail: StreamItem[];

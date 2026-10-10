@@ -22,10 +22,10 @@ import { Notice } from "./piggery/notice.tsx";
 import { SPACING, text } from "./kit/theme.ts";
 import { BUSY_MS, useNow, usePoll } from "./poll.ts";
 
-export const PAGE = 20000;
+const PAGE = 20000;
 const BODY_LINE = 22;
 
-export function useTranscript(id: string, limit: number, refresh = 0) {
+function useTranscript(id: string, limit: number, refresh = 0) {
   const call = useRpc(transcript);
   const key = `${id}:${limit}:${refresh}`;
   const held = useRef<{ key: string; value: Transcript } | null>(null);
@@ -64,7 +64,7 @@ function Message({ avatar, colour, children }: { avatar: ReactNode; colour: stri
   );
 }
 
-export function MailIn({ theme, item, role, now }: { theme: PluginTheme; item: Item; role: string | undefined; now: number }) {
+function MailIn({ theme, item, role, now }: { theme: PluginTheme; item: Item; role: string | undefined; now: number }) {
   const from = item.from ?? "mail";
   const colour = paint(theme, role, from);
   return (

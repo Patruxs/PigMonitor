@@ -44,7 +44,7 @@ export function formatDuration(durationMs: number): string {
 }
 
 
-export function TurnCopyButton({ theme, getContent, label = "Copy turn", style }: { theme: PluginTheme; getContent: () => string; label?: string; style?: ViewStyle }) {
+function TurnCopyButton({ theme, getContent, label = "Copy turn", style }: { theme: PluginTheme; getContent: () => string; label?: string; style?: ViewStyle }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -68,7 +68,7 @@ export function TurnCopyButton({ theme, getContent, label = "Copy turn", style }
   );
 }
 
-export function LiveElapsed({ theme, startedAt, style }: { theme: PluginTheme; startedAt: Date; style?: TextStyle }) {
+function LiveElapsed({ theme, startedAt, style }: { theme: PluginTheme; startedAt: Date; style?: TextStyle }) {
   const start = startedAt.getTime();
   const [elapsed, setElapsed] = useState(() => Math.max(0, Date.now() - start));
   useEffect(() => {
@@ -79,7 +79,7 @@ export function LiveElapsed({ theme, startedAt, style }: { theme: PluginTheme; s
   return <Text style={[{ color: theme.colors.foregroundMuted, fontSize: STREAM_METADATA_FONT, fontVariant: ["tabular-nums"] }, style]}>{formatDuration(elapsed)}</Text>;
 }
 
-export function AssistantTurnFooter({ theme, getContent, timing }: { theme: PluginTheme; getContent: () => string; timing?: TurnTiming }) {
+function AssistantTurnFooter({ theme, getContent, timing }: { theme: PluginTheme; getContent: () => string; timing?: TurnTiming }) {
   const [hovered, setHovered] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -160,7 +160,7 @@ function UserImage({ theme, image, onOpen }: { theme: PluginTheme; image: UserMe
   );
 }
 
-export function attachmentContent(attachment: AttachmentData): { icon: string; title: string; subtitle: string } {
+function attachmentContent(attachment: AttachmentData): { icon: string; title: string; subtitle: string } {
   if (attachment.type === "uploaded_file") {
     const extension = /\.([^./\\]+)$/.exec(attachment.fileName)?.[1];
     return { icon: "FileText", title: attachment.fileName, subtitle: extension ? extension.toUpperCase() : "File" };
@@ -309,7 +309,7 @@ function shimmerStyle(label: string, secondary: string | undefined, foreground: 
   } as unknown as TextStyle;
 }
 
-export function ExpandableBadge({ theme, label, secondaryLabel, icon, isExpanded, onToggle, renderDetails, isLoading = false, isError = false, isLastInSequence = false }: { theme: PluginTheme; label: string; secondaryLabel?: string; icon?: string; isExpanded: boolean; onToggle?: () => void; renderDetails?: () => ReactNode; isLoading?: boolean; isError?: boolean; isLastInSequence?: boolean }) {
+function ExpandableBadge({ theme, label, secondaryLabel, icon, isExpanded, onToggle, renderDetails, isLoading = false, isError = false, isLastInSequence = false }: { theme: PluginTheme; label: string; secondaryLabel?: string; icon?: string; isExpanded: boolean; onToggle?: () => void; renderDetails?: () => ReactNode; isLoading?: boolean; isError?: boolean; isLastInSequence?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
   const interactive = Boolean(onToggle);
@@ -489,7 +489,7 @@ export function CompactionMarker({ theme, status, trigger, preTokens }: { theme:
   );
 }
 
-export function TaskListRow({ theme, task }: { theme: PluginTheme; task: TodoEntry }) {
+function TaskListRow({ theme, task }: { theme: PluginTheme; task: TodoEntry }) {
   const completed = task.completed || task.status === "completed";
   const running = !completed && task.status === "in_progress";
   const label = running && task.activeForm ? task.activeForm : task.text;

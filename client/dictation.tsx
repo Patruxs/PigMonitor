@@ -228,7 +228,7 @@ function RoundButton({ theme, label, onPress, disabled, filled, children }: { th
   );
 }
 
-export type Dictation = ReturnType<typeof useDictation>;
+type Dictation = ReturnType<typeof useDictation>;
 
 export function DictationButton({ theme, disabled = false, dictation }: { theme: PluginTheme; disabled?: boolean; dictation: Dictation }) {
   const { status } = dictation;

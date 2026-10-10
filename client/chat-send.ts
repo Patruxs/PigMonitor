@@ -9,7 +9,7 @@ function messageOf(error: unknown): string {
   return String((error as Error)?.message ?? error);
 }
 
-export async function sendToAgent(paseo: PaseoApi, agentId: string, body: string, images: ImageData[], attachments: AttachmentData[], messageId?: string): Promise<string | null> {
+async function sendToAgent(paseo: PaseoApi, agentId: string, body: string, images: ImageData[], attachments: AttachmentData[], messageId?: string): Promise<string | null> {
   try {
     await paseo.agents.ref(agentId).send(body, { ...(messageId ? { messageId } : {}), activeTurnBehavior: "steer" as const, images, attachments });
     return null;
@@ -50,7 +50,7 @@ export async function submitToAgent({ paseo, agentId, timeline, body, images, at
   }
 }
 
-export interface MailOut {
+interface MailOut {
   to: string;
   body: string;
   images: ImageData[];

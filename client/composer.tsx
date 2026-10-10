@@ -34,9 +34,8 @@ import { nodeOf, useComposerHeight } from "./composer-height.ts";
 import { QueuedMessageRow } from "./queue.tsx";
 import { useComposerAttachments } from "./composer-attachments.ts";
 
-export { canAttach };
 
-export interface ComposerAgent {
+interface ComposerAgent {
   agentId: string;
   participantId: string;
   timeline: AgentTimeline;

@@ -63,7 +63,7 @@ function attach(entry: LiveEntry, listener: () => void): () => void {
 
 const NOTHING = () => () => {};
 
-export interface LiveAgent {
+interface LiveAgent {
   agent: PaseoAgent | null;
   refresh: () => Promise<void>;
   accept: (agent: PaseoAgent) => void;

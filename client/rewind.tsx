@@ -7,9 +7,9 @@ import { rewind } from "../shared/rpc.ts";
 import { ConfirmDialog } from "./kit/confirm.tsx";
 import { RADIUS, SPACING, text } from "./kit/theme.ts";
 
-export type RewindMode = "conversation" | "files" | "both";
+type RewindMode = "conversation" | "files" | "both";
 
-export interface RewindCapabilities {
+interface RewindCapabilities {
   supportsRewindConversation?: boolean;
   supportsRewindFiles?: boolean;
   supportsRewindBoth?: boolean;
