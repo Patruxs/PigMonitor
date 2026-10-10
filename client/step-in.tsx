@@ -11,7 +11,7 @@ import type { MenuItem } from "./kit/menu.tsx";
 import { ICON_SIZE, RADIUS, SPACING, text } from "./kit/theme.ts";
 import { QUIET_MS, usePoll } from "./poll.ts";
 
-export type StepInDialog = "kill" | "model" | "release" | null;
+export type StepInDialog = "kill" | "model" | "resume" | "release" | null;
 
 type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
@@ -62,12 +62,12 @@ export function useHeld(id: string, bump: number): MailMessage[] {
   return value ?? [];
 }
 
-export function stepInItems(theme: PluginTheme, steps: StepIns, held: number, busy: boolean, open: (dialog: Exclude<StepInDialog, null>) => void, resume: () => void): MenuItem[] {
+export function stepInItems(theme: PluginTheme, steps: StepIns, held: number, busy: boolean, open: (dialog: Exclude<StepInDialog, null>) => void): MenuItem[] {
   const muted = theme.colors.foregroundMuted;
   const icon = (name: string, colour = muted) => <Icon name={name} size={ICON_SIZE.md} color={colour} />;
   const items: MenuItem[] = [];
   if (steps.model) items.push({ id: "model", label: "Switch model or thinking…", icon: icon("Cpu"), disabled: busy, onSelect: () => open("model") });
-  if (steps.resume) items.push({ id: "resume-team", label: "Resume in its team", icon: icon("RotateCcw"), disabled: busy, onSelect: resume });
+  if (steps.resume) items.push({ id: "resume-team", label: "Resume in its team…", icon: icon("RotateCcw"), disabled: busy, onSelect: () => open("resume") });
   if (held > 0) items.push({ id: "release", label: `Release held mail (${held})…`, icon: icon("MailCheck"), disabled: busy, onSelect: () => open("release") });
   if (steps.kill) items.push({ id: "kill", label: "Kill worker…", icon: icon("OctagonX", theme.colors.statusDanger), disabled: busy, onSelect: () => open("kill") });
   return items;
@@ -98,6 +98,21 @@ export function KillDialog({ theme, name, open, step, onClose }: { theme: Plugin
         <Actions>
           <Button theme={theme} label="Cancel" disabled={step.busy} onPress={onClose} />
           <Button theme={theme} label={`Kill ${name}`} icon="OctagonX" tone="danger" busy={step.busy} onPress={() => void step.run({ verb: "kill", id: step.id }).then(onClose)} />
+        </Actions>
+      </Modal.Content>
+    </Modal>
+  );
+}
+
+export function ResumeDialog({ theme, name, open, step, onClose }: { theme: PluginTheme; name: string; open: boolean; step: StepIn & { id: string }; onClose: () => void }) {
+  return (
+    <Modal title={`Resume ${name}?`} icon={<Icon name="RotateCcw" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />} open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
+      <Modal.Content>
+        <Text style={text(theme, "rowTitle")}>piggery starts it again in its session, with its stored model and thinking level. That is a new paid run.</Text>
+        <Text style={text(theme, "meta")}>It reads its pending mail first; it gets no new task.</Text>
+        <Actions>
+          <Button theme={theme} label="Cancel" disabled={step.busy} onPress={onClose} />
+          <Button theme={theme} label={`Resume ${name}`} icon="RotateCcw" tone="primary" busy={step.busy} onPress={() => void step.run({ verb: "resume", id: step.id }).then(onClose)} />
         </Actions>
       </Modal.Content>
     </Modal>

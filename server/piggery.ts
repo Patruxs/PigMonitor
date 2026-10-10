@@ -2,6 +2,8 @@
 // a piggery daemon.
 import { execFile } from "node:child_process";
 import { realpath } from "node:fs/promises";
+import { homedir } from "node:os";
+import path from "node:path";
 
 export type Result = { ok: true; out: string } | { ok: false; code: "missing" | "down" | "older" | "failed"; error: string };
 
@@ -10,6 +12,10 @@ const TIMEOUT_MS = 5000;
 /** The binary to run: the user's setting, else the piggery that installed the plugin, else PATH. */
 export function pickBin(setting: string, installed: string): string {
   return setting.trim() || installed.trim() || "piggery";
+}
+
+export function piggeryHome(): string {
+  return path.join(homedir(), ".piggery");
 }
 
 export function runPiggery(bin: string, args: string[], timeoutMs = TIMEOUT_MS): Promise<Result> {

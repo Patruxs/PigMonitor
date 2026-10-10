@@ -1,14 +1,13 @@
-import path from "node:path";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
 import { piggeryPath } from "./server/installed.ts";
 import { MailReader, pickDatabase } from "./server/mail.ts";
-import { pickBin, realDir, runPiggery } from "./server/piggery.ts";
+import { piggeryHome, pickBin, realDir, runPiggery } from "./server/piggery.ts";
 import { Person } from "./server/person.ts";
 import { checkoutRemoteUrl, configureAgent, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
 import { ATTACH_ROOT, bodyWithAttachments, bodyWithImages, saveImages, uploadTooLarge } from "./server/attach.ts";
 import { TranscriptReader } from "./server/transcript.ts";
 import { notifyHooksSet } from "./server/notify.ts";
-import { adminCall, piggeryDir } from "./server/admin.ts";
+import { adminCall } from "./server/admin.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
 import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, person, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
@@ -100,7 +99,7 @@ export default function contribute(server: PluginServerContext) {
   server.handle(checkoutRemote, async ({ cwd }) => checkoutRemoteUrl(cwd));
   server.handle(dictationStatus, async () => dictationReadiness());
   server.handle(transcribe, async ({ format, chunks }) => transcribeRecording(format, chunks));
-  server.handle(notifyStatus, async () => ({ ok: true as const, set: notifyHooksSet(path.dirname(await database())) }));
+  server.handle(notifyStatus, async () => ({ ok: true as const, set: notifyHooksSet(piggeryHome()) }));
   server.handle(timelinePrompts, async ({ agentId }) => listTimelinePrompts(agentId));
   server.handle(rewind, async ({ agentId, messageId, mode }) => rewindAgent(agentId, messageId, mode));
   server.handle(timelineSearch, async ({ agentId, query, cursor }) => searchTimeline(agentId, query, cursor));
@@ -118,7 +117,7 @@ export default function contribute(server: PluginServerContext) {
     return r.ok ? { ok: true as const, said: r.out.trim() } : r;
   });
   server.handle(models, async ({ id }) => {
-    const r = await adminCall<{ models?: string[] }>(piggeryDir(), "models", { target: id });
+    const r = await adminCall<{ models?: string[] }>(piggeryHome(), "models", { target: id });
     return r.ok ? { ok: true as const, models: r.value?.models ?? [] } : r;
   });
   server.handle(resume, async ({ id }) => {

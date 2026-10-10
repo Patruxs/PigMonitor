@@ -1,15 +1,10 @@
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import net from "node:net";
 import path from "node:path";
 
 const TIMEOUT_MS = 8000;
 
 export type AdminResult<T> = { ok: true; value: T } | { ok: false; code: "down" | "failed"; error: string };
-
-export function piggeryDir(): string {
-  return path.join(homedir(), ".piggery");
-}
 
 export async function adminCall<T>(dir: string, verb: string, args: unknown): Promise<AdminResult<T>> {
   let token: string;

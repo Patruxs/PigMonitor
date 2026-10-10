@@ -33,7 +33,7 @@ import { ResizeHandle, clampWidth, useSavedListWidth } from "./resize.tsx";
 import { abortable, stepInsOf, type Native } from "../shared/native.ts";
 import { useProjectActions, type ProjectActions } from "./project.tsx";
 import { NotifyHint } from "./notify.tsx";
-import { KillDialog, ModelDialog, ReleaseDialog, StepInNotice, stepInItems, useHeld, useStepIn, type StepInDialog } from "./step-in.tsx";
+import { KillDialog, ModelDialog, ReleaseDialog, ResumeDialog, StepInNotice, stepInItems, useHeld, useStepIn, type StepInDialog } from "./step-in.tsx";
 
 export interface Conversation {
   row: Row;
@@ -692,7 +692,7 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
   const held = useHeld(item.row.id, heldBump);
   const step = useStepIn(item.row.name, () => setHeldBump((n) => n + 1));
   const [dialog, setDialog] = useState<StepInDialog>(null);
-  const steps = stepInItems(theme, stepInsOf(item.row, chat.session(item.row.id)), held.length, step.busy, setDialog, () => void step.run({ verb: "resume", id: item.row.id }));
+  const steps = stepInItems(theme, stepInsOf(item.row, chat.session(item.row.id)), held.length, step.busy, setDialog);
   const target = { ...step, id: item.row.id };
   const [bump, setBump] = useState(0);
   const call = useRpc(sendMail);
@@ -741,6 +741,7 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
       )}
       <KillDialog theme={theme} name={item.row.name} open={dialog === "kill"} step={target} onClose={() => setDialog(null)} />
       <ModelDialog theme={theme} name={item.row.name} current={item.row.model} open={dialog === "model"} step={target} onClose={() => setDialog(null)} />
+      <ResumeDialog theme={theme} name={item.row.name} open={dialog === "resume"} step={target} onClose={() => setDialog(null)} />
       <ReleaseDialog theme={theme} held={held} open={dialog === "release"} step={step} onClose={() => setDialog(null)} />
     </KeyboardAvoidingPane>
     </FileDropZone>

@@ -23,7 +23,7 @@ paseo plugin update pigmonitor
 - **Sessions**: read an agent's transcript and mail, and write to it. Pasted images are attached. Stop a session's current turn, or resume an ended Claude session in Paseo.
 - Open any agent or team for its details.
 
-Looking only reads: it runs `piggery ps --view` and `piggery tail --view` with `--no-start`, and reads piggery's SQLite database read-only. Stop runs `piggery abort` on that session. Sending mail registers the plugin as its own piggery person.
+Looking only reads: it runs `piggery ps --view` and `piggery tail --view` with `--no-start`, and reads piggery's SQLite database read-only. Only these buttons change agents, each through piggery and only where piggery allows it: Stop (`piggery abort`), and in a worker's menu Switch model or thinking (`piggery model`), Kill worker (`piggery kill`), Resume in its team (`piggery resume`) and Release held mail (`piggery release`). Kill, model and resume ask first. Sending mail registers the plugin as its own piggery person.
 
 ## Requirements
 
