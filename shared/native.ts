@@ -34,6 +34,16 @@ export function abortable(state: string): boolean {
   return state === "working" || state === "awaiting_permission";
 }
 
+export interface Turn {
+  active: boolean;
+  meterStatus: string;
+}
+
+export function turnOf(row: Pick<Row, "state" | "status">): Turn {
+  const active = abortable(row.state);
+  return { active, meterStatus: active ? "running" : row.status };
+}
+
 export interface StepIns {
   kill: boolean;
   model: boolean;

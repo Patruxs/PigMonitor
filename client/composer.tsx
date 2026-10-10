@@ -38,6 +38,7 @@ export { canAttach };
 
 export interface ComposerAgent {
   agentId: string;
+  participantId: string;
   timeline: AgentTimeline;
   open?: (agentId: string) => void;
 }
@@ -104,7 +105,8 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
   const composerHeight = useComposerHeight(input, value, maxInputHeight);
   const agentId = agent?.agentId;
   const timeline = agent?.timeline;
-  const queuedMessages = useQueuedMessages(agentId);
+  const queueKey = agent?.participantId;
+  const queuedMessages = useQueuedMessages(queueKey);
   const isAgentRunning = timeline ? timeline.turn.isActive : stop?.running === true;
   const isCancellingAgent = timeline ? timeline.turn.isCancelling || localCancelling : localCancelling;
   const intake = useComposerAttachments({ initial: initial.attachments, text: value, cwd, field: input, disabled, isProcessing });
@@ -112,6 +114,10 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
   const isSubmitLoading = isProcessing || pendingFiles.length > 0;
   const hasSendableContent = value.trim().length > 0 || attachments.length > 0;
   const onQueue = agentId !== undefined;
+
+  useEffect(() => {
+    if (agentId && queueKey && queueWriter.read(queueKey).length > 0) drainWhenIdle(paseo, queueKey, agentId);
+  }, [paseo, queueKey, agentId]);
 
   useEffect(() => {
     if (draftKey !== undefined) saveDraft(draftKey, { text: value, attachments });
@@ -173,8 +179,8 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
         isAgentRunning,
         canSubmit: true,
         queueMessage: ({ message: queuedText, attachments: queuedAttachments }) => {
-          if (!agentId || !queueComposerMessage({ agentId, id: generateMessageId(), text: queuedText, attachments: queuedAttachments, queue: queueWriter })) return;
-          drainWhenIdle(paseo, agentId);
+          if (!agentId || !queueKey || !queueComposerMessage({ queueKey, id: generateMessageId(), text: queuedText, attachments: queuedAttachments, queue: queueWriter })) return;
+          drainWhenIdle(paseo, queueKey, agentId);
         },
         submitMessage: ({ message: submitText, attachments: submitAttachments }) => submitMessage(submitText, submitAttachments),
         clearDraft: (lifecycle) => draftKey !== undefined && clearDraft(draftKey, lifecycle),
@@ -184,7 +190,7 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
         setIsProcessing,
       });
     },
-    [isAgentRunning, agentId, paseo, submitMessage, draftKey, replaceText],
+    [isAgentRunning, agentId, queueKey, paseo, submitMessage, draftKey, replaceText],
   );
 
   const handleSendMessage = () => {
@@ -210,28 +216,28 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
   const isDictating = dictation.status !== "idle";
 
   const handleQueueMessage = () => {
-    if (!agentId) return;
+    if (!agentId || !queueKey) return;
     const trimmed = value.trim();
     if (!trimmed && attachments.length === 0) return;
-    const queued = queueComposerMessage({ agentId, id: generateMessageId(), text: trimmed, attachments, queue: queueWriter });
+    const queued = queueComposerMessage({ queueKey, id: generateMessageId(), text: trimmed, attachments, queue: queueWriter });
     if (!queued) return;
-    drainWhenIdle(paseo, agentId);
+    drainWhenIdle(paseo, queueKey, agentId);
     replaceText("");
     setAttachments([]);
     composerHeight.reset();
   };
 
   const handleEditQueuedMessage = (id: string) => {
-    if (!agentId) return;
-    const result = editQueuedComposerMessage({ agentId, messageId: id, queue: queueWriter });
+    if (!queueKey) return;
+    const result = editQueuedComposerMessage({ queueKey, messageId: id, queue: queueWriter });
     if (!result) return;
     replaceText(result.text);
     setAttachments(result.attachments);
   };
 
   const handleSendQueuedNow = async (id: string) => {
-    if (!agentId) return;
-    const result = await sendQueuedComposerMessageNow({ agentId, messageId: id, queue: queueWriter, submitMessage: ({ text: queuedText, attachments: queuedAttachments }) => submitMessage(queuedText, queuedAttachments) });
+    if (!queueKey) return;
+    const result = await sendQueuedComposerMessageNow({ queueKey, messageId: id, queue: queueWriter, submitMessage: ({ text: queuedText, attachments: queuedAttachments }) => submitMessage(queuedText, queuedAttachments) });
     if (result.status === "failed") setSendError(result.errorMessage);
   };
 

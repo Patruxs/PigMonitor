@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { abortable, nativeOf, releasable, stepInsOf, type Session } from "./native.ts";
+import { abortable, nativeOf, releasable, stepInsOf, turnOf, type Session } from "./native.ts";
 
 const claude = (over: Partial<Session>): Session => ({ id: "p", ref: "s1", harness: "claude", mode: "interactive", cwd: "/w", gone: false, state: "working", teamClosed: false, ...over });
 
@@ -34,4 +34,9 @@ test("a held message can be released unless its team is closed", () => {
   assert.equal(releasable({ held: "limit" }, teams), true);
   assert.equal(releasable({ held: "limit", team: "shut" }, teams), false);
   assert.equal(releasable({ team: "open" }, teams), false);
+});
+
+test("a worker awaiting permission is mid-turn for both Stop and the turn indicator", () => {
+  assert.deepEqual(turnOf({ state: "awaiting_permission", status: "waiting" }), { active: true, meterStatus: "running" });
+  assert.deepEqual(turnOf({ state: "idle", status: "waiting" }), { active: false, meterStatus: "waiting" });
 });

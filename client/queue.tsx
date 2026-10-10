@@ -15,7 +15,7 @@ let queues = new Map<string, QueuedComposerMessage[]>();
 const listeners = new Set<() => void>();
 
 export const queueWriter: QueueWriter = {
-  read: (agentId) => queues.get(agentId) ?? EMPTY,
+  read: (queueKey) => queues.get(queueKey) ?? EMPTY,
   write: (updater) => {
     queues = updater(queues);
     for (const listener of listeners) listener();
@@ -27,18 +27,19 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-export function useQueuedMessages(agentId: string | undefined): QueuedComposerMessage[] {
+export function useQueuedMessages(queueKey: string | undefined): QueuedComposerMessage[] {
   return useSyncExternalStore(
     subscribe,
-    () => (agentId ? queueWriter.read(agentId) : EMPTY),
+    () => (queueKey ? queueWriter.read(queueKey) : EMPTY),
     () => EMPTY,
   );
 }
 
 const drainer = createQueueDrainer(queueWriter);
 
-export function drainWhenIdle(paseo: PaseoApi, agentId: string): void {
+export function drainWhenIdle(paseo: PaseoApi, queueKey: string, agentId: string): void {
   drainer.watch(
+    queueKey,
     agentId,
     agentStatusFeed(paseo, agentId),
     async (message) => {

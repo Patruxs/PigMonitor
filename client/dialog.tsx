@@ -4,6 +4,7 @@ import { Icon, Modal } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
 import { Text, useWindowDimensions, View } from "react-native";
 import { tail } from "../shared/rpc.ts";
+import { turnOf } from "../shared/native.ts";
 import { type Detail, type Row, type TailKind, type View as PigView } from "../shared/view.ts";
 import { MailStream } from "./transcript.tsx";
 import { Pill } from "./kit/pill.tsx";
@@ -81,7 +82,7 @@ function SessionStream({ theme, id, row }: { theme: PluginTheme; id: string; row
   const { height } = useWindowDimensions();
   return (
     <View style={{ height: Math.max(320, Math.round(height * 0.7)), marginHorizontal: -SPACING[4] }}>
-      <MailStream theme={theme} id={id} working={row?.status === "working"} workingSince={row?.state_since} />
+      <MailStream theme={theme} id={id} working={row ? turnOf(row).active : false} workingSince={row?.state_since} />
     </View>
   );
 }

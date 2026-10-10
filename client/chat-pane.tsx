@@ -6,7 +6,7 @@ import { Pressable, Text, View } from "react-native";
 import type { Usage } from "../shared/context-meter.ts";
 import type { Conversation } from "../shared/conversations.ts";
 import type { MailMessage } from "../shared/mail.ts";
-import { abortable, stepInsOf, type Native } from "../shared/native.ts";
+import { stepInsOf, turnOf, type Native } from "../shared/native.ts";
 import { mail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { replyTarget, type Me } from "../shared/mail.ts";
 import { FileDropZone } from "./attachments-drop.tsx";
@@ -134,7 +134,8 @@ export function Chat({ theme, item, all, me, chat, onSent, onPick, onBack, onInf
 }
 
 function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick, onBack, onInfo }: { theme: PluginTheme; item: Conversation; all: Conversation[]; me: Me | null; chat: NativeChat; native: Native; timeline: AgentTimeline | null; onSent: () => void; onPick: (id: string) => void; onBack?: () => void; onInfo: () => void }) {
-  const stop = useStop(item.row.id, native, abortable(item.row.state));
+  const turn = turnOf(item.row);
+  const stop = useStop(item.row.id, native, turn.active);
   const [heldBump, setHeldBump] = useState(0);
   const held = useHeld(item.row.id, heldBump);
   const step = useStepIn(item.row.name, () => setHeldBump((n) => n + 1));
@@ -148,7 +149,6 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
   const thread = useThread(me, item.row.id, bump);
   const viewportRef = useRef<ViewportHandle | null>(null);
   const [logUsage, setLogUsage] = useState<Usage | null>(null);
-  const logStatus = item.row.status === "working" ? "running" : item.row.status;
   const sent = () => {
     viewportRef.current?.scrollToBottom();
     setBump((n) => n + 1);
@@ -167,12 +167,12 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
     <ChatPaneScope>
     <KeyboardAvoidingPane>
       <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />
-      {timeline ? <OpenStream theme={theme} id={item.row.id} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} onUsage={setLogUsage} />}
+      {timeline ? <OpenStream theme={theme} id={item.row.id} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={turn.active} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} onUsage={setLogUsage} />}
       {step.note ? <StepInNotice theme={theme} note={step.note} onDismiss={step.dismiss} /> : null}
       {writable ? (
-        <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={native.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : ({ isCompactLayout }) => <SessionContextMeter theme={theme} usage={logUsage} status={logStatus} isCompactLayout={isCompactLayout} />} stop={stop} agent={native.kind === "open" && timeline ? { agentId: native.agentId, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />
+        <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={native.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : ({ isCompactLayout }) => <SessionContextMeter theme={theme} usage={logUsage} status={turn.meterStatus} isCompactLayout={isCompactLayout} />} stop={stop} agent={native.kind === "open" && timeline ? { agentId: native.agentId, participantId: item.row.id, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />
       ) : (
-        <ThroughGate theme={theme} gate={gateOf(item, all)} stop={stop} onPick={onPick} trailing={timeline ? undefined : <SessionContextMeter theme={theme} usage={logUsage} status={logStatus} isCompactLayout={false} />} />
+        <ThroughGate theme={theme} gate={gateOf(item, all)} stop={stop} onPick={onPick} trailing={timeline ? undefined : <SessionContextMeter theme={theme} usage={logUsage} status={turn.meterStatus} isCompactLayout={false} />} />
       )}
       <KillDialog theme={theme} name={item.row.name} open={dialog === "kill"} step={target} onClose={() => setDialog(null)} />
       <ModelDialog theme={theme} name={item.row.name} current={item.row.model} open={dialog === "model"} step={target} onClose={() => setDialog(null)} />
