@@ -1,6 +1,7 @@
 import type { AttachmentData } from "./rpc.ts";
 import type { Usage } from "./context-meter.ts";
-import { extractTaskEntriesFromToolCall, normalizeTaskToolName, type TodoEntry, type ToolCallDetail, type ToolCallStatus } from "./tool-call.ts";
+import { extractTaskEntriesFromToolCall, normalizeTaskToolName, type TodoEntry } from "./todos.ts";
+import type { ToolCallDetail, ToolCallStatus } from "./tool-call.ts";
 import { isRecord } from "./guards.ts";
 
 export type TimelineItem =

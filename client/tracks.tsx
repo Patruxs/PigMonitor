@@ -4,7 +4,7 @@ import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import type { StreamItem } from "../shared/stream.ts";
-import type { TodoEntry } from "../shared/tool-call.ts";
+import type { TodoEntry } from "../shared/todos.ts";
 import { AnchoredPopover, SheetText } from "./kit/menu.tsx";
 import { hostColours, MAX_CONTENT_WIDTH, RADIUS, SPACING } from "./kit/theme.ts";
 import { BUSY_MS, usePoll } from "./poll.ts";

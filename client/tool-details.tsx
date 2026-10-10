@@ -1,7 +1,8 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useMemo, useState, type ReactNode } from "react";
 import { Platform, ScrollView, Text, View, type TextStyle, type ViewStyle } from "react-native";
-import { buildLineDiff, buildPaseoToolDetailSections, hasMeaningfulToolCallDetail, parseUnifiedDiff, type DiffLine, type PaseoToolDetailSection, type ToolCallDetail } from "../shared/tool-call.ts";
+import { buildLineDiff, parseUnifiedDiff, type DiffLine } from "../shared/diff.ts";
+import { buildPaseoToolDetailSections, hasMeaningfulToolCallDetail, type PaseoToolDetailSection, type ToolCallDetail } from "../shared/tool-call.ts";
 import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
 
 const CODE_PAD = SPACING[3];
