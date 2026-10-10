@@ -1,7 +1,5 @@
 import { execFile } from "node:child_process";
-import { z } from "zod";
 import { cliUtils, daemonCall } from "./daemon.ts";
-import type { AgentSession } from "./links.ts";
 import { resumable, type ParticipantRecord } from "../shared/chat-route.ts";
 import { UsageReportEntry, type UsageReportEntryData } from "../shared/usage-schema.ts";
 import { directoryEntriesOf, type DirectoryEntry } from "../shared/autocomplete.ts";
@@ -142,30 +140,4 @@ export async function checkoutRemoteUrl(cwd: string): Promise<{ ok: true; remote
   if (!r.ok) return { ok: false, code: "failed", error: `Paseo could not read the checkout: ${r.error}` };
   const result = (r.value ?? {}) as { remoteUrl?: string | null };
   return { ok: true, remoteUrl: typeof result.remoteUrl === "string" ? result.remoteUrl : null };
-}
-
-const AGENT_PAGE = 200;
-const AGENT_PAGES = 5;
-
-const AgentPage = z.object({
-  entries: z.array(z.object({ agent: z.object({ id: z.string(), provider: z.string(), archivedAt: z.string().nullish(), persistence: z.object({ sessionId: z.string().optional() }).nullish() }) })),
-  pageInfo: z.object({ hasMore: z.boolean(), nextCursor: z.string().nullish() }),
-});
-
-export async function listClaudeAgents(): Promise<{ ok: true; agents: AgentSession[] } | { ok: false; code: "failed"; error: string }> {
-  const agents: AgentSession[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < AGENT_PAGES; page++) {
-    const r = await daemonCall("fetchAgents", [{ filter: { includeArchived: true }, sort: [{ key: "updated_at", direction: "desc" }], page: { limit: AGENT_PAGE, ...(cursor ? { cursor } : {}) } }]);
-    if (!r.ok) return { ok: false, code: "failed", error: `Paseo did not list its agents: ${r.error}` };
-    const parsed = AgentPage.safeParse(r.value);
-    if (!parsed.success) return { ok: false, code: "failed", error: "Paseo's agent list was not in the expected shape." };
-    for (const { agent } of parsed.data.entries) {
-      const sessionId = agent.persistence?.sessionId;
-      if (sessionId && agent.provider.startsWith("claude")) agents.push({ agentId: agent.id, sessionId, archived: Boolean(agent.archivedAt) });
-    }
-    if (!parsed.data.pageInfo.hasMore || !parsed.data.pageInfo.nextCursor) break;
-    cursor = parsed.data.pageInfo.nextCursor;
-  }
-  return { ok: true, agents };
 }

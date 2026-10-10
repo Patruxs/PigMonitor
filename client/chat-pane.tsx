@@ -111,7 +111,7 @@ function OpenStream({ theme, id, timeline, cwd, draftKey, viewportRef }: { theme
       viewportRef={viewportRef}
       outline={{ agentId: timeline.agentId, epoch: timeline.epoch, fetchPromptWindow: timeline.jumpToPrompt }}
       composerTracks={composerTracks}
-      renderUserActions={(message) => (message.messageId ? <RewindMenu theme={theme} capabilities={timeline.agent?.capabilities} agentId={timeline.agentId} messageId={message.messageId} rewoundText={message.text} draftKey={draftKey} onRewound={timeline.refetchTail} /> : null)}
+      renderUserActions={(message) => (message.messageId ? <RewindMenu theme={theme} capabilities={timeline.agent?.capabilities} agentId={timeline.agentId} messageId={message.messageId} rewoundText={message.text} rewoundImages={message.images} draftKey={draftKey} onRewound={timeline.refetchTail} /> : null)}
     />
   );
 }
@@ -157,7 +157,7 @@ function ChatPane({ theme, item, all, me, chat, route, timeline, onSent, onPick,
   };
   const send = async (body: string, images: ImageData[], attachments: AttachmentData[]): Promise<string | null> => {
     const reply = me ? replyTarget(thread, item.row.id) : undefined;
-    const target = sendTargetOf(route, timeline !== null);
+    const target = sendTargetOf(route, timeline !== null, chat.formerlyLinked(item.row.id));
     if (target.kind === "error") return target.message;
     const failed = target.kind === "prompt" ? await submitToAgent({ paseo, agentId: target.agentId, timeline, body, images, attachments }) : await sendMailTo({ to: item.row.id, body, images, attachments, ...(reply ? { replySeq: reply.seq } : {}) });
     if (failed) return failed;

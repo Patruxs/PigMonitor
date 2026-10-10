@@ -18,66 +18,71 @@ export interface Link {
   agentId: string;
 }
 
-const HEAD_LIMIT_BYTES = 4 << 20;
-const HEAD_CHUNK_BYTES = 64 << 10;
-const MAX_FORK_HOPS = 8;
+export interface LinkState {
+  links: Link[];
+  formerly: string[];
+}
 
-export function firstLine(file: string, limit = HEAD_LIMIT_BYTES): string | null {
+export interface LinkStoreIo {
+  load: () => LinkState;
+  save: (state: LinkState) => void;
+}
+
+const isLink = (value: unknown): value is Link => typeof (value as Link)?.participantId === "string" && typeof (value as Link)?.agentId === "string";
+
+const SCAN_CHUNK_BYTES = 64 << 10;
+const SCAN_OVERLAP_CHARS = 512;
+const MAX_FORK_HOPS = 8;
+const FORKED_FROM = /(?<!\\)"forkedFrom"\s*:\s*\{[^{}]*?"sessionId"\s*:\s*"([^"\\]+)"/;
+
+export function forkParentOf(file: string): string | null {
   if (!existsSync(file)) return null;
   const fd = openSync(file, "r");
   try {
-    const chunks: Buffer[] = [];
-    let total = 0;
-    while (total < limit) {
-      const chunk = Buffer.alloc(Math.min(HEAD_CHUNK_BYTES, limit - total));
-      const read = readSync(fd, chunk, 0, chunk.length, total);
-      if (read === 0) break;
-      const newline = chunk.subarray(0, read).indexOf(10);
-      if (newline >= 0) {
-        chunks.push(chunk.subarray(0, newline));
-        return Buffer.concat(chunks).toString("utf8");
-      }
-      chunks.push(chunk.subarray(0, read));
-      total += read;
+    const chunk = Buffer.alloc(SCAN_CHUNK_BYTES);
+    let carry = "";
+    let offset = 0;
+    for (;;) {
+      const read = readSync(fd, chunk, 0, chunk.length, offset);
+      if (read === 0) return null;
+      offset += read;
+      const text = carry + chunk.toString("latin1", 0, read);
+      const newline = text.indexOf("\n");
+      const match = FORKED_FROM.exec(newline >= 0 ? text.slice(0, newline) : text);
+      if (match) return match[1] ?? null;
+      if (newline >= 0) return null;
+      carry = text.slice(-SCAN_OVERLAP_CHARS);
     }
-    return total < limit ? Buffer.concat(chunks).toString("utf8") : null;
   } finally {
     closeSync(fd);
   }
 }
 
-export function forkParentOf(file: string): string | null {
-  const line = firstLine(file);
-  if (!line) return null;
-  try {
-    const parent = (JSON.parse(line) as { forkedFrom?: { sessionId?: unknown } }).forkedFrom?.sessionId;
-    return typeof parent === "string" ? parent : null;
-  } catch {
-    return null;
-  }
-}
-
-export function linkStore(file: string): { load: () => Link[]; save: (links: Link[]) => void } {
+export function linkStore(file: string): LinkStoreIo {
   return {
     load: () => {
       try {
         const parsed = JSON.parse(readFileSync(file, "utf8")) as unknown;
-        return Array.isArray(parsed) ? parsed.filter((link): link is Link => typeof link?.participantId === "string" && typeof link?.agentId === "string") : [];
+        if (Array.isArray(parsed)) return { links: parsed.filter(isLink), formerly: [] };
+        const state = parsed as Partial<LinkState>;
+        return { links: Array.isArray(state.links) ? state.links.filter(isLink) : [], formerly: Array.isArray(state.formerly) ? state.formerly.filter((id): id is string => typeof id === "string") : [] };
       } catch {
-        return [];
+        return { links: [], formerly: [] };
       }
     },
-    save: (links) => {
+    save: (state) => {
       try {
-        writeFileSync(file, JSON.stringify(links), { mode: 0o600 });
+        writeFileSync(file, JSON.stringify(state), { mode: 0o600 });
       } catch {}
     },
   };
 }
 
-export function createLinker({ store, readParent = forkParentOf }: { store: { load: () => Link[]; save: (links: Link[]) => void }; readParent?: (file: string) => string | null }) {
+export function createLinker({ store, readParent = forkParentOf }: { store: LinkStoreIo; readParent?: (file: string) => string | null }) {
   const ancestry = new Map<string, string[]>();
-  let links = new Map(store.load().map((link) => [link.participantId, link.agentId]));
+  const loaded = store.load();
+  let links = new Map(loaded.links.map((link) => [link.participantId, link.agentId]));
+  let everLinked = new Set([...loaded.formerly, ...links.keys()]);
 
   const ancestorsOf = (agent: AgentSession, dirs: string[], knownRefs: Set<string>): string[] => {
     const key = `${agent.agentId}:${agent.sessionId}`;
@@ -100,29 +105,41 @@ export function createLinker({ store, readParent = forkParentOf }: { store: { lo
   };
 
   return {
-    links(agents: AgentSession[], sessions: KnownSession[]): Link[] {
-      const agentSessions = new Set(agents.map((agent) => agent.sessionId));
-      const unmatched = sessions.filter((session) => session.ref && !agentSessions.has(session.ref));
-      const byRef = new Map(unmatched.map((session) => [session.ref as string, session]));
-      const dirs = [...new Set(unmatched.flatMap((session) => (session.transcript ? [path.dirname(session.transcript)] : [])))];
-      const refs = new Set(sessions.flatMap((session) => (session.ref ? [session.ref] : [])));
+    links(agents: AgentSession[], sessions: KnownSession[]): LinkState {
+      const exactAgent = new Map<string, string>();
+      for (const agent of agents) if (!exactAgent.has(agent.sessionId)) exactAgent.set(agent.sessionId, agent.agentId);
       const next = new Map(links);
-      const linkedAgents = new Set(next.values());
-      if (unmatched.some((session) => !next.has(session.id))) {
+      const claimed = new Set<string>();
+      const exactlyHeld = new Set<string>();
+      for (const session of sessions) {
+        const agentId = session.ref ? exactAgent.get(session.ref) : undefined;
+        if (!agentId) continue;
+        next.set(session.id, agentId);
+        claimed.add(agentId);
+        exactlyHeld.add(session.id);
+      }
+      for (const [participantId, agentId] of next) if (!exactlyHeld.has(participantId) && claimed.has(agentId)) next.delete(participantId);
+      const unmatched = sessions.filter((session) => session.ref && !exactAgent.has(session.ref) && !next.has(session.id));
+      if (unmatched.length > 0) {
+        const byRef = new Map(unmatched.map((session) => [session.ref as string, session]));
+        const dirs = [...new Set(unmatched.flatMap((session) => (session.transcript ? [path.dirname(session.transcript)] : [])))];
+        const refs = new Set(sessions.flatMap((session) => (session.ref ? [session.ref] : [])));
+        const linkedAgents = new Set(next.values());
         for (const agent of agents) {
-          if (agent.archived || linkedAgents.has(agent.agentId)) continue;
-          for (const ancestor of ancestorsOf(agent, dirs, refs)) {
-            const participant = byRef.get(ancestor);
-            if (participant) next.set(participant.id, agent.agentId);
-          }
+          if (agent.archived || refs.has(agent.sessionId) || linkedAgents.has(agent.agentId)) continue;
+          const participant = ancestorsOf(agent, dirs, refs).map((ancestor) => byRef.get(ancestor)).find((candidate) => candidate !== undefined);
+          if (!participant || next.has(participant.id)) continue;
+          next.set(participant.id, agent.agentId);
+          linkedAgents.add(agent.agentId);
         }
       }
-      const live = new Set(agents.filter((agent) => !agent.archived).map((agent) => agent.agentId));
-      for (const [participantId, agentId] of next) if (!live.has(agentId)) next.delete(participantId);
-      const changed = next.size !== links.size || [...next].some(([participantId, agentId]) => links.get(participantId) !== agentId);
+      const nextEver = new Set([...everLinked, ...next.keys()]);
+      const changed = nextEver.size !== everLinked.size || next.size !== links.size || [...next].some(([participantId, agentId]) => links.get(participantId) !== agentId);
       links = next;
-      if (changed) store.save([...links].map(([participantId, agentId]) => ({ participantId, agentId })));
-      return [...links].map(([participantId, agentId]) => ({ participantId, agentId }));
+      everLinked = nextEver;
+      const state: LinkState = { links: [...links].map(([participantId, agentId]) => ({ participantId, agentId })), formerly: [...everLinked].filter((participantId) => !links.has(participantId)) };
+      if (changed) store.save(state);
+      return state;
     },
   };
 }

@@ -3,7 +3,9 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
-import { rewind } from "../shared/rpc.ts";
+import { rewoundImageOf, type ComposerAttachment, type ComposerContent } from "../shared/composer.ts";
+import { imageFile, rewind } from "../shared/rpc.ts";
+import type { UserMessageImage } from "../shared/stream.ts";
 import { ConfirmDialog } from "./kit/confirm.tsx";
 import { RADIUS, SPACING, text } from "./kit/theme.ts";
 import { messageOf } from "../shared/errors.ts";
@@ -24,25 +26,35 @@ const MODES: { mode: RewindMode; label: string; icon: string; flag: keyof Rewind
 
 const MODAL_FONT = { fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' };
 
-const restorers = new Map<string, (text: string) => void>();
+const restorers = new Map<string, (rewound: ComposerContent) => void>();
 
-export function registerComposerRestore(draftKey: string, restore: (text: string) => void): () => void {
+export function registerComposerRestore(draftKey: string, restore: (rewound: ComposerContent) => void): () => void {
   restorers.set(draftKey, restore);
   return () => {
     if (restorers.get(draftKey) === restore) restorers.delete(draftKey);
   };
 }
 
-export function restoreComposerTextIfEmpty(currentText: string, rewoundText: string): string {
-  return currentText.length > 0 ? currentText : rewoundText;
-}
 
 function hoveredOf(state: PressableStateCallbackType): boolean {
   return (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;
 }
 
-export function RewindMenu({ theme, capabilities, agentId, messageId, rewoundText, draftKey, onRewound }: { theme: PluginTheme; capabilities: RewindCapabilities | null | undefined; agentId: string; messageId: string; rewoundText: string; draftKey: string; onRewound: () => Promise<void> }) {
+export function RewindMenu({ theme, capabilities, agentId, messageId, rewoundText, rewoundImages = [], draftKey, onRewound }: { theme: PluginTheme; capabilities: RewindCapabilities | null | undefined; agentId: string; messageId: string; rewoundText: string; rewoundImages?: UserMessageImage[]; draftKey: string; onRewound: () => Promise<void> }) {
   const call = useRpc(rewind);
+  const callImage = useRpc(imageFile);
+  const imagesToRestore = async (): Promise<ComposerAttachment[]> => {
+    const now = Date.now();
+    const restored = await Promise.all(
+      rewoundImages.map(async (image) => {
+        if (image.uri?.startsWith("data:")) return rewoundImageOf(image, image.uri, now);
+        if (!image.path) return null;
+        const r = await callImage({ path: image.path });
+        return r.ok ? rewoundImageOf({ ...image, mimeType: r.mimeType }, `data:${r.mimeType};base64,${r.data}`, now) : null;
+      }),
+    );
+    return restored.filter((attachment): attachment is ComposerAttachment => attachment !== null);
+  };
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<RewindMode | null>(null);
@@ -76,7 +88,7 @@ export function RewindMenu({ theme, capabilities, agentId, messageId, rewoundTex
       const result = await call({ agentId, messageId, mode });
       if (!result.ok) throw new Error(result.error);
       if (mode !== "files") await onRewound();
-      if (mode === "conversation" || mode === "both") restorers.get(draftKey)?.(rewoundText);
+      if (mode === "conversation" || mode === "both") restorers.get(draftKey)?.({ text: rewoundText, attachments: await imagesToRestore() });
     } catch (failure) {
       toast.error(messageOf(failure, "Failed to rewind agent"));
     } finally {
