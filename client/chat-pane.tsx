@@ -1,5 +1,5 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { useRpc } from "@getpaseo/plugin/client";
+import { usePaseo, useRpc } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useRef, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -7,11 +7,11 @@ import type { Usage } from "../shared/context-meter.ts";
 import type { Conversation } from "../shared/conversations.ts";
 import type { MailMessage } from "../shared/mail.ts";
 import { abortable, stepInsOf, type Native } from "../shared/native.ts";
-import { mail, sendMail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
-import { createUserMessage, generateMessageId } from "../shared/stream.ts";
+import { mail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { replyTarget, type Me } from "../shared/mail.ts";
 import { FileDropZone } from "./attachments-drop.tsx";
 import { ChatHead } from "./chat-head.tsx";
+import { submitToAgent, useSendMailTo } from "./chat-send.ts";
 import { ChatPaneScope } from "./chat-pane-scope.tsx";
 import { Composer, canAttach } from "./composer.tsx";
 import { SessionContextMeter } from "./context-meter.tsx";
@@ -141,7 +141,8 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
   const steps = stepInItems(theme, stepInsOf(item.row, chat.session(item.row.id)), held.length, step.busy, setDialog);
   const target = { ...step, id: item.row.id };
   const [bump, setBump] = useState(0);
-  const call = useRpc(sendMail);
+  const paseo = usePaseo();
+  const sendMailTo = useSendMailTo();
   const writable = item.row.kind === "solo" || item.row.gate === true;
   const thread = useThread(me, item.row.id, bump);
   const viewportRef = useRef<ViewportHandle | null>(null);
@@ -153,23 +154,9 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
     onSent();
   };
   const send = async (body: string, images: ImageData[], attachments: AttachmentData[]): Promise<string | null> => {
-    if (native.kind === "open" && timeline) {
-      const clientMessageId = generateMessageId();
-      const message = createUserMessage({ clientMessageId, text: body, timestamp: new Date(), ...(timeline.turn.isActive && timeline.turn.turnId ? { turnId: timeline.turn.turnId } : {}), images: images.map((image, index) => ({ id: `${clientMessageId}:${index}`, uri: `data:${image.mimeType};base64,${image.data}`, mimeType: image.mimeType })), attachments });
-      try {
-        await timeline.submit(message, async () => {
-          const failed = await chat.send(native.agentId, body, images, attachments, clientMessageId);
-          if (failed) throw new Error(failed);
-        });
-      } catch (failure) {
-        return failure instanceof Error ? failure.message : String(failure);
-      }
-      sent();
-      return null;
-    }
     const reply = me ? replyTarget(thread, item.row.id) : undefined;
-    const r = await call({ to: item.row.id, body, ...(images.length > 0 ? { images } : {}), ...(attachments.length > 0 ? { attachments } : {}), ...(reply ? { reply_to: `#${reply.seq}` } : {}) });
-    if (!r.ok) return r.code === "denied" && r.gate_name ? `${r.error} Write to ${r.gate_name} instead.` : r.error;
+    const failed = native.kind === "open" && timeline ? await submitToAgent({ paseo, agentId: native.agentId, timeline, body, images, attachments }) : await sendMailTo({ to: item.row.id, body, images, attachments, ...(reply ? { replySeq: reply.seq } : {}) });
+    if (failed) return failed;
     sent();
     return null;
   };
