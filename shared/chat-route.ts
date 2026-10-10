@@ -49,19 +49,18 @@ export function agentsById(entries: { agent: { id: string; status: string; activ
   return new Map(entries.map(({ agent }) => [agent.id, { agentId: agent.id, busy: paseoBusyOf(agent), archived: Boolean(agent.archivedAt) }]));
 }
 
-export function heldAgentOf(participant: Pick<ParticipantRecord, "id" | "ref"> | undefined, byRef: ReadonlyMap<string, PaseoHeld>, remembered: ReadonlyMap<string, string>, byAgent: ReadonlyMap<string, ListedAgent>): PaseoHeld | undefined {
+export function heldAgentOf(participant: Pick<ParticipantRecord, "id" | "ref"> | undefined, byRef: ReadonlyMap<string, PaseoHeld>, linked: ReadonlyMap<string, string>, byAgent: ReadonlyMap<string, ListedAgent>): PaseoHeld | undefined {
   if (!participant) return undefined;
   const matched = participant.ref ? byRef.get(participant.ref) : undefined;
   if (matched) return matched;
-  const agentId = remembered.get(participant.id);
-  const listed = agentId ? byAgent.get(agentId) : undefined;
-  return listed && !listed.archived ? { agentId: listed.agentId, busy: listed.busy } : undefined;
+  const agentId = linked.get(participant.id);
+  return agentId ? { agentId, busy: byAgent.get(agentId)?.busy ?? null } : undefined;
 }
 
 export type SendTarget = { kind: "prompt"; agentId: string } | { kind: "mail" } | { kind: "error"; message: string };
 
-export function sendTargetOf(route: ChatRoute, reachable: boolean): SendTarget {
-  if (route.kind !== "open") return { kind: "mail" };
+export function sendTargetOf(route: ChatRoute, reachable: boolean, formerlyLinked = false): SendTarget {
+  if (route.kind !== "open") return formerlyLinked ? { kind: "error", message: "This session's Paseo agent is gone or now belongs to another session, so nothing was sent. Open the session that holds it." } : { kind: "mail" };
   return reachable ? { kind: "prompt", agentId: route.agentId } : { kind: "error", message: "This session's Paseo agent can't be reached right now, so nothing was sent." };
 }
 

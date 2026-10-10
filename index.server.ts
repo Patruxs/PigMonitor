@@ -10,7 +10,7 @@ import { Person } from "./server/person.ts";
 import { checkoutRemoteUrl, configureAgent, listClaudeAgents, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
 import { ATTACH_ROOT, mailBody, uploadTooLarge } from "./server/attach.ts";
 import { TranscriptReader } from "./server/transcript.ts";
-import { createLinker, linkStore, type Link } from "./server/links.ts";
+import { createLinker, linkStore, type LinkState } from "./server/links.ts";
 import { PromptImageReader } from "./server/prompt-images.ts";
 import { notifyHooksSet } from "./server/notify.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
@@ -80,15 +80,15 @@ export default function contribute(server: PluginServerContext) {
       return { ok: false as const, code: "failed" as const, error: `Could not read piggery's database: ${messageOf(error)}` };
     }
   });
-  const linker = createLinker({ store: observeOnly ? { load: () => [], save: () => undefined } : linkStore(path.join(piggeryHome(), "paseo-links.json")) });
-  let linking: { at: number; links: Promise<{ ok: true; links: Link[] } | { ok: false; code: "failed"; error: string }> } | null = null;
+  const linker = createLinker({ store: observeOnly ? { load: () => ({ links: [], formerly: [] }), save: () => undefined } : linkStore(path.join(piggeryHome(), "paseo-links.json")) });
+  let linking: { at: number; links: Promise<({ ok: true } & LinkState) | { ok: false; code: "failed"; error: string }> } | null = null;
   server.handle(paseoLinks, async () => {
     if (linking && Date.now() - linking.at < LINKS_FRESH_MS) return linking.links;
     const links = (async () => {
       const listed = await listClaudeAgents();
       if (!listed.ok) return listed;
       try {
-        return { ok: true as const, links: linker.links(listed.agents, db.claudeSessions(await database())) };
+        return { ok: true as const, ...linker.links(listed.agents, db.claudeSessions(await database())) };
       } catch (error) {
         return { ok: false as const, code: "failed" as const, error: `Could not read piggery's database: ${messageOf(error)}` };
       }

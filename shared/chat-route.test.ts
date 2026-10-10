@@ -56,8 +56,9 @@ test("a participant keeps its Paseo agent after the agent's Claude session id ch
   const tundra = { id: "tundra", ref: "ac2c96a6" };
   const held = heldAgentOf(tundra, agentsBySession([{ agent }]), new Map([["tundra", "fe6455cd"]]), agentsById([{ agent }]));
   assert.equal(held?.agentId, "fe6455cd");
+  assert.equal(heldAgentOf(tundra, new Map(), new Map([["tundra", "fe6455cd"]]), new Map())?.agentId, "fe6455cd");
   const archived = { ...agent, archivedAt: "2026-10-10T16:00:00Z" };
-  assert.equal(heldAgentOf(tundra, agentsBySession([{ agent: archived }]), new Map([["tundra", "fe6455cd"]]), agentsById([{ agent: archived }])), undefined);
+  assert.equal(heldAgentOf(tundra, agentsBySession([{ agent: archived }]), new Map([["tundra", "fe6455cd"]]), agentsById([{ agent: archived }]))?.agentId, "fe6455cd");
 });
 
 test("a message to a session with a Paseo agent is a prompt whatever piggery's state, mail needs no agent, and an unreachable agent is an error, never mail", () => {
@@ -66,4 +67,5 @@ test("a message to a session with a Paseo agent is a prompt whatever piggery's s
   assert.deepEqual(sendTargetOf(chatRouteOf(claude({ state: "working" }), "fe6455cd"), true), { kind: "prompt", agentId: "fe6455cd" });
   assert.deepEqual(sendTargetOf(chatRouteOf(claude({ mode: "headless" }), undefined), true), { kind: "mail" });
   assert.equal(sendTargetOf(chatRouteOf(claude({}), "fe6455cd"), false).kind, "error");
+  assert.equal(sendTargetOf(chatRouteOf(claude({ mode: "headless" }), undefined), true, true).kind, "error");
 });

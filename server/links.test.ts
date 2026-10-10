@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createLinker, forkParentOf, linkStore, type Link } from "./links.ts";
+import { createLinker, forkParentOf, type Link, type LinkState } from "./links.ts";
 
 function claudeProject(): { dir: string; done: () => void } {
   const dir = mkdtempSync(path.join(tmpdir(), "claude-project-"));
@@ -13,9 +13,9 @@ function claudeProject(): { dir: string; done: () => void } {
   return { dir, done: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
-function memoryStore(initial: Link[] = []) {
-  let saved = initial;
-  return { load: () => saved, save: (links: Link[]) => void (saved = links), saved: () => saved };
+function memoryStore(links: Link[] = []) {
+  let saved: LinkState = { links, formerly: [] };
+  return { load: () => saved, save: (state: LinkState) => void (saved = state), saved: () => saved };
 }
 
 test("a Paseo agent whose Claude session forked from a piggery session is linked to that participant with no earlier match, and the link outlives the linker", () => {
@@ -25,8 +25,8 @@ test("a Paseo agent whose Claude session forked from a piggery session is linked
     const tundra = { id: "tundra", ref: "ac2c96a6", transcript: path.join(project.dir, "ac2c96a6.jsonl") };
     const agents = [{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }];
     assert.equal(forkParentOf(path.join(project.dir, "c0af857a.jsonl")), "ac2c96a6");
-    assert.deepEqual(createLinker({ store }).links(agents, [tundra]), [{ participantId: "tundra", agentId: "fe6455cd" }]);
-    assert.deepEqual(createLinker({ store, readParent: () => assert.fail("a stored link needs no file read") }).links(agents, [tundra]), [{ participantId: "tundra", agentId: "fe6455cd" }]);
+    assert.deepEqual(createLinker({ store }).links(agents, [tundra]).links, [{ participantId: "tundra", agentId: "fe6455cd" }]);
+    assert.deepEqual(createLinker({ store, readParent: () => assert.fail("a stored link needs no file read") }).links(agents, [tundra]).links, [{ participantId: "tundra", agentId: "fe6455cd" }]);
   } finally {
     project.done();
   }
@@ -37,8 +37,8 @@ test("an agent that another participant exact-matches is never linked by the for
   try {
     const tundra = { id: "tundra", ref: "ac2c96a6", transcript: path.join(project.dir, "ac2c96a6.jsonl") };
     const tern = { id: "tern", ref: "c0af857a", transcript: null };
-    assert.deepEqual(createLinker({ store: memoryStore() }).links([{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra, tern]), []);
-    const kept = createLinker({ store: memoryStore([{ participantId: "tundra", agentId: "first" }]) }).links([{ agentId: "first", sessionId: "11111111", archived: false }, { agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra]);
+    assert.deepEqual(createLinker({ store: memoryStore() }).links([{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra, tern]).links, [{ participantId: "tern", agentId: "fe6455cd" }]);
+    const kept = createLinker({ store: memoryStore([{ participantId: "tundra", agentId: "first" }]) }).links([{ agentId: "first", sessionId: "11111111", archived: false }, { agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra]).links;
     assert.deepEqual(kept, [{ participantId: "tundra", agentId: "first" }]);
   } finally {
     project.done();
@@ -66,4 +66,15 @@ test("linking reads each new agent session once, only in the folders of piggery'
   } finally {
     project.done();
   }
+});
+
+test("a link learned while the session ids match holds after a conversation rewind forks the session, and a participant whose agent another session takes is remembered as formerly linked", () => {
+  const store = memoryStore();
+  const linker = createLinker({ store, readParent: () => null });
+  const tundra = { id: "tundra", ref: "ac2c96a6", transcript: null };
+  assert.deepEqual(linker.links([{ agentId: "fe6455cd", sessionId: "ac2c96a6", archived: false }], [tundra]), { links: [{ participantId: "tundra", agentId: "fe6455cd" }], formerly: [] });
+  assert.deepEqual(createLinker({ store, readParent: () => null }).links([{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra]), { links: [{ participantId: "tundra", agentId: "fe6455cd" }], formerly: [] });
+  assert.deepEqual(createLinker({ store, readParent: () => null }).links([], [tundra]).links, [{ participantId: "tundra", agentId: "fe6455cd" }]);
+  const tern = { id: "tern", ref: "c0af857a", transcript: null };
+  assert.deepEqual(createLinker({ store, readParent: () => null }).links([{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra, tern]), { links: [{ participantId: "tern", agentId: "fe6455cd" }], formerly: ["tundra"] });
 });
