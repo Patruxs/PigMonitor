@@ -9,7 +9,7 @@ import contribute, { OBSERVE_ONLY_REFUSAL } from "../index.server.ts";
 import * as rpc from "../shared/rpc.ts";
 
 const CHANGES = ["pigmonitor.send", "pigmonitor.stop", "pigmonitor.step-in", "pigmonitor.rewind", "pigmonitor.agent-config", "pigmonitor.resume", "pigmonitor.upload"];
-const LOOKS = ["pigmonitor.snapshot", "pigmonitor.tail", "pigmonitor.mail", "pigmonitor.transcript", "pigmonitor.image", "pigmonitor.prompt-images", "pigmonitor.person", "pigmonitor.sessions", "pigmonitor.forge-search", "pigmonitor.dir-suggest", "pigmonitor.checkout-remote", "pigmonitor.dictation-status", "pigmonitor.transcribe", "pigmonitor.notify-status", "pigmonitor.timeline-prompts", "pigmonitor.timeline-search", "pigmonitor.usage-reports", "pigmonitor.models"];
+const LOOKS = ["pigmonitor.snapshot", "pigmonitor.tail", "pigmonitor.mail", "pigmonitor.transcript", "pigmonitor.image", "pigmonitor.prompt-images", "pigmonitor.person", "pigmonitor.sessions", "pigmonitor.paseo-links", "pigmonitor.forge-search", "pigmonitor.dir-suggest", "pigmonitor.checkout-remote", "pigmonitor.dictation-status", "pigmonitor.transcribe", "pigmonitor.notify-status", "pigmonitor.timeline-prompts", "pigmonitor.timeline-search", "pigmonitor.usage-reports", "pigmonitor.models"];
 
 test("an observe-only daemon refuses every RPC that changes something and never joins piggery as the person", async () => {
   const home = mkdtempSync(path.join(tmpdir(), "observe-home-"));

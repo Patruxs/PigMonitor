@@ -110,6 +110,12 @@ export const sessions = defineRpc({
   output: z.union([z.object({ ok: z.literal(true), sessions: z.array(ParticipantRecord) }), Failure]),
 });
 
+export const paseoLinks = defineRpc({
+  name: "pigmonitor.paseo-links",
+  input: z.object({}),
+  output: z.union([z.object({ ok: z.literal(true), links: z.array(z.object({ participantId: z.string(), agentId: z.string() })) }), Failure]),
+});
+
 export const resume = defineRpc({
   name: "pigmonitor.resume",
   input: z.object({ id: z.string().min(1) }),

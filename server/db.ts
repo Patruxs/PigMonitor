@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import type { MailFilter, MailMessage, MailPage, MailTeam } from "../shared/mail.ts";
 import type { ParticipantRecord } from "../shared/chat-route.ts";
+import type { KnownSession } from "./links.ts";
 import { piggeryHome } from "./piggery.ts";
 import { messageOf } from "../shared/errors.ts";
 
@@ -28,6 +29,7 @@ const SessionRow = z.object({ id: text, ref: maybeText, harness: maybeText, mode
 
 const TeammateRow = z.object({ name: text, role: text });
 
+const KnownSessionRow = z.object({ id: text, ref: maybeText, transcript: maybeText });
 const PlaceRow = z.object({ dir: text });
 
 function rowsOf<T>(schema: z.ZodType<T>, rows: unknown[]): T[] {
@@ -142,6 +144,11 @@ export class PiggeryDb {
       .prepare(`SELECT p.id, COALESCE(p.session_ref, p.harness_ref) AS ref, p.harness, p.mode, p.cwd, p.state, t.closed_at IS NOT NULL AS team_closed FROM participants p LEFT JOIN teams t ON t.id = p.team_id WHERE p.id IN (${placeholders(ids.length)})`)
       .all(...ids);
     return rowsOf(SessionRow, rows).map(({ team_closed, ...r }) => ({ ...r, gone: r.state === "gone", teamClosed: team_closed === 1 }));
+  }
+
+  claudeSessions(file: string): KnownSession[] {
+    if (!existsSync(file)) return [];
+    return rowsOf(KnownSessionRow, this.open(file).prepare("SELECT id, COALESCE(session_ref, harness_ref) AS ref, transcript FROM participants WHERE harness = 'claude' AND COALESCE(session_ref, harness_ref) IS NOT NULL").all());
   }
 
   places(file: string): string[] {

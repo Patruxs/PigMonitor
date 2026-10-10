@@ -41,6 +41,30 @@ export function agentsBySession(entries: { agent: { id: string; provider: string
   return out;
 }
 
+export interface ListedAgent extends PaseoHeld {
+  archived: boolean;
+}
+
+export function agentsById(entries: { agent: { id: string; status: string; activeTurn?: unknown; archivedAt?: string | null } }[]): Map<string, ListedAgent> {
+  return new Map(entries.map(({ agent }) => [agent.id, { agentId: agent.id, busy: paseoBusyOf(agent), archived: Boolean(agent.archivedAt) }]));
+}
+
+export function heldAgentOf(participant: Pick<ParticipantRecord, "id" | "ref"> | undefined, byRef: ReadonlyMap<string, PaseoHeld>, remembered: ReadonlyMap<string, string>, byAgent: ReadonlyMap<string, ListedAgent>): PaseoHeld | undefined {
+  if (!participant) return undefined;
+  const matched = participant.ref ? byRef.get(participant.ref) : undefined;
+  if (matched) return matched;
+  const agentId = remembered.get(participant.id);
+  const listed = agentId ? byAgent.get(agentId) : undefined;
+  return listed && !listed.archived ? { agentId: listed.agentId, busy: listed.busy } : undefined;
+}
+
+export type SendTarget = { kind: "prompt"; agentId: string } | { kind: "mail" } | { kind: "error"; message: string };
+
+export function sendTargetOf(route: ChatRoute, reachable: boolean): SendTarget {
+  if (route.kind !== "open") return { kind: "mail" };
+  return reachable ? { kind: "prompt", agentId: route.agentId } : { kind: "error", message: "This session's Paseo agent can't be reached right now, so nothing was sent." };
+}
+
 export function abortable(state: string): boolean {
   return state === "working" || state === "awaiting_permission";
 }

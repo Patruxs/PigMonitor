@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { abortable, chatRouteOf, paseoBusyOf, releasable, stepInsOf, turnOf, withPaseoBusy, type ParticipantRecord } from "./chat-route.ts";
+import { abortable, agentsById, agentsBySession, chatRouteOf, heldAgentOf, paseoBusyOf, releasable, sendTargetOf, stepInsOf, turnOf, withPaseoBusy, type ParticipantRecord } from "./chat-route.ts";
 
 const claude = (over: Partial<ParticipantRecord>): ParticipantRecord => ({ id: "p", ref: "s1", harness: "claude", mode: "interactive", cwd: "/w", gone: false, state: "working", teamClosed: false, ...over });
 
@@ -49,4 +49,21 @@ test("an open Paseo agent decides busy or idle over piggery's state, and piggery
   const started = withPaseoBusy(idle, paseoBusyOf({ status: "running", activeTurn: { turnId: "t" } }));
   assert.deepEqual({ status: started.status, stop: turnOf(started).active }, { status: "working", stop: true });
   assert.equal(withPaseoBusy(working, paseoBusyOf(null)), working);
+});
+
+test("a participant keeps its Paseo agent after the agent's Claude session id changes, as an interrupt or rewind does", () => {
+  const agent = { id: "fe6455cd", provider: "claude", status: "idle", activeTurn: null, archivedAt: null, persistence: { sessionId: "c0af857a" } };
+  const tundra = { id: "tundra", ref: "ac2c96a6" };
+  const held = heldAgentOf(tundra, agentsBySession([{ agent }]), new Map([["tundra", "fe6455cd"]]), agentsById([{ agent }]));
+  assert.equal(held?.agentId, "fe6455cd");
+  const archived = { ...agent, archivedAt: "2026-10-10T16:00:00Z" };
+  assert.equal(heldAgentOf(tundra, agentsBySession([{ agent: archived }]), new Map([["tundra", "fe6455cd"]]), agentsById([{ agent: archived }])), undefined);
+});
+
+test("a message to a session with a Paseo agent is a prompt whatever piggery's state, mail needs no agent, and an unreachable agent is an error, never mail", () => {
+  const gone = claude({ gone: true, state: "gone", mode: "headless" });
+  assert.deepEqual(sendTargetOf(chatRouteOf(gone, "fe6455cd"), true), { kind: "prompt", agentId: "fe6455cd" });
+  assert.deepEqual(sendTargetOf(chatRouteOf(claude({ state: "working" }), "fe6455cd"), true), { kind: "prompt", agentId: "fe6455cd" });
+  assert.deepEqual(sendTargetOf(chatRouteOf(claude({ mode: "headless" }), undefined), true), { kind: "mail" });
+  assert.equal(sendTargetOf(chatRouteOf(claude({}), "fe6455cd"), false).kind, "error");
 });

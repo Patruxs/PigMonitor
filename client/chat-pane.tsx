@@ -6,7 +6,7 @@ import { Pressable, Text, View } from "react-native";
 import type { Usage } from "../shared/context-meter.ts";
 import type { Conversation } from "../shared/conversations.ts";
 import type { MailMessage } from "../shared/mail.ts";
-import { paseoBusyOf, stepInsOf, turnOf, withPaseoBusy, type ChatRoute } from "../shared/chat-route.ts";
+import { paseoBusyOf, sendTargetOf, stepInsOf, turnOf, withPaseoBusy, type ChatRoute } from "../shared/chat-route.ts";
 import { mail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { replyTarget, type Me } from "../shared/mail.ts";
 import { FileDropZone } from "./attachments-drop.tsx";
@@ -157,7 +157,9 @@ function ChatPane({ theme, item, all, me, chat, route, timeline, onSent, onPick,
   };
   const send = async (body: string, images: ImageData[], attachments: AttachmentData[]): Promise<string | null> => {
     const reply = me ? replyTarget(thread, item.row.id) : undefined;
-    const failed = route.kind === "open" && timeline ? await submitToAgent({ paseo, agentId: route.agentId, timeline, body, images, attachments }) : await sendMailTo({ to: item.row.id, body, images, attachments, ...(reply ? { replySeq: reply.seq } : {}) });
+    const target = sendTargetOf(route, timeline !== null);
+    if (target.kind === "error") return target.message;
+    const failed = target.kind === "prompt" ? await submitToAgent({ paseo, agentId: target.agentId, timeline, body, images, attachments }) : await sendMailTo({ to: item.row.id, body, images, attachments, ...(reply ? { replySeq: reply.seq } : {}) });
     if (failed) return failed;
     sent();
     return null;
