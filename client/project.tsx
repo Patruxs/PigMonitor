@@ -27,17 +27,23 @@ function base64UrlOf(text: string, encode: (data: string) => string): string {
   return encode(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-function draftRouteOf(serverId: string, workspaceId: string, encode: (data: string) => string): string {
+function workspaceRouteOf(serverId: string, workspaceId: string, tab: string | undefined, encode: (data: string) => string): string {
   const routeWorkspaceId = URL_SAFE_ID.test(workspaceId) ? workspaceId : `b64_${base64UrlOf(workspaceId, encode)}`;
-  return `/h/${encodeURIComponent(serverId)}/workspace/${routeWorkspaceId}?open=${encodeURIComponent("draft:new")}`;
+  const route = `/h/${encodeURIComponent(serverId)}/workspace/${routeWorkspaceId}`;
+  return tab ? `${route}?open=${encodeURIComponent(tab)}` : route;
 }
 
-function openDraftInPage(serverId: string | undefined, workspaceId: string): boolean {
+function openInPage(serverId: string | undefined, workspaceId: string, tab?: string): boolean {
   const { window: page, btoa: encode } = browser;
   if (!serverId || !page?.history || typeof PopStateEvent === "undefined" || !encode) return false;
-  page.history.pushState(null, "", draftRouteOf(serverId, workspaceId, encode));
+  page.history.pushState(null, "", workspaceRouteOf(serverId, workspaceId, tab, encode));
   page.dispatchEvent(new PopStateEvent("popstate"));
   return true;
+}
+
+function shownInPage(serverId: string | undefined, workspaceId: string): boolean {
+  const { window: page, btoa: encode } = browser;
+  return !!serverId && !!encode && page?.location?.pathname === workspaceRouteOf(serverId, workspaceId, undefined, encode);
 }
 
 const samePath = (a: string | undefined, b: string) => a !== undefined && a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
@@ -68,9 +74,9 @@ export function useProjectActions(navigation: Navigation | undefined, serverId: 
         "agent",
         async () => {
           const workspace = await workspaceOf(path);
-          if (openDraftInPage(serverId, workspace.id)) return;
-          if (navigation) showWorkspace(workspace.id);
-          else toast.show("Workspace ready in Paseo, start the agent there");
+          if (openInPage(serverId, workspace.id, `draft:pigmonitor-${Date.now()}`)) return;
+          showWorkspace(workspace.id);
+          toast.show("Could not open a new agent draft on this client. Use Paseo's New agent button in the workspace");
         },
         "Could not start an agent",
       ),
@@ -79,9 +85,10 @@ export function useProjectActions(navigation: Navigation | undefined, serverId: 
         "terminal",
         async () => {
           const workspace = await workspaceOf(path);
-          await workspace.terminals.create();
-          showWorkspace(workspace.id);
-          toast.show("Terminal opened in Paseo");
+          if (!shownInPage(serverId, workspace.id)) showWorkspace(workspace.id);
+          const terminal = await workspace.terminals.create();
+          if (openInPage(serverId, workspace.id, `terminal:${terminal.id}`)) toast.show("Terminal opened in Paseo");
+          else toast.show(`${terminal.current()?.name ?? "Terminal"} opened in Paseo, pick it from the workspace tabs`);
         },
         "Could not open a terminal",
       ),
