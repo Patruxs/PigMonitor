@@ -752,7 +752,7 @@ function NativeViewport(props: ViewportProps) {
     if (contentOffset.y <= 96 && hasOlder && !isLoadingOlder) void onNearHistoryStart();
   };
   return (
-    <SheetScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ paddingTop: CONTENT_PADDING_TOP_PX, paddingBottom: 16, paddingHorizontal: 8, flexGrow: 1 }} onScroll={onScroll} scrollEventThrottle={100} onContentSizeChange={() => pinned.current && scroll.current?.scrollToEnd({ animated: false })}>
+    <SheetScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ paddingTop: CONTENT_PADDING_TOP_PX, paddingBottom: 16, paddingHorizontal: 8, flexGrow: 1 }} onScroll={onScroll} scrollEventThrottle={100} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" onContentSizeChange={() => pinned.current && scroll.current?.scrollToEnd({ animated: false })}>
       <View style={{ height: HISTORY_START_SLOT_HEIGHT_PX, alignItems: "center", justifyContent: "center" }}>{isLoadingOlder ? <ActivityIndicator size="small" color={theme.colors.foregroundMuted} /> : null}</View>
       {history.map((layout) => (
         <View key={layout.item.id}>{renderRow(layout)}</View>

@@ -2,7 +2,8 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal, ScrollView, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { Pressable, Text, TextInput, View, type PressableStateCallbackType } from "react-native";
+import { Animated, Pressable, Text, TextInput, View, type PressableStateCallbackType } from "react-native";
+import { useKeyboardShift } from "./keyboard.ts";
 import { basenameOf } from "../shared/events.ts";
 import type { MailMessage } from "../shared/mail.ts";
 import { mail, person, sendMail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
@@ -633,9 +634,11 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
     return null;
   };
   const ended = item.row.status === "gone" && native.kind !== "open";
+  const paneRef = useRef<View>(null);
+  const keyboardShift = useKeyboardShift(paneRef);
   return (
     <FileDropZone theme={theme} style={{ flex: 1, minWidth: 0 }}>
-    <View style={{ flex: 1, minWidth: 0 }}>
+    <Animated.View ref={paneRef} style={{ flex: 1, minWidth: 0, paddingBottom: keyboardShift }}>
       <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} onBack={onBack} onInfo={onInfo} />
       {timeline ? <OpenStream theme={theme} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} extra={extra} hideFrom={me?.name} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} />}
       {writable ? (
@@ -643,7 +646,7 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
       ) : (
         <ThroughGate theme={theme} gate={gateOf(item, all)} onPick={onPick} />
       )}
-    </View>
+    </Animated.View>
     </FileDropZone>
   );
 }
