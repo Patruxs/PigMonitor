@@ -3,7 +3,7 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { transcript } from "../shared/rpc.ts";
-import type { Item, Transcript } from "../shared/transcript.ts";
+import { withIncrement, type Item, type Transcript } from "../shared/transcript.ts";
 import type { Usage } from "../shared/context-meter.ts";
 import { streamOfTranscript } from "../shared/stream-mail.ts";
 import type { PiggeryStreamItem } from "../shared/stream.ts";
@@ -22,12 +22,18 @@ const BODY_LINE = 22;
 
 export function useTranscript(id: string, limit: number, refresh = 0) {
   const call = useRpc(transcript);
+  const key = `${id}:${limit}:${refresh}`;
+  const held = useRef<{ key: string; value: Transcript } | null>(null);
   return usePoll(
     async () => {
-      const r = await call({ id, limit });
-      return r.ok ? { ok: true as const, value: { items: r.items, total: r.total, name: r.name, role: r.role, files: r.files, roles: r.roles, usage: r.usage } as Transcript } : r;
+      const had = held.current?.key === key ? held.current.value : null;
+      const r = await call({ id, limit, ...(had?.epoch !== undefined && had.rev !== undefined ? { since: { epoch: had.epoch, rev: had.rev } } : {}) });
+      if (!r.ok) return r;
+      const value: Transcript = { items: withIncrement(had?.items ?? [], r, limit), total: r.total, name: r.name, role: r.role, files: r.files, roles: r.roles, usage: r.usage, epoch: r.epoch, rev: r.rev };
+      held.current = { key, value };
+      return { ok: true as const, value };
     },
-    `${id}:${limit}:${refresh}`,
+    key,
     () => BUSY_MS,
   );
 }

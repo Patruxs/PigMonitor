@@ -12,7 +12,7 @@ export function latestFrom(messages: MailMessage[], id: string): MailMessage | u
   return messages.filter((m) => m.from === id).sort((a, b) => b.seq - a.seq)[0];
 }
 
-export function withMail(items: Item[], messages: MailMessage[], self: string, person: string | undefined): Item[] {
+export function mergeMail(items: Item[], messages: MailMessage[], self: string, person: string | undefined): Item[] {
   const mailItem = (m: MailMessage, at: number): Item => {
     const ref = `#${m.seq}`;
     if (m.from === person) return { i: 0, kind: "user", at, text: m.body, ref, note: m.held ? "Held" : m.acked_at ? "Read" : "Sent", run: "mail" };
@@ -55,5 +55,9 @@ export function withMail(items: Item[], messages: MailMessage[], self: string, p
     for (const m of delivered.get(index) ?? []) out.push(mailItem(m, item.at ?? m.created_at));
   });
   while (next < loose.length) arrive();
-  return out.map((item, i) => ({ ...item, i }));
+  return out;
+}
+
+export function withMail(items: Item[], messages: MailMessage[], self: string, person: string | undefined): Item[] {
+  return mergeMail(items, messages, self, person).map((item, i) => ({ ...item, i }));
 }

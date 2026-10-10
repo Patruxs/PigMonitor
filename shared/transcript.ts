@@ -44,6 +44,9 @@ export interface Transcript {
   files: number;
   roles?: Record<string, string>;
   usage?: Usage;
+  epoch?: string;
+  rev?: number;
+  from?: number;
 }
 
 
@@ -180,6 +183,8 @@ const stamp = (e: Entry): number | undefined => {
 export class Parser {
   readonly items: Item[] = [];
   readonly context: ContextReading = { windows: {} };
+  readonly changed = new Set<number>();
+  private readonly untimed = new Set<number>();
   private open = new Map<string, { item: Item; name: string; input: unknown }>();
   private readonly run: string | undefined;
   private readonly saveImage: SaveImage | undefined;
@@ -198,7 +203,19 @@ export class Parser {
     const full: Item = { ...item, i: this.items.length };
     if (this.run) full.run = this.run;
     this.items.push(full);
+    this.changed.add(full.i);
+    if (full.at === undefined) this.untimed.add(full.i);
     return full;
+  }
+
+  stamp(): void {
+    const had = new Map<number, number | undefined>();
+    for (const i of this.untimed) {
+      had.set(i, this.items[i].at);
+      this.items[i].at = undefined;
+    }
+    stampUntimed(this.items);
+    for (const [i, at] of had) if (this.items[i].at !== at) this.changed.add(i);
   }
 
   line(raw: string): void {
@@ -294,6 +311,7 @@ export class Parser {
         const call = this.open.get(b.tool_use_id);
         if (call) {
           const { item } = call;
+          this.changed.add(item.i);
           if (b.is_error) item.error = true;
           if (this.describe) Object.assign(item, this.describe(call.name, call.input, b, this.cwd));
           else item.result = text.trim();
@@ -364,4 +382,12 @@ export function parseLog(text: string, run?: string, saveImage?: SaveImage, desc
 
 export function parseLines(text: string, run?: string, saveImage?: SaveImage, describe?: DescribeTool): Item[] {
   return parseLog(text, run, saveImage, describe).items;
+}
+
+export function withIncrement(had: Item[], next: { items: Item[]; from?: number }, limit: number): Item[] {
+  if (next.from === undefined) return next.items;
+  const from = next.from;
+  if (next.items.length === 0 && (had[had.length - 1]?.i ?? -1) < from) return had;
+  const merged = [...had.filter((item) => item.i < from), ...next.items];
+  return merged.slice(Math.max(0, merged.length - limit));
 }
