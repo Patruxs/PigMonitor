@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc, useSettings, useWorkspace, type PluginSurfaceProps, type PluginWorkspacePanelProps } from "@getpaseo/plugin/client";
 import { Icon, Modal, ScrollView } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
+import { Animated, PanResponder, Pressable, ScrollView as NativeScrollView, Text, View, type PressableStateCallbackType } from "react-native";
 import { basenameOf, countStatuses, countsText, sentenceOf } from "../shared/events.ts";
 import { foldsOf, goneOpen as goneIsOpen, isHidden, NO_FOLDS, prune, setGone, setHidden, setTab, setTeam, showAll, teamOpen, type Folds } from "../shared/folds.ts";
 import { snapshot, tail, viewSettings } from "../shared/rpc.ts";
@@ -245,6 +245,8 @@ const TRACK_H = 52;
 const BAR_H = 26;
 const LIFE_H = 3;
 const NOW_PAD = 20;
+const MIN_TICK_PX = 64;
+const SLIDER_H = 10;
 const AXIS_H = 36;
 const WORD_MIN = 88;
 const DOING_MIN = 260;
@@ -502,13 +504,50 @@ function ChartLegend({ theme }: { theme: PluginTheme }) {
   );
 }
 
+function TimeSlider({ theme, viewportW, contentW, scrollX, onScrollTo }: { theme: PluginTheme; viewportW: number; contentW: number; scrollX: Animated.Value; onScrollTo: (x: number) => void }) {
+  const [barW, setBarW] = useState(0);
+  const ratio = contentW > 0 ? viewportW / contentW : 1;
+  const thumbW = Math.max(24, barW * ratio);
+  const travel = Math.max(0, barW - thumbW);
+  const maxScroll = Math.max(1, contentW - viewportW);
+  const left = scrollX.interpolate({ inputRange: [0, maxScroll], outputRange: [0, travel], extrapolate: "clamp" });
+  const startX = useRef(0);
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (event) => {
+        startX.current = event.nativeEvent.locationX;
+        onScrollTo(((event.nativeEvent.locationX - thumbW / 2) / Math.max(1, travel)) * maxScroll);
+      },
+      onPanResponderMove: (_event, gesture) => {
+        onScrollTo(((startX.current + gesture.dx - thumbW / 2) / Math.max(1, travel)) * maxScroll);
+      },
+    }),
+  ).current;
+  return (
+    <View style={{ paddingHorizontal: SPACING[3], paddingVertical: SPACING[2], borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+      <View {...pan.panHandlers} onLayout={(e) => setBarW(e.nativeEvent.layout.width)} style={{ height: SLIDER_H, borderRadius: SLIDER_H / 2, backgroundColor: theme.colors.surface2, justifyContent: "center" }} accessibilityRole="adjustable" accessibilityLabel="Scroll the timeline">
+        <Animated.View style={{ position: "absolute", left, width: thumbW, height: SLIDER_H, borderRadius: SLIDER_H / 2, backgroundColor: theme.colors.accent, opacity: 0.85 }} />
+      </View>
+    </View>
+  );
+}
+
 function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { theme: PluginTheme; view: PigView; dirs: Dir[]; h: Handlers; index: Index; whole: boolean; width: number; now: number; empty: string }) {
   const [pick, setPick] = useState(1);
-  const [trackW, setTrackW] = useState(0);
   const win = WINDOWS[pick];
-  const scale: Scale = { start: now - win.ms, now, width: Math.max(0, trackW - NOW_PAD) };
   const narrow = width < 640;
   const labelW = narrow ? LABEL_W_NARROW : LABEL_W;
+  const [cardW, setCardW] = useState(0);
+  const trackFit = Math.max(0, cardW - labelW);
+  const trackW = Math.max(trackFit, (win.ms / win.tick) * MIN_TICK_PX + NOW_PAD);
+  const scrollable = trackW > trackFit;
+  const scale: Scale = { start: now - win.ms, now, width: Math.max(0, trackW - NOW_PAD) };
+  const contentW = labelW + trackW;
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const sticky = { transform: [{ translateX: scrollX }], zIndex: 2, backgroundColor: theme.colors.surface0 };
+  const scroller = useRef<NativeScrollView>(null);
   const { groups, sleepers } = groupsOfView(view, dirs, scale.start);
   const stamped = view.events.map((e) => ({ ...e, t: parseClock(e.time, now) })).filter((e): e is EventRow & { t: number } => e.t !== undefined && e.t >= scale.start);
   const eventsOf = (name: string) => stamped.filter((e) => e.who === name || e.target === name).map((e) => ({ t: e.t, tone: e.tone, type: e.type }));
@@ -540,15 +579,27 @@ function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { t
           <Text style={[text(theme, "meta"), { textAlign: "center", maxWidth: 360 }]}>{empty}</Text>
         </View>
       ) : (
-        <View style={{ borderRadius: CARD_RADIUS, borderWidth: 1, borderColor: theme.colors.border, overflow: "hidden", backgroundColor: theme.colors.surface0 }}>
+        <View style={{ borderRadius: CARD_RADIUS, borderWidth: 1, borderColor: theme.colors.border, overflow: "hidden", backgroundColor: theme.colors.surface0 }} onLayout={(e) => setCardW(Math.max(0, e.nativeEvent.layout.width - 2))}>
+          <NativeScrollView
+            ref={scroller}
+            horizontal
+            scrollEnabled={scrollable}
+            bounces={false}
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: false })}
+            onContentSizeChange={() => scrollable && scroller.current?.scrollToEnd({ animated: false })}
+          >
+          <View style={{ width: cardW > 0 ? contentW : undefined }}>
           <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: tint(theme.colors.accent, "55"), backgroundColor: tint(theme.colors.accent, "0d") }}>
-            <View style={{ width: labelW, justifyContent: "flex-end", paddingLeft: SPACING[3], paddingBottom: SPACING[2], borderRightWidth: 1, borderRightColor: divider }}>
+            <Animated.View style={[{ width: labelW, justifyContent: "flex-end", paddingLeft: SPACING[3], paddingBottom: SPACING[2], borderRightWidth: 1, borderRightColor: divider }, sticky, { backgroundColor: theme.colors.surface0 }]}>
+              <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: tint(theme.colors.accent, "0d") }} />
               <Text style={text(theme, "label")}>
                 <Text style={{ color: theme.colors.accent, fontWeight: "700", fontVariant: ["tabular-nums"] }}>{total}</Text>
                 {` ${total === 1 ? "agent" : "agents"} · ${openCount}/${groups.length} lanes open`}
               </Text>
-            </View>
-            <View style={{ flex: 1, paddingRight: NOW_PAD }} onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}>
+            </Animated.View>
+            <View style={{ width: trackW, paddingRight: NOW_PAD }}>
               {scale.width > 0 ? <Axis theme={theme} scale={scale} tick={win.tick} /> : null}
             </View>
           </View>
@@ -556,14 +607,18 @@ function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { t
             const lane = g.solo ? theme.colors.foregroundMuted : teamColour(g.key);
             return (
             <View key={g.key} style={{ borderTopWidth: 1, borderTopColor: theme.colors.border }}>
-              <LaneHead theme={theme} group={g} open={laneOpen(g)} onToggle={() => h.change(setTeam(h.folds, g.key, !laneOpen(g), true))} onInfo={h.open} />
+              <Animated.View style={[{ width: cardW }, sticky]}>
+                <LaneHead theme={theme} group={g} open={laneOpen(g)} onToggle={() => h.change(setTeam(h.folds, g.key, !laneOpen(g), true))} onInfo={h.open} />
+              </Animated.View>
               {laneOpen(g)
                 ? g.members.map((m, i) => (
                     <View key={m.row.id} style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: divider, borderLeftWidth: 3, borderLeftColor: tint(lane, "77"), backgroundColor: tint(lane, i % 2 === 1 ? "0e" : "06") }}>
-                      <View style={{ width: labelW, borderRightWidth: 1, borderRightColor: divider }}>
+                      <Animated.View style={[{ width: labelW, marginLeft: -3, paddingLeft: 3, borderRightWidth: 1, borderRightColor: divider }, sticky]}>
+                        <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: tint(lane, i % 2 === 1 ? "0e" : "06") }} />
+                        <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: tint(lane, "77") }} />
                         <TrackLabel theme={theme} member={m} narrow={narrow} last={lastSibling(g.members, i)} onPress={() => h.open(m.row.id)} />
-                      </View>
-                      <View style={{ flex: 1, paddingRight: NOW_PAD, position: "relative" }}>
+                      </Animated.View>
+                      <View style={{ width: trackW, paddingRight: NOW_PAD, position: "relative" }}>
                         {scale.width > 0 ? (
                           <>
                             <Grid theme={theme} scale={scale} tick={win.tick} />
@@ -577,6 +632,9 @@ function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { t
             </View>
             );
           })}
+          </View>
+          </NativeScrollView>
+          {scrollable ? <TimeSlider theme={theme} viewportW={cardW} contentW={contentW} scrollX={scrollX} onScrollTo={(x) => scroller.current?.scrollTo({ x, animated: false })} /> : null}
           {sleepers.length > 0 ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: 36, paddingHorizontal: SPACING[3], borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface1 }}>
               <Icon name="Archive" size={12} color={theme.colors.foregroundMuted} />
