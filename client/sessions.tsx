@@ -10,7 +10,7 @@ import type { Dir, View as PigView } from "../shared/view.ts";
 import { Chat } from "./chat-pane.tsx";
 import { Notice } from "./piggery/notice.tsx";
 import { CHAT_SPLIT_MIN, LIST_MIN_WIDTH, LIST_WIDTH, SPACING, text } from "./kit/theme.ts";
-import { useNative, type Navigation } from "./native.tsx";
+import { useChatRouting, type Navigation } from "./chat-route.tsx";
 import { QUIET_MS, usePoll } from "./poll.ts";
 import { useProjectActions } from "./project.tsx";
 import { ResizeHandle, clampWidth, useSavedListWidth } from "./resize.tsx";
@@ -54,7 +54,7 @@ export function SessionsPane({ theme, view, dirs, width, selected, opened, now, 
   const items = conversationsOf(view, dirs).filter((c) => c.row.id !== me?.id);
   const wide = width >= CHAT_SPLIT_MIN;
   const current = items.find((c) => c.row.id === selected) ?? (wide ? mostPressing(items) : undefined);
-  const chat = useNative(items.map((c) => c.row.id), current?.row.id ?? "", navigation, serverId);
+  const chat = useChatRouting(items.map((c) => c.row.id), current?.row.id ?? "", navigation, serverId);
   const [listWidth, setListWidth, saveListWidth] = useSavedListWidth(LIST_WIDTH);
   if (width === 0) return <View style={{ flex: 1 }} />;
   if (items.length === 0) {

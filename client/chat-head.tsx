@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Conversation } from "../shared/conversations.ts";
 import { basenameOf } from "../shared/events.ts";
-import type { Native } from "../shared/native.ts";
+import type { ChatRoute } from "../shared/chat-route.ts";
 import { AVATAR } from "./kit/avatar.tsx";
 import { Pill } from "./kit/pill.tsx";
 import { paint, RoleAvatar } from "./piggery/role.tsx";
@@ -12,7 +12,7 @@ import { STATUS_WORD, StatusDot, StatusPill, StatusWord } from "./piggery/status
 import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
 import { useCompact } from "./kit/platform.ts";
 import { AVATAR_LG, ICON_SIZE, SPACING, text } from "./kit/theme.ts";
-import { NativeLink, type NativeChat } from "./native.tsx";
+import { PaseoLink, type ChatRouting } from "./chat-route.tsx";
 
 const HEAD_STACK_BELOW = 560;
 const COMPACT_HEAD_HEIGHT = 44;
@@ -29,19 +29,19 @@ function SessionMenu({ theme, name, items }: { theme: PluginTheme; name: string;
   );
 }
 
-function sessionItems(theme: PluginTheme, item: Conversation, native: Native, chat: NativeChat, writable: boolean, onInfo: () => void, toast: ReturnType<typeof useToast>): MenuItem[] {
+function sessionItems(theme: PluginTheme, item: Conversation, route: ChatRoute, chat: ChatRouting, writable: boolean, onInfo: () => void, toast: ReturnType<typeof useToast>): MenuItem[] {
   const resume = async () => {
     const failed = await chat.resume(item.row.id);
     if (failed) toast.error(failed);
   };
   const muted = theme.colors.foregroundMuted;
   const items: MenuItem[] = [{ id: "details", label: "Session details", icon: <Icon name="Info" size={ICON_SIZE.md} color={muted} />, onSelect: onInfo }];
-  if (native.kind === "open" && chat.canOpen) items.push({ id: "open", label: "Open in Paseo", icon: <Icon name="ExternalLink" size={ICON_SIZE.md} color={muted} />, onSelect: () => chat.open(native.agentId) });
-  if (native.kind === "resume" && writable) items.push({ id: "resume", label: "Resume in Paseo", icon: <Icon name="Import" size={ICON_SIZE.md} color={muted} />, onSelect: () => void resume() });
+  if (route.kind === "open" && chat.canOpen) items.push({ id: "open", label: "Open in Paseo", icon: <Icon name="ExternalLink" size={ICON_SIZE.md} color={muted} />, onSelect: () => chat.open(route.agentId) });
+  if (route.kind === "resume" && writable) items.push({ id: "resume", label: "Resume in Paseo", icon: <Icon name="Import" size={ICON_SIZE.md} color={muted} />, onSelect: () => void resume() });
   return items;
 }
 
-function CompactChatHead({ theme, item, native, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
+function CompactChatHead({ theme, item, route, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; route: ChatRoute; chat: ChatRouting; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
   const toast = useToast();
   const { row } = item;
   const place = item.teamName ?? basenameOf(item.dir.path);
@@ -66,17 +66,17 @@ function CompactChatHead({ theme, item, native, chat, writable, steps, onBack, o
           {place}
         </Text>
       </View>
-      <SessionMenu theme={theme} name={row.name} items={[...sessionItems(theme, item, native, chat, writable, onInfo, toast), ...steps]} />
+      <SessionMenu theme={theme} name={row.name} items={[...sessionItems(theme, item, route, chat, writable, onInfo, toast), ...steps]} />
     </View>
   );
 }
 
-export function ChatHead({ theme, item, native, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
+export function ChatHead({ theme, item, route, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; route: ChatRoute; chat: ChatRouting; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
   const compactFormFactor = useCompact();
   const [width, setWidth] = useState(0);
-  if (compactFormFactor) return <CompactChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />;
+  if (compactFormFactor) return <CompactChatHead theme={theme} item={item} route={route} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />;
   const stacked = width > 0 && width < HEAD_STACK_BELOW;
-  const link = <NativeLink theme={theme} id={item.row.id} native={native} chat={chat} writable={writable} />;
+  const link = <PaseoLink theme={theme} id={item.row.id} route={route} chat={chat} writable={writable} />;
   const { row } = item;
   const colour = paint(theme, row.role, row.id);
   const sub = [row.harness, row.model && row.model !== "-" ? row.model : undefined, row.ctx ? `${row.ctx} ctx` : undefined, row.turns ? `${row.turns} turns` : undefined].filter(Boolean).join(" · ");

@@ -4,7 +4,7 @@ import { Icon, Modal } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
 import { Text, useWindowDimensions, View } from "react-native";
 import { tail } from "../shared/rpc.ts";
-import { turnOf } from "../shared/native.ts";
+import { turnOf } from "../shared/chat-route.ts";
 import { type Detail, type Row, type TailKind, type View as PigView } from "../shared/view.ts";
 import { MailStream } from "./transcript.tsx";
 import { Pill } from "./kit/pill.tsx";

@@ -1,17 +1,17 @@
 import { z } from "zod";
 import type { Row } from "./view.ts";
 
-export const Session = z.object({ id: z.string(), ref: z.string().nullable(), harness: z.string().nullable(), mode: z.string().nullable(), cwd: z.string(), gone: z.boolean(), state: z.string(), teamClosed: z.boolean() });
+export const ParticipantRecord = z.object({ id: z.string(), ref: z.string().nullable(), harness: z.string().nullable(), mode: z.string().nullable(), cwd: z.string(), gone: z.boolean(), state: z.string(), teamClosed: z.boolean() });
 
-export type Session = z.infer<typeof Session>;
+export type ParticipantRecord = z.infer<typeof ParticipantRecord>;
 
-export type Native = { kind: "open"; agentId: string } | { kind: "resume" } | { kind: "mail"; why: string };
+export type ChatRoute = { kind: "open"; agentId: string } | { kind: "resume" } | { kind: "mail"; why: string };
 
-export function resumable(session: Session): boolean {
+export function resumable(session: ParticipantRecord): boolean {
   return session.gone && session.harness === "claude" && !!session.ref && !!session.cwd;
 }
 
-export function nativeOf(session: Session | undefined, agentId: string | undefined): Native {
+export function chatRouteOf(session: ParticipantRecord | undefined, agentId: string | undefined): ChatRoute {
   if (agentId) return { kind: "open", agentId };
   if (!session) return { kind: "mail", why: "a session piggery knows no harness session for" };
   if (resumable(session)) return { kind: "resume" };
@@ -50,7 +50,7 @@ export interface StepIns {
   resume: boolean;
 }
 
-export function stepInsOf(row: Pick<Row, "kind" | "actions">, session: Session | undefined): StepIns {
+export function stepInsOf(row: Pick<Row, "kind" | "actions">, session: ParticipantRecord | undefined): StepIns {
   const stopped = session?.state === "gone" || session?.state === "parked";
   return {
     kill: row.actions?.kill === true,

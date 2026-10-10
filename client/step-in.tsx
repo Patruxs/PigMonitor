@@ -4,7 +4,7 @@ import { Icon, Modal } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import type { MailMessage } from "../shared/mail.ts";
-import { releasable, type StepIns } from "../shared/native.ts";
+import { releasable, type StepIns } from "../shared/chat-route.ts";
 import { mail, models, stepIn, THINKING_LEVELS } from "../shared/rpc.ts";
 import type { MenuItem } from "./kit/menu.tsx";
 import { Actions, Button } from "./kit/button.tsx";

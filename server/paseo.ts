@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { cliUtils, daemonCall } from "./daemon.ts";
-import { resumable, type Session } from "../shared/native.ts";
+import { resumable, type ParticipantRecord } from "../shared/chat-route.ts";
 import { UsageReportEntry, type UsageReportEntryData } from "../shared/usage-schema.ts";
 import { directoryEntriesOf, type DirectoryEntry } from "../shared/autocomplete.ts";
 import type { AgentTimelineSearchPayload } from "../shared/chat-find.ts";
@@ -36,7 +36,7 @@ async function imported(id: string): Promise<string | null> {
   }
 }
 
-export async function resumeInPaseo(session: Session | undefined): Promise<Resumed> {
+export async function resumeInPaseo(session: ParticipantRecord | undefined): Promise<Resumed> {
   if (!session || !resumable(session)) return { ok: false, code: "denied", error: "Only an ended claude session can be resumed in Paseo; a live one is still owned by its process." };
   const before = await imported(session.id);
   if (before) return { ok: true, agentId: before };

@@ -3,7 +3,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import type { MailFilter, MailMessage, MailPage, MailTeam } from "../shared/mail.ts";
-import type { Session } from "../shared/native.ts";
+import type { ParticipantRecord } from "../shared/chat-route.ts";
 import { piggeryHome } from "./piggery.ts";
 import { messageOf } from "../shared/errors.ts";
 
@@ -136,7 +136,7 @@ export class PiggeryDb {
     return rowsOf(RawRow, this.open(file).prepare(`${SELECT} WHERE m.from_id = ? OR m.to_id = ? ORDER BY m.seq`).all(id, id)).map(toMessage);
   }
 
-  sessions(file: string, ids: string[]): Session[] {
+  sessions(file: string, ids: string[]): ParticipantRecord[] {
     if (!existsSync(file) || ids.length === 0) return [];
     const rows = this.open(file)
       .prepare(`SELECT p.id, COALESCE(p.session_ref, p.harness_ref) AS ref, p.harness, p.mode, p.cwd, p.state, t.closed_at IS NOT NULL AS team_closed FROM participants p LEFT JOIN teams t ON t.id = p.team_id WHERE p.id IN (${placeholders(ids.length)})`)

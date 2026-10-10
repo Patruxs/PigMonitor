@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TAIL_KINDS } from "./view.ts";
 import { AgentTimelineSearchPayload } from "./chat-find.ts";
 import { MailFilter, MailPage } from "./mail.ts";
-import { Session } from "./native.ts";
+import { ParticipantRecord } from "./chat-route.ts";
 import { Transcript } from "./transcript.ts";
 import { UsageReportEntry } from "./usage-schema.ts";
 import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./speech.ts";
@@ -114,7 +114,7 @@ export const sendMail = defineRpc({
 export const sessions = defineRpc({
   name: "pigmonitor.sessions",
   input: z.object({ ids: z.array(z.string()).max(1000) }),
-  output: z.union([z.object({ ok: z.literal(true), sessions: z.array(Session) }), Failure]),
+  output: z.union([z.object({ ok: z.literal(true), sessions: z.array(ParticipantRecord) }), Failure]),
 });
 
 export const resume = defineRpc({

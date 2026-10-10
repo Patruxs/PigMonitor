@@ -6,7 +6,7 @@ import { Pressable, Text, View } from "react-native";
 import type { Usage } from "../shared/context-meter.ts";
 import type { Conversation } from "../shared/conversations.ts";
 import type { MailMessage } from "../shared/mail.ts";
-import { stepInsOf, turnOf, type Native } from "../shared/native.ts";
+import { stepInsOf, turnOf, type ChatRoute } from "../shared/chat-route.ts";
 import { mail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { replyTarget, type Me } from "../shared/mail.ts";
 import { FileDropZone } from "./attachments-drop.tsx";
@@ -20,7 +20,7 @@ import { AgentContextMeter, AgentControls } from "./controls.tsx";
 import { KeyboardAvoidingPane } from "./kit/keyboard-pane.tsx";
 import { hovered } from "./kit/press.tsx";
 import { RADIUS, SPACING, text, tint } from "./kit/theme.ts";
-import { useStop, type NativeChat, type Stop } from "./native.tsx";
+import { useStop, type ChatRouting, type Stop } from "./chat-route.tsx";
 import { BUSY_MS, usePoll } from "./poll.ts";
 import { useWithPromptImages } from "./prompt-images.ts";
 import { RewindMenu } from "./rewind.tsx";
@@ -84,10 +84,10 @@ function ThroughGate({ theme, gate, stop, onPick, trailing }: { theme: PluginThe
   );
 }
 
-function hintOf(item: Conversation, native: Native, me: Me | null): string | undefined {
-  if (native.kind === "open") return undefined;
+function hintOf(item: Conversation, route: ChatRoute, me: Me | null): string | undefined {
+  if (route.kind === "open") return undefined;
   const keys = canAttach ? "Enter sends · paste images or + to attach" : "Enter sends";
-  const why = native.kind === "mail" ? ` (${native.why})` : "";
+  const why = route.kind === "mail" ? ` (${route.why})` : "";
   const who = me ? `you write as ${me.name}` : "your first message joins piggery as a solo session of yours";
   return `Piggery mail to ${item.row.name}${why} · ${who} · attachments go as file paths and links · ${keys}`;
 }
@@ -122,26 +122,26 @@ function OpenChat({ agentId, children }: { agentId: string; children: (timeline:
   return <>{children(timeline)}</>;
 }
 
-export function Chat({ theme, item, all, me, chat, onSent, onPick, onBack, onInfo }: { theme: PluginTheme; item: Conversation; all: Conversation[]; me: Me | null; chat: NativeChat; onSent: () => void; onPick: (id: string) => void; onBack?: () => void; onInfo: () => void }) {
-  const native = chat.of(item.row.id);
-  if (native.kind === "open") {
+export function Chat({ theme, item, all, me, chat, onSent, onPick, onBack, onInfo }: { theme: PluginTheme; item: Conversation; all: Conversation[]; me: Me | null; chat: ChatRouting; onSent: () => void; onPick: (id: string) => void; onBack?: () => void; onInfo: () => void }) {
+  const route = chat.routeOf(item.row.id);
+  if (route.kind === "open") {
     return (
-      <OpenChat key={native.agentId} agentId={native.agentId}>
-        {(timeline) => <ChatPane theme={theme} item={item} all={all} me={me} chat={chat} native={native} timeline={timeline} onSent={onSent} onPick={onPick} onBack={onBack} onInfo={onInfo} />}
+      <OpenChat key={route.agentId} agentId={route.agentId}>
+        {(timeline) => <ChatPane theme={theme} item={item} all={all} me={me} chat={chat} route={route} timeline={timeline} onSent={onSent} onPick={onPick} onBack={onBack} onInfo={onInfo} />}
       </OpenChat>
     );
   }
-  return <ChatPane theme={theme} item={item} all={all} me={me} chat={chat} native={native} timeline={null} onSent={onSent} onPick={onPick} onBack={onBack} onInfo={onInfo} />;
+  return <ChatPane theme={theme} item={item} all={all} me={me} chat={chat} route={route} timeline={null} onSent={onSent} onPick={onPick} onBack={onBack} onInfo={onInfo} />;
 }
 
-function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick, onBack, onInfo }: { theme: PluginTheme; item: Conversation; all: Conversation[]; me: Me | null; chat: NativeChat; native: Native; timeline: AgentTimeline | null; onSent: () => void; onPick: (id: string) => void; onBack?: () => void; onInfo: () => void }) {
+function ChatPane({ theme, item, all, me, chat, route, timeline, onSent, onPick, onBack, onInfo }: { theme: PluginTheme; item: Conversation; all: Conversation[]; me: Me | null; chat: ChatRouting; route: ChatRoute; timeline: AgentTimeline | null; onSent: () => void; onPick: (id: string) => void; onBack?: () => void; onInfo: () => void }) {
   const turn = turnOf(item.row);
-  const stop = useStop(item.row.id, native, turn.active);
+  const stop = useStop(item.row.id, route, turn.active);
   const [heldBump, setHeldBump] = useState(0);
   const held = useHeld(item.row.id, heldBump);
   const step = useStepIn(item.row.name, () => setHeldBump((n) => n + 1));
   const [dialog, setDialog] = useState<StepInDialog>(null);
-  const steps = stepInItems(theme, stepInsOf(item.row, chat.session(item.row.id)), held.length, step.busy, setDialog);
+  const steps = stepInItems(theme, stepInsOf(item.row, chat.participant(item.row.id)), held.length, step.busy, setDialog);
   const target = { ...step, id: item.row.id };
   const [bump, setBump] = useState(0);
   const paseo = usePaseo();
@@ -157,21 +157,21 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
   };
   const send = async (body: string, images: ImageData[], attachments: AttachmentData[]): Promise<string | null> => {
     const reply = me ? replyTarget(thread, item.row.id) : undefined;
-    const failed = native.kind === "open" && timeline ? await submitToAgent({ paseo, agentId: native.agentId, timeline, body, images, attachments }) : await sendMailTo({ to: item.row.id, body, images, attachments, ...(reply ? { replySeq: reply.seq } : {}) });
+    const failed = route.kind === "open" && timeline ? await submitToAgent({ paseo, agentId: route.agentId, timeline, body, images, attachments }) : await sendMailTo({ to: item.row.id, body, images, attachments, ...(reply ? { replySeq: reply.seq } : {}) });
     if (failed) return failed;
     sent();
     return null;
   };
-  const ended = item.row.status === "gone" && native.kind !== "open";
+  const ended = item.row.status === "gone" && route.kind !== "open";
   return (
     <FileDropZone theme={theme} style={{ flex: 1, minWidth: 0 }}>
     <ChatPaneScope>
     <KeyboardAvoidingPane>
-      <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />
+      <ChatHead theme={theme} item={item} route={route} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />
       {timeline ? <OpenStream theme={theme} id={item.row.id} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={turn.active} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} onUsage={setLogUsage} />}
       {step.note ? <StepInNotice theme={theme} note={step.note} onDismiss={step.dismiss} /> : null}
       {writable ? (
-        <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={native.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : ({ isCompactLayout }) => <SessionContextMeter theme={theme} usage={logUsage} status={turn.meterStatus} isCompactLayout={isCompactLayout} />} stop={stop} agent={native.kind === "open" && timeline ? { agentId: native.agentId, participantId: item.row.id, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />
+        <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, route, me)} controls={route.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={route.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={route.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={route.agentId} isCompactLayout={isCompactLayout} /> : ({ isCompactLayout }) => <SessionContextMeter theme={theme} usage={logUsage} status={turn.meterStatus} isCompactLayout={isCompactLayout} />} stop={stop} agent={route.kind === "open" && timeline ? { agentId: route.agentId, participantId: item.row.id, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />
       ) : (
         <ThroughGate theme={theme} gate={gateOf(item, all)} stop={stop} onPick={onPick} trailing={timeline ? undefined : <SessionContextMeter theme={theme} usage={logUsage} status={turn.meterStatus} isCompactLayout={false} />} />
       )}
