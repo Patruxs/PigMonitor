@@ -14,6 +14,7 @@ import { notifyHooksSet } from "./server/notify.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
 import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
+import { messageOf } from "./shared/errors.ts";
 
 export const OBSERVE_ONLY_REFUSAL = { ok: false as const, code: "denied" as const, error: "This Paseo daemon runs PigMonitor observe-only, so nothing is sent to piggery or Paseo." };
 
@@ -72,7 +73,7 @@ export default function contribute(server: PluginServerContext) {
     try {
       return { ok: true as const, sessions: db.sessions(await database(), ids) };
     } catch (error) {
-      return { ok: false as const, code: "failed" as const, error: `Could not read piggery's database: ${String((error as Error).message ?? error)}` };
+      return { ok: false as const, code: "failed" as const, error: `Could not read piggery's database: ${messageOf(error)}` };
     }
   });
   changes(upload, async ({ fileName, mimeType, data }) => {
@@ -98,7 +99,7 @@ export default function contribute(server: PluginServerContext) {
     try {
       return await resumeInPaseo(db.sessions(await database(), [id])[0]);
     } catch (error) {
-      return { ok: false as const, code: "failed" as const, error: String((error as Error).message ?? error) };
+      return { ok: false as const, code: "failed" as const, error: messageOf(error) };
     }
   });
 

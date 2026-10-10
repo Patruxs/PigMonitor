@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Platform, Pressable, Text, TextInput, View, type TextStyle } from "react-native";
+import { Pressable, Text, TextInput, View, type TextStyle } from "react-native";
 import { createChatFindModel, findPattern, searchLoadedItems, type ChatFindFailure, type ChatFindOperations } from "../shared/chat-find.ts";
 import { timelineSearch } from "../shared/rpc.ts";
 import type { StreamItem } from "../shared/stream.ts";
@@ -11,8 +11,8 @@ import { RADIUS, SPACING } from "./kit/theme.ts";
 import type { ViewportHandle } from "./stream-viewport.tsx";
 import { useChatPaneArea } from "./chat-pane-scope.tsx";
 import { FIND_IGNORED_SELECTOR, findWidgetIn, findWidgetProps, historyRowOf, MARKDOWN_BLOCK_SELECTOR, messageRows, messageTextBlocks } from "./find-anchors.ts";
+import { NO_OUTLINE, isWeb } from "./kit/platform.ts";
 
-const isWeb = Platform.OS === "web";
 const SelectedMessage = createContext<string | null>(null);
 const FAILURE_TEXT: Record<ChatFindFailure, string> = {
   connection: "Could not search this chat. Check the host connection and retry.",
@@ -21,7 +21,6 @@ const FAILURE_TEXT: Record<ChatFindFailure, string> = {
 };
 const WIDGET_WIDTH = 340;
 const FIELD_HEIGHT = 28;
-const NO_OUTLINE = (isWeb ? { outlineStyle: "none", outlineWidth: 0 } : {}) as TextStyle;
 let nextHighlightId = 0;
 
 export function useChatFindSelectedMessageId(): string | null {

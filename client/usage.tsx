@@ -8,6 +8,7 @@ import { usageReports } from "../shared/rpc.ts";
 import { formatResetLabel, formatUsageFreshness, replaceReport, reportContent, reportMessages, resolveAgentUsageView, resolveBalance, statusText, USAGE_COPY, usedPercent, windowTone, windowTrailing, type UsageBalanceData, type UsageReportEntryData, type UsageTone, type UsageWindowData } from "../shared/usage.ts";
 import { Anchored, FONT_BASE, FONT_SM, hoveredOf } from "./controls-kit.tsx";
 import { COMPACT_BELOW, hostColours, RADIUS, SPACING } from "./kit/theme.ts";
+import { messageOf } from "../shared/errors.ts";
 
 const isNative = Platform.OS !== "web";
 const RED_300 = "#fca5a5";
@@ -41,7 +42,7 @@ function useAgentUsage(agentId: string): UsageState & { refresh: (reportId: stri
         if (!r.ok && r.code === "older") hostReportsUsage = false;
         if (!r.ok) setState({ canReport: r.code !== "older", data: undefined, error: r.code === "older" ? null : r.error });
       },
-      (error) => live && setState({ canReport: true, data: undefined, error: String((error as Error)?.message ?? error) }),
+      (error) => live && setState({ canReport: true, data: undefined, error: messageOf(error) }),
     );
     return () => {
       live = false;

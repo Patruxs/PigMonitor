@@ -34,6 +34,7 @@ import { FOCUS_HINT, ModeCycleScope, useComposerKeys } from "./composer-keys.tsx
 import { nodeOf, useComposerHeight } from "./composer-height.ts";
 import { QueuedMessageRow } from "./queue.tsx";
 import { useComposerAttachments } from "./composer-attachments.ts";
+import { NO_OUTLINE, isWeb } from "./kit/platform.ts";
 
 
 interface ComposerAgent {
@@ -48,10 +49,8 @@ const BOX_RADIUS = 16;
 const CANCEL_RED = "#dc2626";
 const ERROR_RED = "#ef4444";
 const COMPACT_FORM_FACTOR_WIDTH = 500;
-const NO_OUTLINE = { outlineStyle: "none", outlineWidth: 0, outlineColor: "transparent" } as unknown as TextStyle;
 
 const dom = globalThis as { document?: Document; window?: Window; navigator?: Navigator };
-const isWeb = dom.document !== undefined;
 const PLUGINS_CANNOT_ATTACH = "Paseo's mobile app doesn't let plugins attach photos or files yet";
 const DESKTOP_PLACEHOLDER = "Message the agent, tag @files, or use /commands and /skills";
 const MOBILE_PLACEHOLDER = "Message, @files, /commands";

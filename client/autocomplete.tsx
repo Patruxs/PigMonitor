@@ -19,6 +19,7 @@ import {
 import { dirSuggest } from "../shared/rpc.ts";
 import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
 import { BoundedMap } from "../shared/bounded-map.ts";
+import { messageOf } from "../shared/errors.ts";
 
 const COMMAND_CACHE_LIMIT = 50;
 const DIRECTORY_CACHE_LIMIT = 100;
@@ -56,9 +57,6 @@ type Loaded<T> = { at: number; value: T } | { at: number; error: string };
 const commandCache = new BoundedMap<string, Loaded<AgentSlashCommand[]>>(COMMAND_CACHE_LIMIT);
 const directoryCache = new BoundedMap<string, Loaded<DirectoryEntry[]>>(DIRECTORY_CACHE_LIMIT);
 
-function messageOf(error: unknown): string {
-  return String((error as Error)?.message ?? error);
-}
 
 function useCommands(agentId: string | undefined, enabled: boolean): { commands: AgentSlashCommand[]; isLoading: boolean; error: string | null } {
   const paseo = usePaseo();

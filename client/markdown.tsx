@@ -8,6 +8,7 @@ import { imageFile } from "../shared/rpc.ts";
 import { RADIUS, SPACING, text } from "./kit/theme.ts";
 import { markdownTagProps } from "./find-anchors.ts";
 import { BoundedMap } from "../shared/bounded-map.ts";
+import { messageOf } from "../shared/errors.ts";
 
 const PICTURE_CACHE_LIMIT = 50;
 
@@ -50,7 +51,7 @@ export function usePicture(path: string | undefined): { picture: Picture | null;
     if (!path) return;
     loadPicture(path, call).then(
       (loaded) => live && setPicture(loaded),
-      (error: unknown) => live && setFailure(String((error as Error).message ?? error)),
+      (error: unknown) => live && setFailure(messageOf(error)),
     );
     return () => {
       live = false;

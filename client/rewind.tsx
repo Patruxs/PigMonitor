@@ -6,6 +6,7 @@ import { ActivityIndicator, Modal, Pressable, Text, View, type PressableStateCal
 import { rewind } from "../shared/rpc.ts";
 import { ConfirmDialog } from "./kit/confirm.tsx";
 import { RADIUS, SPACING, text } from "./kit/theme.ts";
+import { messageOf } from "../shared/errors.ts";
 
 type RewindMode = "conversation" | "files" | "both";
 
@@ -77,7 +78,7 @@ export function RewindMenu({ theme, capabilities, agentId, messageId, rewoundTex
       if (mode !== "files") await onRewound();
       if (mode === "conversation" || mode === "both") restorers.get(draftKey)?.(rewoundText);
     } catch (failure) {
-      toast.error(failure instanceof Error ? failure.message : "Failed to rewind agent");
+      toast.error(messageOf(failure, "Failed to rewind agent"));
     } finally {
       setPending(null);
       setConfirming(null);

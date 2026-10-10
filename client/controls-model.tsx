@@ -1,18 +1,18 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { filterAndRankModelRows, normalizeSearchQuery, providerModelRows, providerQualifiedDescription, resolveDesktopFixedHeight, resolveInitialModelBrowserView, resolveModelBrowserAllView, resolveSelectedModelLabel, LABELS, type ModelBrowserView, type ModelRow, type SelectorProvider } from "../shared/controls.ts";
 import { Anchored, FONT_BASE, FONT_SM, HeaderRow, hoveredOf, SearchRow, ToolbarGlyph, toolbarStyle, Caret } from "./controls-kit.tsx";
 import { ProviderGlyph } from "./controls-provider-icons.tsx";
 import { hostColours, SPACING } from "./kit/theme.ts";
+import { isWeb } from "./kit/platform.ts";
 
 const DESKTOP_MIN_WIDTH = 360;
 const MODEL_LIST_TOP_INSET = 4;
 const MODEL_ROW_STRIDE = 44;
 const MODEL_VIEWPORT_VISIBLE_ROWS = 4.5;
 const FIXED_MODEL_VIEWPORT_HEIGHT = MODEL_LIST_TOP_INSET + MODEL_ROW_STRIDE * MODEL_VIEWPORT_VISIBLE_ROWS;
-const isWeb = Platform.OS === "web";
 
 export type IconSvgs = Record<string, string | undefined>;
 

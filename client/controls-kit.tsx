@@ -3,6 +3,7 @@ import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions, type PressableStateCallbackType, type TextStyle, type ViewStyle } from "react-native";
 import { hostColours, mix, SPACING } from "./kit/theme.ts";
+import { NO_OUTLINE } from "./kit/platform.ts";
 
 export const FONT_BASE = 14;
 export const FONT_SM = 12;
@@ -11,7 +12,6 @@ const RADIUS_XL = 12;
 const RADIUS_2XL = 16;
 export const PALETTE = { blue400: "#60a5fa", green400: "#4ade80", yellow400: "#fbbf24", amber500: "#f59e0b" } as const;
 
-const NO_OUTLINE = { outlineStyle: "none", outlineWidth: 0 } as unknown as TextStyle;
 const POPOVER_OFFSET = 5;
 const TOOLTIP_OFFSET = 8;
 const POPOVER_MAX_HEIGHT = 400;

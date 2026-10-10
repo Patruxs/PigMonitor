@@ -1,6 +1,7 @@
 import { forgeAttachment } from "./attach.ts";
 import type { AttachmentData, ForgeItemData, ImageData, UploadedFileData } from "./rpc.ts";
 import type { DictationStatus } from "./speech.ts";
+import { messageOf } from "./errors.ts";
 
 export interface ImageMetadata {
   id: string;
@@ -101,7 +102,7 @@ export async function submitAgentInput<T>(input: SubmitInput<T>): Promise<Submit
   } catch (error) {
     input.setUserInput(trimmedMessage);
     input.setAttachments(attachments);
-    input.setSendError(error instanceof Error ? error.message : FAILED_TO_SEND);
+    input.setSendError(messageOf(error, FAILED_TO_SEND));
     input.setIsProcessing(false);
     return "failed";
   }
@@ -152,7 +153,7 @@ export async function sendQueuedComposerMessageNow(input: { queueKey: string; me
     return { status: "submitted" };
   } catch (error) {
     input.queue.write(withQueue(input.queueKey, (queue) => [item, ...queue]));
-    return { status: "failed", errorMessage: error instanceof Error ? error.message : FAILED_TO_SEND };
+    return { status: "failed", errorMessage: messageOf(error, FAILED_TO_SEND) };
   }
 }
 

@@ -9,6 +9,7 @@ import { bucketOf, hasComposerTracks, isFinished, latestTasksFromStream, pillPre
 import { AnchoredPopover, SheetText } from "./kit/menu.tsx";
 import { hostColours, MAX_CONTENT_WIDTH, RADIUS, SPACING } from "./kit/theme.ts";
 import { BUSY_MS, usePoll } from "./poll.ts";
+import { messageOf } from "../shared/errors.ts";
 
 
 type ArchiveFinishedStatus = { kind: "idle" } | { kind: "archiving"; completedCount: number; totalCount: number } | { kind: "failed"; failedCount: number; totalCount: number };
@@ -142,7 +143,7 @@ function useSubagents(parentAgentId: string, bump: number): SubagentRow[] {
         rows.sort((a, b) => a.createdAt - b.createdAt);
         return { ok: true as const, value: rows };
       } catch (error) {
-        return { ok: false as const, code: "failed", error: String((error as Error)?.message ?? error) };
+        return { ok: false as const, code: "failed", error: messageOf(error) };
       }
     },
     `subagents:${parentAgentId}:${bump}`,
@@ -228,7 +229,7 @@ export function ComposerTracks({ theme, agentId, items, onOpenAgent }: { theme: 
     try {
       await paseo.agents.ref(id).archive();
     } catch (error) {
-      toast.error(String((error as Error)?.message ?? error));
+      toast.error(messageOf(error));
     }
     setBump((n) => n + 1);
   };

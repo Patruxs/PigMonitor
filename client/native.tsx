@@ -8,6 +8,7 @@ import { resume, sessions, stop } from "../shared/rpc.ts";
 import { useLiveAgent, type PaseoApi } from "./agent-live.ts";
 import { SPACING, text } from "./kit/theme.ts";
 import { QUIET_MS, usePoll } from "./poll.ts";
+import { messageOf } from "../shared/errors.ts";
 
 export type Navigation = PluginSurfaceProps["navigation"];
 
@@ -27,9 +28,6 @@ async function agentsFor(paseo: PaseoApi, wanted: string[]): Promise<Map<string,
   return found;
 }
 
-function messageOf(error: unknown): string {
-  return String((error as Error)?.message ?? error);
-}
 
 
 export interface NativeChat {

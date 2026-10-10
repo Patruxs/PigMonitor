@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import { messageOf } from "../shared/errors.ts";
 
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
@@ -36,7 +37,7 @@ export async function readImage(file: string, roots: string[], maxBytes = MAX_IM
     if (info.size > maxBytes) return { ok: false, code: "denied", error: `${file} is larger than ${Math.round(maxBytes / 1024 / 1024)} MB.` };
     return { ok: true, data: (await readFile(real)).toString("base64"), mimeType };
   } catch (error) {
-    return { ok: false, code: "failed", error: `Could not read ${file}: ${String((error as Error).message ?? error)}` };
+    return { ok: false, code: "failed", error: `Could not read ${file}: ${messageOf(error)}` };
   }
 }
 

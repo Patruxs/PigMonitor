@@ -17,6 +17,7 @@ import {
 import { useLiveAgent, type AgentHandle, type PaseoAgent } from "./agent-live.ts";
 import { reduceTurnLiveness, resolveTurnPresentation, turnLivenessOfEvents, TURN_LIVENESS_IDLE, type TurnLiveness, type TurnPresentation } from "../shared/turns.ts";
 import type { ToolCallDetail } from "../shared/tool-call.ts";
+import { messageOf } from "../shared/errors.ts";
 
 
 export interface PermissionAction {
@@ -69,9 +70,6 @@ export interface AgentTimeline {
 
 const FLUSH_MS = 48;
 
-function messageOf(error: unknown): string {
-  return String((error as Error)?.message ?? error);
-}
 
 function permissionsOf(agent: PaseoAgent | null): PermissionRequest[] {
   return ((agent?.pendingPermissions ?? []) as unknown as PermissionRequest[]).filter((permission) => typeof permission?.id === "string");

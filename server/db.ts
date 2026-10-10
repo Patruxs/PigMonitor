@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { MailFilter, MailMessage, MailPage, MailTeam } from "../shared/mail.ts";
 import type { Session } from "../shared/native.ts";
 import { piggeryHome } from "./piggery.ts";
+import { messageOf } from "../shared/errors.ts";
 
 export type MailResult = ({ ok: true } & MailPage) | { ok: false; code: "nodb" | "failed"; error: string };
 
@@ -119,7 +120,7 @@ export class PiggeryDb {
         return this.query(this.open(file), filter);
       } catch (error) {
         this.close();
-        return { ok: false, code: "failed", error: `Could not read piggery's database: ${String((error as Error).message ?? error ?? first)}` };
+        return { ok: false, code: "failed", error: `Could not read piggery's database: ${messageOf(error ?? first)}` };
       }
     }
   }

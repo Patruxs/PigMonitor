@@ -4,6 +4,7 @@ import { tmpdir, userInfo } from "node:os";
 import path from "node:path";
 import { forgeOf, imageMark, MAX_UPLOAD_BYTES } from "../shared/attach.ts";
 import type { AttachmentData, ImageData } from "../shared/rpc.ts";
+import { messageOf } from "../shared/errors.ts";
 
 export const ATTACH_ROOT = path.join(tmpdir(), `piggery-attach-${userInfo().uid}`);
 
@@ -60,7 +61,7 @@ export async function mailBody(root: string, to: string, body: string, images: I
   try {
     files = await saveImages(root, to, images);
   } catch (error) {
-    return { ok: false, code: "failed", error: `Could not save the image: ${String((error as Error).message ?? error)}` };
+    return { ok: false, code: "failed", error: `Could not save the image: ${messageOf(error)}` };
   }
   const composed = bodyWithAttachments(bodyWithImages(body, files), attachments);
   return composed ? { ok: true, body: composed } : { ok: false, code: "failed", error: "Nothing to send." };

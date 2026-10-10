@@ -1,15 +1,16 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useMemo, useState, type ReactNode } from "react";
-import { Platform, ScrollView, Text, View, type TextStyle, type ViewStyle } from "react-native";
+import { ScrollView, Text, View, type TextStyle, type ViewStyle } from "react-native";
 import { buildLineDiff, parseUnifiedDiff, type DiffLine } from "../shared/diff.ts";
 import { buildPaseoToolDetailSections, hasMeaningfulToolCallDetail, type PaseoToolDetailSection, type ToolCallDetail } from "../shared/tool-call.ts";
 import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
+import { isWeb } from "./kit/platform.ts";
 
 const CODE_PAD = SPACING[3];
 const EXTRA_RIGHT = SPACING[4];
 const EXTRA_BOTTOM = SPACING[3];
-const PRE = (Platform.OS === "web" ? { whiteSpace: "pre", overflowWrap: "normal" } : {}) as TextStyle;
-const ANYWHERE = (Platform.OS === "web" ? { overflowWrap: "anywhere" } : {}) as TextStyle;
+const PRE = (isWeb ? { whiteSpace: "pre", overflowWrap: "normal" } : {}) as TextStyle;
+const ANYWHERE = (isWeb ? { overflowWrap: "anywhere" } : {}) as TextStyle;
 
 function codeText(theme: PluginTheme): TextStyle {
   return { fontFamily: "monospace", fontSize: 12, color: theme.colors.foreground, lineHeight: 18, ...PRE };

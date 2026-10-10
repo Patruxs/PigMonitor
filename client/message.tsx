@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { copyText, Icon, Modal, useRevealedText } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
 import { forgeOf } from "../shared/attach.ts";
 import { splitMarkdownBlocks } from "../shared/markdown.ts";
 import type { AttachmentData } from "../shared/rpc.ts";
@@ -13,13 +13,12 @@ import type { TodoEntry } from "../shared/todos.ts";
 import { AttachmentLightbox } from "./kit/lightbox.tsx";
 import { Markdown, usePicture } from "./markdown.tsx";
 import { AttachmentFrame, AttachmentLabel, AttachmentThumbnail } from "./attachment-pill.tsx";
-import { useCompact } from "./kit/platform.ts";
+import { isWeb, useCompact } from "./kit/platform.ts";
 import { CONTENT_FONT, CONTENT_LINE, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, RADIUS, SPACING, STREAM_METADATA_FONT } from "./kit/theme.ts";
 import { ToolCallDetailsContent } from "./tool-details.tsx";
 import { duration, messageClock, usd } from "../shared/format.ts";
 import { messageTextProps } from "./find-anchors.ts";
 
-const isWeb = Platform.OS === "web";
 const SELECTABLE = (isWeb ? { userSelect: "text" } : {}) as ViewStyle;
 const ANYWHERE = (isWeb ? { overflowWrap: "anywhere" } : {}) as TextStyle;
 const TIMESTAMP_REVEAL_MS = 3000;

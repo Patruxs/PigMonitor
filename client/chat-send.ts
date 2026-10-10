@@ -4,10 +4,8 @@ import { sendMail, type AttachmentData, type ImageData } from "../shared/rpc.ts"
 import { createUserMessage, generateMessageId } from "../shared/stream.ts";
 import type { PaseoApi } from "./agent-live.ts";
 import type { AgentTimeline } from "./timeline.ts";
+import { messageOf } from "../shared/errors.ts";
 
-function messageOf(error: unknown): string {
-  return String((error as Error)?.message ?? error);
-}
 
 async function sendToAgent(paseo: PaseoApi, agentId: string, body: string, images: ImageData[], attachments: AttachmentData[], messageId?: string): Promise<string | null> {
   try {
@@ -46,7 +44,7 @@ export async function submitToAgent({ paseo, agentId, timeline, body, images, at
     });
     return null;
   } catch (failure) {
-    return failure instanceof Error ? failure.message : String(failure);
+    return messageOf(failure);
   }
 }
 

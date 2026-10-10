@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { collectAssistantResponseContent, layoutStream, type StreamLayoutItem, type TurnFooterHost } from "../shared/stream-layout.ts";
 import { findEarlierHistoryWindowStart, findMountedWindowStart, MOUNTED_RECENT_STREAM_ITEMS } from "../shared/stream-scroll.ts";
 import type { PiggeryStreamItem, StreamItem } from "../shared/stream.ts";
@@ -15,8 +15,8 @@ import { ChatOutlineRail, useChatOutline } from "./outline.tsx";
 import { PermissionRequestCard } from "./permission.tsx";
 import { TRACK_PILL_CLEARANCE, TRACK_PILL_MIN_HEIGHT } from "./tracks.tsx";
 import type { PermissionRequest, PermissionResponse } from "./timeline.ts";
+import { isWeb } from "./kit/platform.ts";
 
-const isWeb = Platform.OS === "web";
 
 interface StreamHistory {
   hasOlder: boolean;

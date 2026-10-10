@@ -2,25 +2,26 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
+import { ActivityIndicator, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { dictationStatus, transcribe } from "../shared/rpc.ts";
 import { stopwatch } from "../shared/format.ts";
 import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, PcmChunker, resampleToPcm16, volumeOf, type DictationStatus } from "../shared/speech.ts";
 import { ICON_SIZE, SPACING } from "./kit/theme.ts";
+import { messageOf } from "../shared/errors.ts";
+import { isWeb } from "./kit/platform.ts";
 
 const BUTTON = 28;
 const PROCESSOR_FRAMES = 4096;
 const METER_BAR = { width: 6, gap: 6, min: 8, max: 18 } as const;
 const METER_GAINS = [1.2, 1.05, 0.9] as const;
 
-const isWeb = Platform.OS === "web";
 
 type Readiness = { enabled: boolean; reason: string };
 
 function errorMessageOf(error: unknown): string {
   if (error instanceof DOMException && error.name === "NotAllowedError") return "Microphone access was denied.";
   if (error instanceof DOMException && error.name === "NotFoundError") return "No microphone was found.";
-  return error instanceof Error ? error.message : String(error);
+  return messageOf(error);
 }
 
 class MicrophoneCapture {

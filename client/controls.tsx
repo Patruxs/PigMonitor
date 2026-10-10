@@ -13,6 +13,7 @@ import { Anchored, ComboList, ControlTrigger, PALETTE, SearchRow, sidebarColour,
 import { ProviderGlyph } from "./controls-provider-icons.tsx";
 import { COMPACT_MODEL_VIEWPORT, CompactModelTrigger, DesktopModelSelector, ModelBrowserBody, useModelBrowser, type IconSvgs, type ModelBrowserState } from "./controls-model.tsx";
 import { COMPACT_BELOW, SPACING } from "./kit/theme.ts";
+import { messageOf } from "../shared/errors.ts";
 
 
 const isNative = Platform.OS !== "web";
@@ -20,9 +21,6 @@ const DESKTOP_SEARCH_THRESHOLD = 6;
 const MODE_MIN_WIDTH = 260;
 const THINKING_MIN_WIDTH = 200;
 
-function messageOf(error: unknown): string {
-  return String((error as Error)?.message ?? error);
-}
 
 
 interface ProvidersSnapshot {

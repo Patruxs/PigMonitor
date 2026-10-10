@@ -8,6 +8,7 @@ import type { Item, Transcript } from "../shared/transcript.ts";
 import type { PiggeryDb, Participant } from "./db.ts";
 import { JsonlTail } from "./jsonl-tail.ts";
 import { claudeToolCall } from "./tool-detail.ts";
+import { messageOf } from "../shared/errors.ts";
 
 const exists = (file: string) => {
   try {
@@ -135,7 +136,7 @@ export class TranscriptReader {
       const items = merged.slice(start).map((item, k) => ({ ...item, i: start + k, key: this.keyOf(item) }));
       return { ok: true, items, total: merged.length, name: who?.name ?? id, role: who?.role ?? undefined, files: files.length, ...(roles ? { roles } : {}), ...(usage ? { usage } : {}), epoch: logs.epoch, rev, ...(from === undefined ? {} : { from }) };
     } catch (error) {
-      return { ok: false, code: "failed", error: `Could not read the session log: ${String((error as Error).message ?? error)}` };
+      return { ok: false, code: "failed", error: `Could not read the session log: ${messageOf(error)}` };
     }
   }
 }
