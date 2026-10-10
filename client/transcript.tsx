@@ -10,7 +10,7 @@ import type { PiggeryStreamItem } from "../shared/stream.ts";
 import type { TurnPresentation } from "../shared/turns.ts";
 import { StreamView } from "./stream.tsx";
 import type { ViewportHandle } from "./stream-viewport.tsx";
-import { clockText } from "../shared/view.ts";
+import { messageClock } from "../shared/format.ts";
 import { Markdown } from "./markdown.tsx";
 import { messageTextProps } from "./find-anchors.ts";
 import { AVATAR, AVATAR_SM } from "./kit/avatar.tsx";
@@ -50,7 +50,7 @@ function Header({ theme, who, colour, tags, at, now }: { theme: PluginTheme; who
         {who}
       </Text>
       {tags}
-      {at !== undefined ? <Text style={[text(theme, "label"), { fontVariant: ["tabular-nums"] }]}>{clockText(at, now)}</Text> : null}
+      {at !== undefined ? <Text style={[text(theme, "label"), { fontVariant: ["tabular-nums"] }]}>{messageClock(new Date(at), new Date(now))}</Text> : null}
     </View>
   );
 }
