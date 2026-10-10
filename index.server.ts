@@ -5,7 +5,7 @@ import type { PluginServerContext } from "@getpaseo/plugin/server";
 import type { input as ZodInput, output as ZodOutput, ZodType } from "zod";
 import { piggeryPath } from "./server/installed.ts";
 import { PiggeryDb, pickDatabase } from "./server/db.ts";
-import { abort, listModels, piggeryHome, pickBin, psView, realDir, runStepIn, tailView } from "./server/piggery.ts";
+import { abort, listModels, piggeryHome, pickBin, psView, psViewDoc, realDir, runStepIn, tailView } from "./server/piggery.ts";
 import { Person } from "./server/person.ts";
 import { checkoutRemoteUrl, configureAgent, listClaudeAgents, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
 import { ATTACH_ROOT, mailBody, uploadTooLarge } from "./server/attach.ts";
@@ -21,6 +21,11 @@ import { messageOf } from "./shared/errors.ts";
 
 const LINKS_FRESH_MS = 15000;
 
+export function statesFileOf(observeOnly: boolean, paseoHome: string | undefined): string | null {
+  if (!observeOnly) return STATES_FILE;
+  return paseoHome ? path.join(paseoHome, "plugin-data", "pigmonitor", "states.json") : null;
+}
+
 export const OBSERVE_ONLY_REFUSAL = { ok: false as const, code: "denied" as const, error: "This Paseo daemon runs PigMonitor observe-only, so nothing is sent to piggery or Paseo." };
 
 export default function contribute(server: PluginServerContext) {
@@ -35,12 +40,13 @@ export default function contribute(server: PluginServerContext) {
     return pickBin(state.status === "ready" ? state.values.path : "", piggeryPath);
   };
 
-  const states = new StateRecorder(STATES_FILE, async () => psView(await bin()));
-  states.start();
+  const statesFile = statesFileOf(observeOnly, process.env.PASEO_HOME);
+  const states = statesFile === null ? null : new StateRecorder(statesFile, async () => psView(await bin()));
+  states?.start();
   server.handle(snapshot, async ({ dir }) => {
-    const r = await states.snapshot();
+    const r = states ? await states.snapshot() : await psViewDoc(await bin());
     if (!r.ok) return r;
-    return { ok: true as const, view: r.view, segments: states.segments(), dir: dir === undefined ? undefined : await realDir(dir) };
+    return { ok: true as const, view: r.view, segments: states?.segments() ?? {}, dir: dir === undefined ? undefined : await realDir(dir) };
   });
   server.handle(tail, async ({ id, lines }) => tailView(await bin(), id, lines));
 
@@ -132,7 +138,7 @@ export default function contribute(server: PluginServerContext) {
   });
 
   return () => {
-    states.stop();
+    states?.stop();
     me.stop();
     db.close();
   };

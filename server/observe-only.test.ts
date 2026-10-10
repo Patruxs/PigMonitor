@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
-import contribute, { OBSERVE_ONLY_REFUSAL } from "../index.server.ts";
+import contribute, { OBSERVE_ONLY_REFUSAL, statesFileOf } from "../index.server.ts";
+import { STATES_FILE } from "./states.ts";
 import * as rpc from "../shared/rpc.ts";
 
 const CHANGES = ["pigmonitor.send", "pigmonitor.stop", "pigmonitor.step-in", "pigmonitor.rewind", "pigmonitor.agent-config", "pigmonitor.resume", "pigmonitor.upload"];
@@ -22,13 +23,18 @@ test("an observe-only daemon refuses every RPC that changes something and never 
     sock.destroy();
   });
   await new Promise<void>((resolve) => daemon.listen(path.join(piggery, "piggery.sock"), resolve));
-  const had = { home: process.env.HOME, path: process.env.PATH, observe: process.env.PIGMONITOR_OBSERVE_ONLY };
+  const paseoHome = path.join(home, "paseo-home");
+  const fakePiggery = path.join(home, "fake-piggery");
+  writeFileSync(fakePiggery, `#!/bin/sh\nprintf '%s' '{"version":1,"all":{"dirs":[]},"closed":{"dirs":[]}}'\n`);
+  chmodSync(fakePiggery, 0o755);
+  const had = { home: process.env.HOME, path: process.env.PATH, observe: process.env.PIGMONITOR_OBSERVE_ONLY, paseoHome: process.env.PASEO_HOME };
   process.env.HOME = home;
   process.env.PATH = home;
   process.env.PIGMONITOR_OBSERVE_ONLY = "1";
+  process.env.PASEO_HOME = paseoHome;
   const handlers = new Map<string, (input: unknown) => Promise<unknown>>();
   const host = {
-    registerSettings: () => ({ read: async () => ({ status: "ready", revision: "1", values: { path: path.join(home, "no-piggery"), database: path.join(home, "no.db") } }), subscribe: () => () => {} }),
+    registerSettings: () => ({ read: async () => ({ status: "ready", revision: "1", values: { path: fakePiggery, database: path.join(home, "no.db") } }), subscribe: () => () => {} }),
     handle: (contract: { name: string }, handler: (input: unknown) => Promise<unknown>) => handlers.set(contract.name, handler),
   } as unknown as PluginServerContext;
   const stop = contribute(host) as () => void;
@@ -37,15 +43,26 @@ test("an observe-only daemon refuses every RPC that changes something and never 
     assert.deepEqual([...handlers.keys()].sort(), [...contracts].sort());
     assert.deepEqual([...contracts].sort(), [...CHANGES, ...LOOKS].sort());
     for (const name of CHANGES) assert.deepEqual(await handlers.get(name)?.({}), OBSERVE_ONLY_REFUSAL, name);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    const shot = await handlers.get("pigmonitor.snapshot")?.({});
+    assert.ok(typeof shot === "object" && shot !== null && "ok" in shot && shot.ok === true);
+    await new Promise((resolve) => setTimeout(resolve, 300));
     assert.equal(connections, 0);
+    assert.ok(existsSync(path.join(paseoHome, "plugin-data", "pigmonitor", "states.json")));
   } finally {
     stop();
     daemon.close();
     process.env.HOME = had.home;
     process.env.PATH = had.path;
+    if (had.paseoHome === undefined) delete process.env.PASEO_HOME;
+    else process.env.PASEO_HOME = had.paseoHome;
     if (had.observe === undefined) delete process.env.PIGMONITOR_OBSERVE_ONLY;
     else process.env.PIGMONITOR_OBSERVE_ONLY = had.observe;
     rmSync(home, { recursive: true, force: true });
   }
+});
+
+test("an observe-only daemon keeps its state history in its own Paseo home, or in no file at all, never in the shared one", () => {
+  assert.equal(statesFileOf(true, "/tmp/run-6793/home"), path.join("/tmp/run-6793/home", "plugin-data", "pigmonitor", "states.json"));
+  assert.equal(statesFileOf(true, undefined), null);
+  assert.equal(statesFileOf(false, "/tmp/run-6793/home"), STATES_FILE);
 });

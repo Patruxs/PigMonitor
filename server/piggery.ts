@@ -68,6 +68,12 @@ export async function psView(bin: string): Promise<Result> {
   return PsView.safeParse(parsedJson(r.out)).success ? r : { ok: false, code: "failed", error: "piggery ps --view did not print JSON." };
 }
 
+export async function psViewDoc(bin: string): Promise<{ ok: true; view: Record<string, unknown> } | Failed> {
+  const r = await psView(bin);
+  if (!r.ok) return r;
+  return { ok: true, view: PsView.parse(parsedJson(r.out)) };
+}
+
 export async function tailView(bin: string, id: string, lines: number): Promise<{ ok: true; lines: TailLine[] } | Failed> {
   const r = await runPiggery(bin, ["tail", id, "-n", String(lines), "--view"]);
   if (!r.ok) return r;
