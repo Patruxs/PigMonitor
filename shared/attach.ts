@@ -2,6 +2,29 @@ import type { AttachmentData, ForgeItemData } from "./rpc.ts";
 
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
+const IMAGE_MARK = /^\[image: (\/[^\]\n]+)\]/;
+
+export function imageMark(path: string): string {
+  return `[image: ${path}]`;
+}
+
+export function markedImage(text: string): { path: string; length: number } | undefined {
+  const mark = IMAGE_MARK.exec(text);
+  return mark ? { path: mark[1].trim(), length: mark[0].length } : undefined;
+}
+
+export function splitImageMarks(text: string): { text: string; paths: string[] } {
+  const paths: string[] = [];
+  const lines = text.split("\n").filter((line) => {
+    const trimmed = line.trim();
+    const image = markedImage(trimmed);
+    if (!image || image.length !== trimmed.length) return true;
+    paths.push(image.path);
+    return false;
+  });
+  return { text: lines.join("\n").trim(), paths };
+}
+
 const FORGES: Record<string, { displayName: string; changeRequestAbbrev: string; changeRequestNumberPrefix: string }> = {
   github: { displayName: "GitHub", changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#" },
   gitlab: { displayName: "GitLab", changeRequestAbbrev: "MR", changeRequestNumberPrefix: "!" },

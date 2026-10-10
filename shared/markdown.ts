@@ -1,3 +1,5 @@
+import { markedImage } from "./attach.ts";
+
 export type Inline =
   | { kind: "text"; text: string }
   | { kind: "bold"; children: Inline[] }
@@ -234,8 +236,8 @@ function matchInline(rest: string, previous: string): Match | undefined {
     if (image) return { node: isImagePath(image[2]) ? { kind: "image", path: image[2], alt: image[1] } : { kind: "link", href: image[2], children: [{ kind: "text", text: image[1] || image[2] }] }, length: image[0].length };
   }
   if (head === "[") {
-    const attached = /^\[image: ([^\]\n]+)\]/.exec(rest);
-    if (attached && isImagePath(attached[1].trim())) return { node: { kind: "image", path: attached[1].trim(), alt: "" }, length: attached[0].length };
+    const attached = markedImage(rest);
+    if (attached) return { node: { kind: "image", path: attached.path, alt: "" }, length: attached.length };
     const link = /^\[([^\]\n]+)\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/.exec(rest);
     if (link) return { node: isImagePath(link[2]) && link[1] === link[2] ? { kind: "image", path: link[2], alt: "" } : { kind: "link", href: link[2], children: parseInline(link[1]) }, length: link[0].length };
   }

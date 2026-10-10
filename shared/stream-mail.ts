@@ -1,21 +1,14 @@
+import { splitImageMarks } from "./attach.ts";
 import type { StreamItem, UserMessageImage } from "./stream.ts";
 import type { Item } from "./transcript.ts";
-
-const IMAGE_LINE = /^\[image: (\/[^\]\n]+)\]$/;
 
 function keyOf(item: Item): string {
   return item.key ?? `${item.run ?? ""}:${item.i}`;
 }
 
-function splitImages(text: string, key: string): { text: string; images: UserMessageImage[] } {
-  const images: UserMessageImage[] = [];
-  const lines = text.split("\n").filter((line) => {
-    const image = IMAGE_LINE.exec(line.trim());
-    if (!image) return true;
-    images.push({ id: `${key}:image:${images.length}`, path: image[1] });
-    return false;
-  });
-  return { text: lines.join("\n").trim(), images };
+function imagesOf(item: Item, key: string): { text: string; images: UserMessageImage[] } {
+  const { text, paths } = splitImageMarks(item.text);
+  return { text, images: [...(item.images ?? []), ...paths].map((path, n) => ({ id: `${key}:image:${n}`, path })) };
 }
 
 export function streamOfTranscript(items: Item[]): StreamItem[] {
@@ -34,7 +27,7 @@ export function streamOfTranscript(items: Item[]): StreamItem[] {
     const start = out.length;
     switch (item.kind) {
       case "user": {
-        const { text, images } = splitImages(item.text, key);
+        const { text, images } = imagesOf(item, key);
         out.push({ kind: "user_message", id: `user:${key}`, text, timestamp, ...(images.length > 0 ? { images } : {}), ...(item.note ? { note: item.note } : {}) });
         break;
       }

@@ -22,16 +22,16 @@ test("a finished turn's footer hangs under its last answer, with the time from t
   assert.equal(layout.history[4].completedFooter, null);
 });
 
-test("piggery mail starts a new turn like a prompt, and pasted image lines become image attachments", () => {
+test("piggery mail starts a new turn like a prompt, and a message's parsed images and image marks become its attachments", () => {
   const stream = streamOfTranscript([
-    { i: 1, kind: "user", at: 0, text: "look\n[image: /tmp/a.png]", note: "Sent" },
+    { i: 1, kind: "user", at: 0, text: "look\n[image: /tmp/a.png]", images: ["/tmp/b.png"], note: "Sent" },
     { i: 2, kind: "assistant", at: 1000, text: "seen" },
     { i: 3, kind: "mail", at: 2000, text: "from the lead", from: "squid", ref: "#4" },
     { i: 4, kind: "assistant", at: 3000, text: "ok" },
   ]);
   const user = stream[0];
   assert.equal(user.kind === "user_message" && user.text, "look");
-  assert.deepEqual(user.kind === "user_message" && user.images?.map((image) => image.path), ["/tmp/a.png"]);
+  assert.deepEqual(user.kind === "user_message" && user.images?.map((image) => image.path), ["/tmp/b.png", "/tmp/a.png"]);
   const layout = layoutStream({ isTurnActive: false, history: stream, liveHead: [], timing: new Map() });
   assert.equal(layout.history[1].completedFooter?.itemId, "assistant::2");
 });

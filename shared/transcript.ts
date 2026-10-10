@@ -29,6 +29,7 @@ export const ShownItem = z.object({
   costUsd: z.number().optional(),
   trigger: z.enum(["auto", "manual"]).optional(),
   preTokens: z.number().optional(),
+  images: z.array(z.string()).optional(),
 });
 
 export type ShownItem = z.infer<typeof ShownItem>;
@@ -321,16 +322,14 @@ export class Parser {
       }
     }
     if (images.length === 0) return;
-    const mark = this.imageLines(images);
-    const last = this.items[this.items.length - 1];
-    if (this.items.length > before && last.kind === "user") last.text = `${last.text}\n${mark}`;
-    else this.push({ kind: "user", at, text: mark });
-  }
-
-  private imageLines(images: Block[]): string {
     const files = images.map((b) => (b.source?.type === "base64" && b.source.data && b.source.media_type ? this.saveImage?.(b.source.data, b.source.media_type) : undefined));
-    if (files.every((f) => f !== undefined)) return files.map((f) => `[image: ${f}]`).join("\n");
-    return images.length === 1 ? "[image]" : `[${images.length} images]`;
+    const saved = files.every((f) => f !== undefined) ? files : undefined;
+    const unsaved = images.length === 1 ? "[image]" : `[${images.length} images]`;
+    const last = this.items[this.items.length - 1];
+    if (this.items.length > before && last.kind === "user") {
+      if (saved) last.images = saved;
+      else last.text = `${last.text}\n${unsaved}`;
+    } else this.push({ kind: "user", at, text: saved ? "" : unsaved, ...(saved ? { images: saved } : {}) });
   }
 
   private userText(text: string, at: number | undefined): void {

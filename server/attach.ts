@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { forgeOf, MAX_UPLOAD_BYTES } from "../shared/attach.ts";
+import { forgeOf, imageMark, MAX_UPLOAD_BYTES } from "../shared/attach.ts";
 import type { AttachmentData, ImageData } from "../shared/rpc.ts";
 
 export const ATTACH_ROOT = "/tmp/piggery-attach";
@@ -24,7 +24,7 @@ export async function saveImages(root: string, session: string, images: ImageDat
 
 export function bodyWithImages(body: string, files: string[]): string {
   if (files.length === 0) return body;
-  const lines = files.map((f) => `[image: ${f}]`);
+  const lines = files.map(imageMark);
   return [body.trim(), ...lines].filter(Boolean).join("\n");
 }
 

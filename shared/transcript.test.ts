@@ -84,7 +84,7 @@ test("images the person pasted show in their message", () => {
   const items = read([user([{ type: "text", text: "What is this?" }, png]), user([png, png])].join("\n"));
   assert.deepEqual(items.map((i) => [i.kind, i.text]), [["user", "What is this?\n[image]"], ["user", "[2 images]"]]);
   const saved = read(user([{ type: "text", text: "What is this?" }, png]), undefined, (data, mimeType) => `/tmp/pasted/${data.length}.${mimeType.slice(6)}`);
-  assert.deepEqual(saved.map((i) => i.text), ["What is this?\n[image: /tmp/pasted/4.png]"]);
+  assert.deepEqual(saved.map((i) => [i.text, i.images]), [["What is this?", ["/tmp/pasted/4.png"]]]);
 });
 
 test("a run's start, its handed-over prompt and its end take the times around them, and each turn its own duration and cost", () => {
