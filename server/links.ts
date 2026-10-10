@@ -110,11 +110,11 @@ export function createLinker({ store, readParent = forkParentOf }: { store: { lo
       const linkedAgents = new Set(next.values());
       if (unmatched.some((session) => !next.has(session.id))) {
         for (const agent of agents) {
-          if (agent.archived || linkedAgents.has(agent.agentId)) continue;
-          for (const ancestor of ancestorsOf(agent, dirs, refs)) {
-            const participant = byRef.get(ancestor);
-            if (participant) next.set(participant.id, agent.agentId);
-          }
+          if (agent.archived || refs.has(agent.sessionId) || linkedAgents.has(agent.agentId)) continue;
+          const participant = ancestorsOf(agent, dirs, refs).map((ancestor) => byRef.get(ancestor)).find((candidate) => candidate !== undefined);
+          if (!participant || next.has(participant.id)) continue;
+          next.set(participant.id, agent.agentId);
+          linkedAgents.add(agent.agentId);
         }
       }
       const live = new Set(agents.filter((agent) => !agent.archived).map((agent) => agent.agentId));

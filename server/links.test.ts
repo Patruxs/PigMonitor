@@ -25,9 +25,21 @@ test("a Paseo agent whose Claude session forked from a piggery session is linked
     const tundra = { id: "tundra", ref: "ac2c96a6", transcript: path.join(project.dir, "ac2c96a6.jsonl") };
     const agents = [{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }];
     assert.equal(forkParentOf(path.join(project.dir, "c0af857a.jsonl")), "ac2c96a6");
+    assert.deepEqual(createLinker({ store }).links(agents, [tundra]), [{ participantId: "tundra", agentId: "fe6455cd" }]);
+    assert.deepEqual(createLinker({ store, readParent: () => assert.fail("a stored link needs no file read") }).links(agents, [tundra]), [{ participantId: "tundra", agentId: "fe6455cd" }]);
+  } finally {
+    project.done();
+  }
+});
+
+test("an agent that another participant exact-matches is never linked by the fork walk, and a link is never overwritten", () => {
+  const project = claudeProject();
+  try {
+    const tundra = { id: "tundra", ref: "ac2c96a6", transcript: path.join(project.dir, "ac2c96a6.jsonl") };
     const tern = { id: "tern", ref: "c0af857a", transcript: null };
-    assert.deepEqual(createLinker({ store }).links(agents, [tundra, tern]), [{ participantId: "tundra", agentId: "fe6455cd" }]);
-    assert.deepEqual(createLinker({ store, readParent: () => assert.fail("a stored link needs no file read") }).links(agents, [tundra, tern]), [{ participantId: "tundra", agentId: "fe6455cd" }]);
+    assert.deepEqual(createLinker({ store: memoryStore() }).links([{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra, tern]), []);
+    const kept = createLinker({ store: memoryStore([{ participantId: "tundra", agentId: "first" }]) }).links([{ agentId: "first", sessionId: "11111111", archived: false }, { agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra]);
+    assert.deepEqual(kept, [{ participantId: "tundra", agentId: "first" }]);
   } finally {
     project.done();
   }

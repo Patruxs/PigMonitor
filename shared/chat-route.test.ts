@@ -51,7 +51,7 @@ test("an open Paseo agent decides busy or idle over piggery's state, and piggery
   assert.equal(withPaseoBusy(working, paseoBusyOf(null)), working);
 });
 
-test("a participant keeps its Paseo agent after the agent's Claude session id changes, as an interrupt or rewind does", () => {
+test("a participant keeps its Paseo agent after the agent's Claude session id changes, as a conversation rewind does", () => {
   const agent = { id: "fe6455cd", provider: "claude", status: "idle", activeTurn: null, archivedAt: null, persistence: { sessionId: "c0af857a" } };
   const tundra = { id: "tundra", ref: "ac2c96a6" };
   const held = heldAgentOf(tundra, agentsBySession([{ agent }]), new Map([["tundra", "fe6455cd"]]), agentsById([{ agent }]));
