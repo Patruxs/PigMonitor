@@ -29,3 +29,8 @@ test("an Agent call is a sub-agent card with its answer, ExitPlanMode a plan, an
   assert.deepEqual(claudeToolCall("ExitPlanMode", { plan: "1. do" }, done("rejected", true), "/p"), { detail: { type: "plan", text: "1. do" }, status: "completed" });
   assert.deepEqual(claudeToolCall("mcp__piggery__send", { to: "squid", body: "hi" }, done([{ type: "text", text: '{"id":"m1","seq":3}' }]), "/p").detail, { type: "unknown", input: { to: "squid", body: "hi" }, output: { output: { id: "m1", seq: 3 } } });
 });
+
+test("whether a touched file was added or updated comes from the caller, not from reading the disk while parsing", () => {
+  const call = (exists: boolean) => claudeToolCall("mcp__fs__touch", { file_path: "/nowhere/new.txt" }, done("ok"), "/nowhere", () => exists).detail;
+  assert.deepEqual([call(true), call(false)].map((detail) => (detail.type === "unknown" ? (detail.output as { files?: unknown }).files : detail.type)), [[{ path: "new.txt", kind: "update" }], [{ path: "new.txt", kind: "add" }]]);
+});

@@ -2,12 +2,22 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import type { MailMessage } from "../shared/mail.ts";
-import { Parser, usageOf, type ContextReading, type SaveImage } from "../shared/claude-log.ts";
+import { Parser, usageOf, type ContextReading, type DescribeTool, type SaveImage } from "../shared/claude-log.ts";
 import { mergeMail } from "../shared/transcript-mail.ts";
 import type { Item, Transcript } from "../shared/transcript.ts";
 import type { PiggeryDb, Participant } from "./db.ts";
 import { JsonlTail } from "./jsonl-tail.ts";
 import { claudeToolCall } from "./tool-detail.ts";
+
+const exists = (file: string) => {
+  try {
+    return existsSync(file);
+  } catch {
+    return true;
+  }
+};
+
+const describeTool: DescribeTool = (name, input, result, cwd) => claudeToolCall(name, input, result, cwd, exists);
 
 export interface Cursor {
   epoch: string;
@@ -69,7 +79,7 @@ export class TranscriptReader {
       this.logs.set(key, logs);
     }
     files.forEach((file, k) => {
-      const run = (logs.runs[k] ??= { tail: new JsonlTail(file, stats[k]), parser: new Parser(path.basename(file, ".jsonl"), this.saveImage, claudeToolCall) });
+      const run = (logs.runs[k] ??= { tail: new JsonlTail(file, stats[k]), parser: new Parser(path.basename(file, ".jsonl"), this.saveImage, describeTool) });
       this.feed(run, run.tail.lines(stats[k]), rev);
     });
     return logs;

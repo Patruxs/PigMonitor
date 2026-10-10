@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ToolResultBlock } from "../shared/claude-log.ts";
 import type { ToolCall } from "../shared/transcript.ts";
@@ -456,15 +455,10 @@ function patchFiles(patch: string): Array<{ path: string; kind: string }> {
   return files;
 }
 
-function fileKind(file: string): string {
-  try {
-    return existsSync(file) ? "update" : "add";
-  } catch {
-    return "update";
-  }
-}
+export type FileExists = (file: string) => boolean;
 
-function fileChanges(input: Rec, cwd: string | undefined): Array<{ path: string; kind: string }> | undefined {
+function fileChanges(input: Rec, cwd: string | undefined, fileExists: FileExists): Array<{ path: string; kind: string }> | undefined {
+  const fileKind = (file: string) => (fileExists(file) ? "update" : "add");
   const relative = (target: string) => (cwd && target.startsWith(cwd) ? path.relative(cwd, target) || path.basename(target) : target);
   if (isStr(input.file_path) && input.file_path.length > 0) return [{ path: relative(input.file_path), kind: fileKind(input.file_path) }];
   if (isStr(input.patch) && input.patch.length > 0) {
@@ -493,7 +487,7 @@ function structuredOutput(name: string, output: string, input: Rec | null): Rec 
   return undefined;
 }
 
-function toolOutput(name: string, input: Rec | null, content: unknown, cwd: string | undefined): Rec | undefined {
+function toolOutput(name: string, input: Rec | null, content: unknown, cwd: string | undefined, fileExists: FileExists): Rec | undefined {
   const text = resultText(content);
   const structured = structuredOutput(name, text, input);
   if (structured) return structured;
@@ -505,7 +499,7 @@ function toolOutput(name: string, input: Rec | null, content: unknown, cwd: stri
       out.output = text;
     }
   }
-  const files = input && !(isCommandName(name.toLowerCase(), ["bash", "shell", "terminal", "command"]) || hasCommand(input)) ? fileChanges(input, cwd) : undefined;
+  const files = input && !(isCommandName(name.toLowerCase(), ["bash", "shell", "terminal", "command"]) || hasCommand(input)) ? fileChanges(input, cwd, fileExists) : undefined;
   if (files?.length) out.files = files;
   return Object.keys(out).length > 0 ? out : undefined;
 }
@@ -516,14 +510,14 @@ function subAgentDetail(input: Rec | null, answer: string): ToolCallDetail {
   return { type: "sub_agent", ...(subAgentType ? { subAgentType } : {}), ...(description ? { description } : {}), log: answer, actions: [] };
 }
 
-export function claudeToolCall(rawName: string, rawInput: unknown, result: ToolResultBlock | undefined, cwd: string | undefined): ToolCall {
+export function claudeToolCall(rawName: string, rawInput: unknown, result: ToolResultBlock | undefined, cwd: string | undefined, fileExists: FileExists = () => true): ToolCall {
   const input = typeof rawInput === "object" && rawInput !== null ? (rawInput as Rec) : null;
   const content = withoutImages(result?.content);
   const failed = result?.is_error === true;
   const status = !result ? "running" : failed ? "failed" : "completed";
   const name = rawName.trim();
   if (name === "ExitPlanMode" && isRecord(input) && isStr(input.plan)) return { detail: { type: "plan", text: input.plan }, status: failed ? "completed" : status };
-  const output = result && !failed ? toolOutput(rawName, input, content, cwd) : undefined;
+  const output = result && !failed ? toolOutput(rawName, input, content, cwd, fileExists) : undefined;
   const detail = rawName === "Task" || rawName === "Agent" ? subAgentDetail(input, result && !failed ? resultText(content) : "") : deriveClaudeToolDetail(detailName(isSpeakToolName(name) ? "speak" : name), input, output ?? null);
   return failed ? { detail, status, toolError: { ...result, content } } : { detail, status };
 }
