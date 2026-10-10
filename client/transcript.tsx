@@ -3,7 +3,6 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { transcript } from "../shared/rpc.ts";
-import { mergeItems } from "../shared/thread.ts";
 import type { Item, Transcript } from "../shared/transcript.ts";
 import { streamOfTranscript } from "../shared/stream-mail.ts";
 import type { PiggeryStreamItem } from "../shared/stream.ts";
@@ -19,14 +18,14 @@ import { BUSY_MS, useNow, usePoll } from "./poll.ts";
 export const PAGE = 20000;
 const BODY_LINE = 22;
 
-export function useTranscript(id: string, limit: number) {
+export function useTranscript(id: string, limit: number, refresh = 0) {
   const call = useRpc(transcript);
   return usePoll(
     async () => {
       const r = await call({ id, limit });
       return r.ok ? { ok: true as const, value: { items: r.items, total: r.total, name: r.name, role: r.role, files: r.files, roles: r.roles } as Transcript } : r;
     },
-    `${id}:${limit}`,
+    `${id}:${limit}:${refresh}`,
     () => BUSY_MS,
   );
 }
@@ -65,6 +64,7 @@ export function MailIn({ theme, item, role, now }: { theme: PluginTheme; item: I
           <>
             {role ? <Pill theme={theme} label={role} colour={colour} filled /> : null}
             <Pill theme={theme} label={item.ref ? `mail ${item.ref}` : "mail"} icon="Mail" />
+            {item.to ? <Pill theme={theme} label={`to ${item.to}`} icon="Send" /> : null}
             {item.reply ? <Pill theme={theme} label={`re ${item.reply}`} icon="Reply" /> : null}
           </>
         }
@@ -78,18 +78,15 @@ export function MailIn({ theme, item, role, now }: { theme: PluginTheme; item: I
   );
 }
 
-const NO_EXTRA: Item[] = [];
-
-export function MailStream({ theme, id, extra = NO_EXTRA, hideFrom, working, workingSince, cwd, viewportRef }: { theme: PluginTheme; id: string; extra?: Item[]; hideFrom?: string; working: boolean; workingSince?: number; cwd?: string; viewportRef?: { current: ViewportHandle | null } }) {
+export function MailStream({ theme, id, refresh, working, workingSince, cwd, viewportRef }: { theme: PluginTheme; id: string; refresh?: number; working: boolean; workingSince?: number; cwd?: string; viewportRef?: { current: ViewportHandle | null } }) {
   const [limit, setLimit] = useState(PAGE);
   const now = useNow(30000);
-  const { value: fresh, error } = useTranscript(id, limit);
-  const kept = useRef<{ id: string; value: Transcript } | null>(null);
-  if (fresh) kept.current = { id, value: fresh };
+  const { value: fresh, error } = useTranscript(id, limit, refresh);
+  const kept = useRef<{ id: string; limit: number; value: Transcript } | null>(null);
+  if (fresh) kept.current = { id, limit, value: fresh };
   const value = fresh ?? (kept.current?.id === id ? kept.current.value : null);
-  const isLoadingOlder = fresh === null && value !== null;
-  const merged = useMemo(() => mergeItems(value?.items ?? [], extra, hideFrom), [value, extra, hideFrom]);
-  const tail = useMemo(() => streamOfTranscript(merged), [merged]);
+  const isLoadingOlder = fresh === null && value !== null && (kept.current?.limit ?? limit) < limit;
+  const tail = useMemo(() => streamOfTranscript(value?.items ?? []), [value]);
   const hasOlder = value !== null && value.total > value.items.length;
   const turn: TurnPresentation = { isActive: working, isCancelling: false, startedAt: working && workingSince !== undefined ? new Date(workingSince) : null, turnId: null };
   const loadOlder = useCallback(async () => {
@@ -102,7 +99,8 @@ export function MailStream({ theme, id, extra = NO_EXTRA, hideFrom, working, wor
       const { source } = item;
       if (source.kind === "session") return <Quiet theme={theme} icon="Play" label={`Session started${source.text ? ` · ${source.text}` : ""}`} />;
       if (source.kind === "wake") return <Quiet theme={theme} icon="Bell" label={source.text} />;
-      return <MailIn theme={theme} item={{ i: 0, kind: "mail", at: item.timestamp.getTime(), text: source.text, from: source.from, ref: source.ref, reply: source.reply }} role={source.from ? value?.roles?.[source.from] : undefined} now={now} />;
+      if (source.kind === "turn") return null;
+      return <MailIn theme={theme} item={{ i: 0, kind: "mail", at: item.timestamp.getTime(), text: source.text, from: source.from, to: source.to, ref: source.ref, reply: source.reply }} role={source.from ? value?.roles?.[source.from] : undefined} now={now} />;
     },
     [theme, value, now],
   );

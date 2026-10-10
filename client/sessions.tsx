@@ -1,12 +1,12 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal, ScrollView, useToast } from "@getpaseo/plugin/client/react-native";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Dimensions, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, useWindowDimensions, View, type PressableStateCallbackType } from "react-native";
 import { basenameOf } from "../shared/events.ts";
 import type { MailMessage } from "../shared/mail.ts";
 import { mail, person, sendMail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
-import { itemsOfThread, latestFrom, type Me } from "../shared/thread.ts";
+import { latestFrom, type Me } from "../shared/thread.ts";
 import { briefAgo, type Dir, type Row, type Status, type View as PigView } from "../shared/view.ts";
 import { Chip, statusColour } from "./kit/badge.tsx";
 import { AVATAR, AvatarStack, Pill, RoleAvatar, STATUS_WORD, StatusDot, StatusPill, StatusWord, paint, tint } from "./kit/chat.tsx";
@@ -683,7 +683,6 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
   const call = useRpc(sendMail);
   const writable = item.row.kind === "solo" || item.row.gate === true;
   const thread = useThread(me, item.row.id, bump);
-  const extra = useMemo(() => (me ? itemsOfThread(thread, me) : []), [thread, me]);
   const viewportRef = useRef<ViewportHandle | null>(null);
   const sent = () => {
     viewportRef.current?.scrollToBottom();
@@ -716,7 +715,7 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
     <FileDropZone theme={theme} style={{ flex: 1, minWidth: 0 }}>
     <KeyboardAvoidingPane>
       <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} onBack={onBack} onInfo={onInfo} />
-      {timeline ? <OpenStream theme={theme} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} extra={extra} hideFrom={me?.name} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} />}
+      {timeline ? <OpenStream theme={theme} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} />}
       {writable ? (
         <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={native.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} stop={stop} agent={native.kind === "open" && timeline ? { agentId: native.agentId, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />
       ) : (

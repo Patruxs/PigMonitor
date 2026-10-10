@@ -157,6 +157,12 @@ export class MailReader {
     return row ?? null;
   }
 
+  involving(file: string, id: string): MailMessage[] {
+    if (!existsSync(file)) return [];
+    const rows = this.open(file).prepare(`${SELECT} WHERE m.from_id = ? OR m.to_id = ? ORDER BY m.seq`).all(id, id) as unknown as Raw[];
+    return rows.map(toMessage);
+  }
+
   sessions(file: string, ids: string[]): Session[] {
     if (!existsSync(file) || ids.length === 0) return [];
     const rows = this.open(file)

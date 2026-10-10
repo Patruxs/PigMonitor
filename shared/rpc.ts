@@ -117,7 +117,7 @@ const ToolCallDetailSchema: z.ZodType<ToolCallDetail, unknown> = z.discriminated
 
 const Item = z.object({
   i: z.number().int(),
-  kind: z.enum(["session", "user", "wake", "assistant", "thinking", "tool", "mail", "turn"]),
+  kind: z.enum(["session", "user", "wake", "assistant", "thinking", "tool", "mail", "turn", "compaction"]),
   at: z.number().optional(),
   text: z.string(),
   tool: z.string().optional(),
@@ -125,12 +125,18 @@ const Item = z.object({
   result: z.string().optional(),
   error: z.boolean().optional(),
   from: z.string().optional(),
+  to: z.string().optional(),
   ref: z.string().optional(),
   reply: z.string().optional(),
   run: z.string().optional(),
+  note: z.string().optional(),
   detail: ToolCallDetailSchema.optional(),
   status: z.enum(["running", "completed", "failed", "canceled"]).optional(),
   toolError: NonNullUnknown.optional(),
+  durationMs: z.number().optional(),
+  costUsd: z.number().optional(),
+  trigger: z.enum(["auto", "manual"]).optional(),
+  preTokens: z.number().optional(),
 });
 
 export const transcript = defineRpc({

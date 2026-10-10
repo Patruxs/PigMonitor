@@ -36,6 +36,25 @@ test("piggery mail starts a new turn like a prompt, and pasted image lines becom
   assert.equal(layout.history[1].completedFooter?.itemId, "assistant::2");
 });
 
+test("a worker's turn takes its duration and cost from its result, and mail arriving mid-turn does not split it", () => {
+  const stream = streamOfTranscript([
+    { i: 0, kind: "session", at: 0, text: "run" },
+    { i: 1, kind: "mail", at: 1000, text: "brief", from: "lead", ref: "#1" },
+    { i: 2, kind: "assistant", at: 2000, text: "on it" },
+    { i: 3, kind: "mail", at: 3000, text: "also this", from: "lead", ref: "#2" },
+    { i: 4, kind: "assistant", at: 4000, text: "done" },
+    { i: 5, kind: "turn", at: 4000, text: "", durationMs: 758000, costUsd: 3.93 },
+    { i: 6, kind: "mail", at: 5000, text: "thanks", from: "lead", ref: "#3" },
+    { i: 7, kind: "assistant", at: 6000, text: "ok" },
+    { i: 8, kind: "turn", at: 6000, text: "", durationMs: 1000 },
+  ]);
+  const timing = deriveStreamTurnTiming({ isTurnActive: false, activeTurnStartedAt: null, tail: stream, head: [] });
+  assert.deepEqual(timing.byAssistantId.get("assistant::4"), { completedAt: new Date(4000), durationMs: 758000, costUsd: 3.93 });
+  assert.equal(timing.byAssistantId.get("assistant::2")?.durationMs, 758000);
+  const layout = layoutStream({ isTurnActive: false, history: stream, liveHead: [], timing: timing.byAssistantId });
+  assert.deepEqual(layout.history.map((row) => row.completedFooter?.itemId ?? null), [null, null, null, null, null, "assistant::4", null, null, null]);
+});
+
 test("a reader scrolled up keeps the same row in view when older history is prepended above it", () => {
   const anchor = createReadingAnchor();
   anchor.reconcile(0, [{ id: "a", top: 0, height: 100 }, { id: "b", top: 100, height: 100 }]);

@@ -1,5 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import type { MailMessage } from "../shared/mail.ts";
+import { withMail } from "../shared/thread.ts";
 import { parseLines, type Item, type SaveImage, type Transcript } from "../shared/transcript.ts";
 import type { MailReader, Participant } from "./mail.ts";
 import { claudeToolCall } from "./tool-detail.ts";
@@ -48,7 +50,7 @@ export class TranscriptReader {
     return items;
   }
 
-  read(dbFile: string, id: string, before: number | undefined, limit: number): TranscriptResult {
+  read(dbFile: string, id: string, before: number | undefined, limit: number, person?: string): TranscriptResult {
     let who: Participant | null = null;
     try {
       who = this.mail.participant(dbFile, id);
@@ -59,10 +61,13 @@ export class TranscriptReader {
       return { ok: false, code: "nolog", error: `No session log for ${who?.name ?? id} yet. piggery keeps a worker's log under its logs directory, and a session's where its harness writes it.` };
     }
     try {
-      const all: Item[] = [];
-      for (const file of files) {
-        for (const item of this.parsed(file, path.basename(file, ".jsonl"))) all.push({ ...item, i: all.length });
-      }
+      const logged: Item[] = [];
+      for (const file of files) logged.push(...this.parsed(file, path.basename(file, ".jsonl")));
+      let messages: MailMessage[] = [];
+      try {
+        messages = this.mail.involving(dbFile, id);
+      } catch {}
+      const all = withMail(logged, messages, id, person);
       let roles: Record<string, string> | undefined;
       if (who?.team_id) {
         try {

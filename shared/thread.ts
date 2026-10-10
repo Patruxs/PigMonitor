@@ -1,4 +1,3 @@
-// The mail the person exchanges with one session, as transcript items among the session's own.
 // Pure, so `node --test` loads it as is.
 import type { MailMessage } from "./mail.ts";
 import type { Item } from "./transcript.ts";
@@ -8,27 +7,53 @@ export interface Me {
   name: string;
 }
 
-export const MAIL_BASE = 1_000_000_000;
-
-/** Mail as transcript items: the person's as their bubbles with the send state, the session's as mail in. */
-export function itemsOfThread(messages: MailMessage[], me: Me): Item[] {
-  return messages.map((m) => {
-    const ref = `#${m.seq}`;
-    if (m.from === me.id) return { i: MAIL_BASE + m.seq, kind: "user", at: m.created_at, text: m.body, ref, note: m.held ? "Held" : m.acked_at ? "Read" : "Sent", run: "mail" };
-    return { i: MAIL_BASE + m.seq, kind: "mail", at: m.created_at, text: m.body, from: m.from_name, ref, reply: m.reply_seq === undefined ? undefined : `#${m.reply_seq}`, run: "mail" };
-  });
-}
-
 /** The newest mail `id` sent: what a reply answers. */
 export function latestFrom(messages: MailMessage[], id: string): MailMessage | undefined {
   return messages.filter((m) => m.from === id).sort((a, b) => b.seq - a.seq)[0];
 }
 
-/** The session's items and the person's mail with it in time order; the session's own copy of the person's mail is left out. */
-export function mergeItems(items: Item[], extra: Item[], hideFrom: string | undefined): Item[] {
-  const own = hideFrom ? items.filter((it) => !(it.kind === "mail" && it.from === hideFrom)) : items;
-  if (extra.length === 0) return own;
-  const merged = [...own, ...extra];
-  const order = new Map(merged.map((it, i) => [it, i]));
-  return merged.sort((a, b) => (a.at ?? 0) - (b.at ?? 0) || (order.get(a) ?? 0) - (order.get(b) ?? 0));
+export function withMail(items: Item[], messages: MailMessage[], self: string, person: string | undefined): Item[] {
+  const mailItem = (m: MailMessage, at: number): Item => {
+    const ref = `#${m.seq}`;
+    if (m.from === person) return { i: 0, kind: "user", at, text: m.body, ref, note: m.held ? "Held" : m.acked_at ? "Read" : "Sent", run: "mail" };
+    return { i: 0, kind: "mail", at, text: m.body, from: m.from_name, ...(m.from === self ? { to: m.to_name } : {}), ref, ...(m.reply_seq !== undefined ? { reply: `#${m.reply_seq}` } : {}), run: "mail" };
+  };
+  const byRef = new Map(messages.map((m) => [`#${m.seq}`, m]));
+  const placed = new Set<string>();
+  const own: Item[] = [];
+  for (const item of items) {
+    const found = item.ref ? byRef.get(item.ref) : undefined;
+    if (item.kind === "mail" && item.ref) {
+      if (placed.has(item.ref) || (found && item.redelivered)) continue;
+      placed.add(item.ref);
+      own.push(found ? mailItem(found, item.at ?? found.created_at) : item);
+    } else if (item.kind === "tool" && item.ref && found && !placed.has(item.ref)) {
+      placed.add(item.ref);
+      own.push(mailItem(found, item.at ?? found.created_at));
+    } else own.push(item);
+  }
+  const rest = messages.filter((m) => !placed.has(`#${m.seq}`)).sort((a, b) => a.created_at - b.created_at || a.seq - b.seq);
+  const deliveries = own.flatMap((item, index) => (item.kind === "delivery" ? [index] : []));
+  const delivered = new Map<number, MailMessage[]>();
+  const loose: MailMessage[] = [];
+  let first = 0;
+  for (const m of rest) {
+    const queued = m.to === self && !m.held;
+    while (queued && first < deliveries.length && (own[deliveries[first]].at ?? Infinity) < m.created_at) first++;
+    if (!queued || first === deliveries.length) loose.push(m);
+    else delivered.set(deliveries[first], [...(delivered.get(deliveries[first]) ?? []), m]);
+  }
+  const out: Item[] = [];
+  let next = 0;
+  const arrive = () => {
+    const m = loose[next++];
+    out.push(mailItem(m, m.created_at));
+  };
+  own.forEach((item, index) => {
+    while (next < loose.length && item.at !== undefined && loose[next].created_at < item.at) arrive();
+    if (item.kind !== "delivery") out.push(item);
+    for (const m of delivered.get(index) ?? []) out.push(mailItem(m, item.at ?? m.created_at));
+  });
+  while (next < loose.length) arrive();
+  return out.map((item, i) => ({ ...item, i }));
 }

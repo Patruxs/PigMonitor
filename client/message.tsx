@@ -99,7 +99,8 @@ export function AssistantTurnFooter({ theme, getContent, timing }: { theme: Plug
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
-  const duration = timing && timing.durationMs !== null ? `Worked for ${formatDuration(timing.durationMs)}` : "";
+  const cost = timing?.costUsd !== undefined ? ` · $${timing.costUsd.toFixed(2)}` : "";
+  const duration = timing && timing.durationMs !== null ? `Worked for ${formatDuration(timing.durationMs)}${cost}` : "";
   const stamp = timing ? formatMessageTimestamp(timing.completedAt) : "";
   const shown = duration || stamp;
   const canSwap = Boolean(duration && stamp);

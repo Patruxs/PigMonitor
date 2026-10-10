@@ -1,6 +1,6 @@
 import type { ToolCallDetail } from "./tool-call.ts";
 
-export type ItemKind = "session" | "user" | "wake" | "assistant" | "thinking" | "tool" | "mail" | "turn";
+export type ItemKind = "session" | "user" | "wake" | "assistant" | "thinking" | "tool" | "mail" | "turn" | "compaction" | "delivery";
 
 export interface Item {
   i: number;
@@ -12,13 +12,19 @@ export interface Item {
   result?: string;
   error?: boolean;
   from?: string;
+  to?: string;
   ref?: string;
   reply?: string;
+  redelivered?: boolean;
   run?: string;
   note?: string;
   detail?: ToolCallDetail;
   status?: ToolCallStatus;
   toolError?: unknown;
+  durationMs?: number;
+  costUsd?: number;
+  trigger?: "auto" | "manual";
+  preTokens?: number;
 }
 
 export type ToolCallStatus = "running" | "completed" | "failed" | "canceled";
@@ -62,9 +68,13 @@ export type DescribeTool = (name: string, input: unknown, result: ToolResultBloc
 interface Entry {
   type?: string;
   subtype?: string;
+  state?: string;
   timestamp?: string;
   isSidechain?: boolean;
   isMeta?: boolean;
+  isSynthetic?: boolean;
+  isCompactSummary?: boolean;
+  compact_metadata?: { trigger?: string; pre_tokens?: number };
   message?: { role?: string; content?: string | Block[] };
   model?: string;
   cwd?: string;
@@ -110,6 +120,7 @@ export interface Mail {
   from?: string;
   reply?: string;
   at?: string;
+  redelivered?: boolean;
   body: string;
 }
 
@@ -122,7 +133,7 @@ export function mailsIn(text: string): Mail[] {
     const ar = /(\w+)="([^"]*)"/g;
     let a: RegExpExecArray | null;
     while ((a = ar.exec(m[1])) !== null) attrs[a[1]] = a[2];
-    out.push({ ref: attrs.id, from: attrs.sender ?? attrs.from, reply: attrs.reply_to, at: attrs.at, body: m[2].trim() });
+    out.push({ ref: attrs.id, from: attrs.sender ?? attrs.from, reply: attrs.reply_to, at: attrs.at, ...(attrs.redelivered === "true" ? { redelivered: true } : {}), body: m[2].trim() });
   }
   return out;
 }
@@ -144,6 +155,7 @@ export class Parser {
   private readonly saveImage: SaveImage | undefined;
   private readonly describe: DescribeTool | undefined;
   private cwd: string | undefined;
+  private spent = 0;
 
   constructor(run?: string, saveImage?: SaveImage, describe?: DescribeTool) {
     this.run = run;
@@ -178,20 +190,34 @@ export class Parser {
       this.push({ kind: "session", at, text: [e.model, e.cwd].filter(Boolean).join(" · ") });
       return;
     }
+    if (e.type === "command_lifecycle" && e.state === "started") {
+      this.push({ kind: "delivery", at, text: "" });
+      return;
+    }
+    if (e.type === "system" && e.subtype === "compact_boundary") {
+      const pre = e.compact_metadata?.pre_tokens;
+      this.push({ kind: "compaction", at, text: "", trigger: e.compact_metadata?.trigger === "manual" ? "manual" : "auto", ...(typeof pre === "number" ? { preTokens: pre } : {}) });
+      return;
+    }
     if (e.type === "result") {
+      let cost: number | undefined;
+      if (typeof e.total_cost_usd === "number") {
+        cost = e.total_cost_usd >= this.spent ? e.total_cost_usd - this.spent : e.total_cost_usd;
+        this.spent = e.total_cost_usd;
+      }
       const bits: string[] = [];
       if (typeof e.num_turns === "number") bits.push(`${e.num_turns} turns`);
       if (typeof e.duration_ms === "number") bits.push(`${Math.round(e.duration_ms / 1000)}s`);
-      if (typeof e.total_cost_usd === "number") bits.push(`$${e.total_cost_usd.toFixed(2)}`);
-      this.push({ kind: "turn", at, text: bits.join(" · "), error: e.is_error === true });
+      if (cost !== undefined) bits.push(`$${cost.toFixed(2)}`);
+      this.push({ kind: "turn", at, text: bits.join(" · "), error: e.is_error === true, ...(typeof e.duration_ms === "number" ? { durationMs: e.duration_ms } : {}), ...(cost !== undefined ? { costUsd: cost } : {}) });
       return;
     }
     if (e.type !== "user" && e.type !== "assistant") return;
-    if (e.isMeta) return;
+    if (e.isMeta || e.isCompactSummary) return;
     const content = e.message?.content;
     if (content === undefined) return;
     if (e.type === "assistant") this.assistant(content, at);
-    else this.user(content, at);
+    else this.user(content, at, e.isSynthetic === true);
   }
 
   private assistant(content: string | Block[], at: number | undefined): void {
@@ -210,16 +236,17 @@ export class Parser {
     }
   }
 
-  private user(content: string | Block[], at: number | undefined): void {
+  private user(content: string | Block[], at: number | undefined, synthetic: boolean): void {
     if (typeof content === "string") {
-      this.userText(content, at);
+      if (!synthetic) this.userText(content, at);
       return;
     }
     const before = this.items.length;
     const images: Block[] = [];
     for (const b of content) {
-      if (b.type === "text" && b.text) this.userText(b.text, at);
-      else if (b.type === "image") images.push(b);
+      if (b.type === "text" && b.text) {
+        if (!synthetic) this.userText(b.text, at);
+      } else if (b.type === "image") images.push(b);
       else if (b.type === "tool_result" && b.tool_use_id) {
         const text = contentText(b.content);
         const call = this.open.get(b.tool_use_id);
@@ -228,6 +255,8 @@ export class Parser {
           if (b.is_error) item.error = true;
           if (this.describe) Object.assign(item, this.describe(call.name, call.input, b, this.cwd));
           else item.result = text.trim();
+          const sent = !b.is_error && call.name.endsWith("__send") ? /^sent (#\d+)$/.exec(text.trim()) : null;
+          if (sent) item.ref = sent[1];
           this.open.delete(b.tool_use_id);
         }
         this.mails(text, at);
@@ -265,12 +294,28 @@ export class Parser {
   }
 
   private mails(text: string, at: number | undefined): void {
-    for (const m of mailsIn(text)) this.push({ kind: "mail", at, text: m.body, from: m.from, ref: m.ref, reply: m.reply });
+    for (const m of mailsIn(text)) this.push({ kind: "mail", at, text: m.body, from: m.from, ref: m.ref, reply: m.reply, ...(m.redelivered ? { redelivered: true } : {}) });
   }
+}
+
+function stampUntimed(items: Item[]): Item[] {
+  const timed = items.map((item) => item.at);
+  let next: number | undefined;
+  for (let index = items.length - 1; index >= 0; index--) {
+    const item = items[index];
+    if (timed[index] !== undefined) next = timed[index];
+    else if (item.kind === "session" || item.kind === "delivery") item.at = next;
+  }
+  let last = timed.find((at) => at !== undefined);
+  for (const item of items) {
+    if (item.at === undefined) item.at = last;
+    else last = item.at;
+  }
+  return items;
 }
 
 export function parseLines(text: string, run?: string, saveImage?: SaveImage, describe?: DescribeTool): Item[] {
   const p = new Parser(run, saveImage, describe);
   for (const line of text.split("\n")) p.line(line);
-  return p.items;
+  return stampUntimed(p.items);
 }

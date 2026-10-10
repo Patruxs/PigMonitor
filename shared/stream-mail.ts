@@ -20,11 +20,18 @@ function splitImages(text: string, key: string): { text: string; images: UserMes
 
 export function streamOfTranscript(items: Item[]): StreamItem[] {
   const out: StreamItem[] = [];
+  const byResult = items.some((item) => item.kind === "turn");
   let lastAt = 0;
+  let turn = 0;
+  let working = false;
   for (const item of items) {
     lastAt = item.at ?? lastAt;
     const timestamp = new Date(lastAt);
     const key = keyOf(item);
+    if (item.kind === "session" && working) turn += 1;
+    if (item.kind === "session" || item.kind === "turn") working = false;
+    else if (item.kind !== "mail" && item.kind !== "user" && item.kind !== "wake") working = true;
+    const start = out.length;
     switch (item.kind) {
       case "user": {
         const { text, images } = splitImages(item.text, key);
@@ -48,14 +55,20 @@ export function streamOfTranscript(items: Item[]): StreamItem[] {
         break;
       }
       case "turn":
-        if (item.error) out.push({ kind: "notification", sourceType: "error", id: `turn:${key}`, timestamp, level: "error", message: item.text || "The run failed" });
+        if (item.error) out.push({ kind: "notification", sourceType: "error", id: `error:${key}`, timestamp, level: "error", message: item.text || "The run failed" });
+        out.push({ kind: "piggery", id: `turn:${key}`, timestamp, prompt: false, source: { kind: "turn", text: item.text, ...(item.durationMs !== undefined ? { durationMs: item.durationMs } : {}), ...(item.costUsd !== undefined ? { costUsd: item.costUsd } : {}) } });
+        break;
+      case "compaction":
+        out.push({ kind: "compaction", id: `compaction:${key}`, timestamp, status: "completed", ...(item.trigger ? { trigger: item.trigger } : {}), ...(item.preTokens !== undefined ? { preTokens: item.preTokens } : {}) });
         break;
       case "session":
       case "wake":
       case "mail":
-        out.push({ kind: "piggery", id: `${item.kind}:${key}`, timestamp, prompt: item.kind !== "session", source: { kind: item.kind, text: item.text, ...(item.from ? { from: item.from } : {}), ...(item.ref ? { ref: item.ref } : {}), ...(item.reply ? { reply: item.reply } : {}) } });
+        out.push({ kind: "piggery", id: `${item.kind}:${key}`, timestamp, prompt: item.to === undefined, source: { kind: item.kind, text: item.text, ...(item.from ? { from: item.from } : {}), ...(item.to ? { to: item.to } : {}), ...(item.ref ? { ref: item.ref } : {}), ...(item.reply ? { reply: item.reply } : {}) } });
         break;
     }
+    if (byResult) for (const made of out.slice(start)) made.turnId = `turn:${turn}`;
+    if (item.kind === "turn") turn += 1;
   }
   return out;
 }

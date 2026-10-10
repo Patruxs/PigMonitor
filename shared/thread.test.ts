@@ -2,15 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { MailMessage } from "./mail.ts";
 import type { Item } from "./transcript.ts";
-import { itemsOfThread, latestFrom, mergeItems } from "./thread.ts";
+import { latestFrom, withMail } from "./thread.ts";
 
-const me = { id: "ME", name: "lgtm" };
-const msg = (p: Partial<MailMessage> & { seq: number; from: string; to: string }): MailMessage => ({ id: `m${p.seq}`, from_name: p.from === "ME" ? "lgtm" : "pigeon", to_name: "x", body: `body ${p.seq}`, created_at: p.seq * 1000, ...p });
+const msg = (p: Partial<MailMessage> & { seq: number; from: string; to: string }): MailMessage => ({ id: `m${p.seq}`, from_name: p.from === "ME" ? "lgtm" : p.from === "W" ? "worker" : "lead", to_name: "x", body: `body ${p.seq}`, created_at: p.seq * 1000, ...p });
 
 test("the person's mail becomes their bubbles with the send state, the session's mail in", () => {
-  const items = itemsOfThread([msg({ seq: 1, from: "ME", to: "A" }), msg({ seq: 2, from: "A", to: "ME", reply_seq: 1 }), msg({ seq: 3, from: "ME", to: "A", acked_at: 5 }), msg({ seq: 4, from: "ME", to: "A", held: "limit" })], me);
+  const items = withMail([], [msg({ seq: 1, from: "ME", to: "W" }), msg({ seq: 2, from: "W", to: "ME", reply_seq: 1 }), msg({ seq: 3, from: "ME", to: "W", acked_at: 5 }), msg({ seq: 4, from: "ME", to: "W", held: "limit" })], "W", "ME");
   assert.deepEqual(items.map((i) => [i.kind, i.ref, i.note ?? i.reply]), [["user", "#1", "Sent"], ["mail", "#2", "#1"], ["user", "#3", "Read"], ["user", "#4", "Held"]]);
-  assert.equal(items[1].from, "pigeon");
+  assert.equal(items[1].from, "worker");
 });
 
 test("latestFrom picks the newest mail the session sent", () => {
@@ -19,9 +18,36 @@ test("latestFrom picks the newest mail the session sent", () => {
   assert.equal(latestFrom(thread, "B"), undefined);
 });
 
-test("mergeItems orders by time and drops the session's copy of the person's mail", () => {
-  const own: Item[] = [{ i: 0, kind: "assistant", at: 1000, text: "a" }, { i: 1, kind: "mail", at: 2500, text: "copy", from: "lgtm" }, { i: 2, kind: "assistant", at: 3000, text: "b" }];
-  const extra: Item[] = [{ i: 5, kind: "user", at: 2000, text: "mine", note: "Sent" }];
-  assert.deepEqual(mergeItems(own, extra, "lgtm").map((i) => i.text), ["a", "mine", "b"]);
-  assert.deepEqual(mergeItems(own, [], undefined).map((i) => i.text), ["a", "copy", "b"]);
+test("each mail shows once, where the worker first saw it or sent it, else where it was sent", () => {
+  const log: Item[] = [
+    { i: 0, kind: "session", at: 2000, text: "run" },
+    { i: 1, kind: "tool", at: 3000, text: "mcp__piggery__inbox", tool: "mcp__piggery__inbox" },
+    { i: 2, kind: "mail", at: 3000, text: "body 1", from: "lead", ref: "#1", redelivered: true },
+    { i: 3, kind: "mail", at: 3000, text: "body 3", from: "lead", ref: "#3" },
+    { i: 4, kind: "tool", at: 7000, text: "mcp__piggery__send", tool: "mcp__piggery__send", ref: "#4" },
+    { i: 5, kind: "mail", at: 8000, text: "body 3", from: "lead", ref: "#3", redelivered: true },
+    { i: 6, kind: "turn", at: 9000, text: "" },
+  ];
+  const db = [msg({ seq: 1, from: "L", to: "W" }), msg({ seq: 3, from: "L", to: "W", created_at: 2500 }), msg({ seq: 4, from: "W", to: "L", created_at: 7100 }), msg({ seq: 5, from: "ME", to: "W", created_at: 8500 })];
+  const items = withMail(log, db, "W", "ME");
+  assert.deepEqual(items.map((i) => [i.kind, i.ref]), [["mail", "#1"], ["session", undefined], ["tool", undefined], ["mail", "#3"], ["mail", "#4"], ["user", "#5"], ["turn", undefined]]);
+  assert.deepEqual(items.map((i) => i.i), [0, 1, 2, 3, 4, 5, 6]);
+  assert.equal(items[3].at, 3000);
+  assert.deepEqual([items[3].to, items[4].from, items[4].to], [undefined, "worker", "x"]);
+});
+
+test("mail queued while the worker was busy shows where piggery handed it over, not inside the turn it was sent during", () => {
+  const log: Item[] = [
+    { i: 0, kind: "delivery", at: 1000, text: "" },
+    { i: 1, kind: "session", at: 1000, text: "run" },
+    { i: 2, kind: "assistant", at: 5000, text: "working" },
+    { i: 3, kind: "turn", at: 9000, text: "" },
+    { i: 4, kind: "delivery", at: 9500, text: "" },
+    { i: 5, kind: "session", at: 9500, text: "run" },
+    { i: 6, kind: "assistant", at: 9600, text: "thanks" },
+  ];
+  const db = [msg({ seq: 1, from: "L", to: "W", created_at: 500 }), msg({ seq: 2, from: "L", to: "W", created_at: 6000 }), msg({ seq: 3, from: "L", to: "W", created_at: 7000, held: "limit" })];
+  const items = withMail(log, db, "W", "ME");
+  assert.deepEqual(items.map((i) => i.ref ?? i.kind), ["#1", "session", "assistant", "#3", "turn", "#2", "session", "assistant"]);
+  assert.equal(items[5].at, 9500);
 });

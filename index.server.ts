@@ -51,19 +51,19 @@ export default function contribute(server: PluginServerContext) {
     return reader.read(pickDatabase(state.status === "ready" ? state.values.database : ""), filter);
   });
 
-  const transcripts = new TranscriptReader(reader, pastedImageSaver(`${ATTACH_ROOT}/pasted`));
-  server.handle(transcript, async ({ id, before, limit }) => {
-    const state = await stored.read();
-    return transcripts.read(pickDatabase(state.status === "ready" ? state.values.database : ""), id, before, limit);
-  });
-
-  server.handle(imageFile, async ({ path }) => readImage(path));
-
   const me = new Person((line) => console.log(line));
   const database = async () => {
     const state = await stored.read();
     return pickDatabase(state.status === "ready" ? state.values.database : "");
   };
+
+  const transcripts = new TranscriptReader(reader, pastedImageSaver(`${ATTACH_ROOT}/pasted`));
+  server.handle(transcript, async ({ id, before, limit }) => {
+    const file = await database();
+    return transcripts.read(file, id, before, limit, me.current(file)?.id);
+  });
+
+  server.handle(imageFile, async ({ path }) => readImage(path));
   void database().then((db) => me.warm(db));
   server.handle(person, async () => {
     const who = me.current(await database());

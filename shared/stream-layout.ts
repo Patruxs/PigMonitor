@@ -64,6 +64,7 @@ export function getGapBetweenStreamItems(item: StreamItem | null, belowItem: Str
 export interface TurnTiming {
   completedAt: Date;
   durationMs: number | null;
+  costUsd?: number;
 }
 
 export interface StreamTurnTiming {
@@ -76,10 +77,12 @@ export function deriveStreamTurnTiming(params: { isTurnActive: boolean; activeTu
   let startedAt: Date | null = null;
   let lastAt: Date | null = null;
   let assistantIds: string[] = [];
+  let reported: { durationMs?: number; costUsd?: number } | null = null;
   let previous: StreamItem | null = null;
   const flush = () => {
     if (!lastAt || assistantIds.length === 0) return;
-    const timing = { completedAt: lastAt, durationMs: startedAt ? Math.max(0, lastAt.getTime() - startedAt.getTime()) : null };
+    const measured = startedAt ? Math.max(0, lastAt.getTime() - startedAt.getTime()) : null;
+    const timing: TurnTiming = { completedAt: lastAt, durationMs: reported?.durationMs ?? measured, ...(reported?.costUsd !== undefined ? { costUsd: reported.costUsd } : {}) };
     for (const id of assistantIds) byAssistantId.set(id, timing);
   };
   for (const item of [...params.tail, ...params.head]) {
@@ -88,9 +91,11 @@ export function deriveStreamTurnTiming(params: { isTurnActive: boolean; activeTu
       startedAt = isPrompt(item) ? item.timestamp : null;
       lastAt = null;
       assistantIds = [];
+      reported = null;
     }
     lastAt = item.timestamp;
     if (item.kind === "assistant_message") assistantIds.push(item.id);
+    if (item.kind === "piggery" && item.source.kind === "turn") reported = item.source;
     previous = item;
   }
   if (!params.isTurnActive) flush();

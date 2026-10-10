@@ -174,11 +174,11 @@ function footerContent(host: TurnFooterHost) {
 
 const Row = memo(function Row({ theme, layout, cwd, pending, renderPiggery, renderUserActions }: { theme: PluginTheme; layout: StreamLayoutItem; cwd?: string; pending?: ReadonlySet<string>; renderPiggery?: StreamViewProps["renderPiggery"]; renderUserActions?: StreamViewProps["renderUserActions"] }) {
   const content = ItemContent({ theme, layout, cwd, pending, renderPiggery, renderUserActions });
-  if (!content) return null;
   const footer = layout.completedFooter;
+  if (!content && !footer) return null;
   return (
     <>
-      <View style={{ width: "100%", maxWidth: MAX_CONTENT_WIDTH, alignSelf: "center", paddingHorizontal: SPACING[2], marginBottom: layout.gapBelow }}>{content}</View>
+      {content ? <View style={{ width: "100%", maxWidth: MAX_CONTENT_WIDTH, alignSelf: "center", paddingHorizontal: SPACING[2], marginBottom: layout.gapBelow }}>{content}</View> : null}
       {footer ? (
         <TurnFooterRow>
           <CompletedTurnFooter theme={theme} getContent={footerContent(footer)} timing={footer.timing} />
