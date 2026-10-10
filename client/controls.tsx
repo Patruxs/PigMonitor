@@ -232,12 +232,19 @@ function DesktopFeatureItem({ model, feature, open, onOpenChange }: { model: Con
   );
 }
 
+function initialActiveIndex(options: ComboOption[], value: string, query: string): number {
+  if (options.length === 0) return -1;
+  if (query.trim()) return 0;
+  const selected = options.findIndex((option) => option.id === value);
+  return selected >= 0 ? selected : 0;
+}
+
 type Pushed = { kind: "model" } | { kind: "thinking" } | { kind: "mode" } | { kind: "feature"; id: string } | null;
 
 function PushedOptions({ theme, options, value, searchable, searchPlaceholder, leadingOf, onSelect }: { theme: PluginTheme; options: ComboOption[]; value: string; searchable: boolean; searchPlaceholder?: string; leadingOf?: (option: ComboOption) => ReactNode; onSelect: (id: string) => void }) {
   const [query, setQuery] = useState("");
   const visible = searchable ? filterAndRankOptions(options, query) : options;
-  return <ComboList theme={theme} options={visible} value={value} activeIndex={-1} searchable={searchable} searchPlaceholder={searchPlaceholder} onSearch={setQuery} onSelect={onSelect} leadingOf={leadingOf} emptyText="No options match your search." />;
+  return <ComboList theme={theme} options={visible} value={value} activeIndex={initialActiveIndex(visible, value, query)} sheet searchable={searchable} searchPlaceholder={searchPlaceholder} onSearch={setQuery} onSelect={onSelect} leadingOf={leadingOf} emptyText="No options match your search." />;
 }
 
 function SheetControls({ model, onPush }: { model: ControlsModel; onPush: (pushed: Pushed) => void }) {
@@ -267,7 +274,7 @@ function PushedBody({ model, pushed, browser, usesBottomSheet, onPop }: { model:
   if (pushed.kind === "model") {
     return (
       <View style={{ flex: 1, minHeight: 0 }}>
-        <SearchRow theme={theme} resetKey={browser.searchResetKey} placeholder={browser.view.kind === "all" ? "Search all models..." : "Search models..."} onChange={browser.setSearchQuery} onFocus={() => browser.setSearchFocused(true)} onBlur={() => browser.setSearchFocused(false)} autoFocus={!isNative && !usesBottomSheet} />
+        <SearchRow theme={theme} sheet resetKey={browser.searchResetKey} placeholder={browser.view.kind === "all" ? "Search all models..." : "Search models..."} onChange={browser.setSearchQuery} onFocus={() => browser.setSearchFocused(true)} onBlur={() => browser.setSearchFocused(false)} autoFocus={!isNative && !usesBottomSheet} />
         <ModelBrowserBody
           theme={theme}
           state={browser}
@@ -339,7 +346,7 @@ function ModeSheetOptions({ theme, mode, value, onSelect }: { theme: PluginTheme
     const icon = getAgentModeOptionIcon(mode.entry, option.id);
     return icon ? <Icon name={icon} size={16} color={theme.colors.foreground} /> : null;
   };
-  return <ComboList theme={theme} options={options} value={value} activeIndex={-1} searchable searchPlaceholder="Search modes..." onSearch={setQuery} onSelect={onSelect} leadingOf={leadingOf} emptyText="No options match your search." />;
+  return <ComboList theme={theme} options={options} value={value} activeIndex={initialActiveIndex(options, value, query)} sheet searchable searchPlaceholder="Search modes..." onSearch={setQuery} onSelect={onSelect} leadingOf={leadingOf} emptyText="No options match your search." />;
 }
 
 function SheetModal({ model, title, open, onClose, browser, usesBottomSheet, pushed, setPushed, children }: { model: ControlsModel; title: string; open: boolean; onClose: () => void; browser: ModelBrowserState; usesBottomSheet: boolean; pushed: Pushed; setPushed: (pushed: Pushed) => void; children: ReactNode }) {
@@ -349,7 +356,7 @@ function SheetModal({ model, title, open, onClose, browser, usesBottomSheet, pus
     setPushed(null);
   };
   return (
-    <Modal title={pushed ? pushedTitle(model, pushed, browser) : title} open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
+    <Modal title={pushed ? pushedTitle(model, pushed, browser) : title} icon={pushed?.kind === "model" && browser.view.kind === "provider" ? <ProviderGlyph provider={browser.view.providerId} iconSvg={model.icons[browser.view.providerId]} size={16} color={theme.colors.foreground} /> : undefined} open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
       <Modal.Content scrollable={!usesBottomSheet} contentContainerStyle={{ padding: 0, gap: 0 }}>
         {pushed ? (
           <View style={{ minHeight: 0, flexShrink: 1 }}>
@@ -400,7 +407,7 @@ function CompactControls({ model }: { model: ControlsModel }) {
     <>
       <CompactModelTrigger theme={theme} label={shortModelLabel(rootBrowser.selectedModelLabel)} thinkingLabel={thinkingLabel} provider={model.provider} icons={model.icons} glyphSize={model.glyphSize} open={isOpen} disabled={model.disabled} onPress={() => (isOpen ? close() : open())} />
       <SheetModal model={model} title="Select model" open={isOpen} onClose={close} browser={modelBrowser} usesBottomSheet={usesBottomSheet} pushed={pushed} setPushed={setPushed}>
-        <SearchRow theme={theme} resetKey={rootBrowser.searchResetKey} placeholder="Search models..." onChange={rootBrowser.setSearchQuery} onFocus={() => rootBrowser.setSearchFocused(true)} onBlur={() => rootBrowser.setSearchFocused(false)} autoFocus={!isNative && !usesBottomSheet} />
+        <SearchRow theme={theme} sheet resetKey={rootBrowser.searchResetKey} placeholder="Search models..." onChange={rootBrowser.setSearchQuery} onFocus={() => rootBrowser.setSearchFocused(true)} onBlur={() => rootBrowser.setSearchFocused(false)} autoFocus={!isNative && !usesBottomSheet} />
         <View style={[{ overflow: "hidden", backgroundColor: sidebarColour(theme) }, usesBottomSheet ? { flex: 1, minHeight: 0 } : { height: COMPACT_MODEL_VIEWPORT, minHeight: COMPACT_MODEL_VIEWPORT }]}>
           <ModelBrowserBody
             theme={theme}

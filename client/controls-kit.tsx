@@ -82,10 +82,10 @@ export function Anchored({ theme, open, onClose, onKey, tooltip, tooltipStyle, t
       if (e.key === "Escape") onClose();
     };
     doc.addEventListener("mousedown", onPointerDown);
-    doc.addEventListener("keydown", onKeyDown);
+    doc.addEventListener("keydown", onKeyDown, true);
     return () => {
       doc.removeEventListener("mousedown", onPointerDown);
-      doc.removeEventListener("keydown", onKeyDown);
+      doc.removeEventListener("keydown", onKeyDown, true);
     };
   }, [open, onClose, onKey]);
   useEffect(() => () => {
@@ -122,7 +122,7 @@ export function TooltipText({ theme, children }: { theme: PluginTheme; children:
   return <Text style={{ color: theme.colors.foreground, fontSize: FONT_BASE, lineHeight: FONT_BASE * 1.4 }} numberOfLines={1}>{children}</Text>;
 }
 
-export function SearchRow({ theme, placeholder, onChange, onFocus, onBlur, onSubmit, autoFocus, resetKey }: { theme: PluginTheme; placeholder: string; onChange: (value: string) => void; onFocus?: () => void; onBlur?: () => void; onSubmit?: () => void; autoFocus?: boolean; resetKey?: string | number }) {
+export function SearchRow({ theme, placeholder, onChange, onFocus, onBlur, onSubmit, autoFocus, resetKey, sheet = false }: { theme: PluginTheme; placeholder: string; onChange: (value: string) => void; onFocus?: () => void; onBlur?: () => void; onSubmit?: () => void; autoFocus?: boolean; resetKey?: string | number; sheet?: boolean }) {
   const input = useRef<TextInput>(null);
   useEffect(() => {
     if (!autoFocus) return;
@@ -130,8 +130,8 @@ export function SearchRow({ theme, placeholder, onChange, onFocus, onBlur, onSub
     return () => clearTimeout(timer);
   }, [autoFocus, resetKey]);
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], paddingHorizontal: SPACING[3], paddingVertical: SPACING[2], borderBottomWidth: 1, borderBottomColor: theme.colors.border }}>
-      <Icon name="Search" size={14} color={theme.colors.foregroundMuted} />
+    <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], paddingHorizontal: sheet ? SPACING[6] : SPACING[3], paddingVertical: SPACING[2], borderBottomWidth: 1, borderBottomColor: theme.colors.border }}>
+      <Icon name="Search" size={sheet ? 16 : 14} color={theme.colors.foregroundMuted} />
       <TextInput
         key={resetKey}
         ref={input}
@@ -226,10 +226,10 @@ export function useComboKeys(options: ComboOption[], open: boolean, onSelect: (i
   return { activeIndex, onKey };
 }
 
-export function ComboList({ theme, options, value, activeIndex, searchable, searchPlaceholder, onSearch, onSelect, leadingOf, emptyText }: { theme: PluginTheme; options: ComboOption[]; value: string; activeIndex: number; searchable: boolean; searchPlaceholder?: string; onSearch: (query: string) => void; onSelect: (id: string) => void; leadingOf?: (option: ComboOption) => ReactNode; emptyText?: string }) {
+export function ComboList({ theme, options, value, activeIndex, searchable, searchPlaceholder, onSearch, onSelect, leadingOf, emptyText, sheet = false }: { theme: PluginTheme; options: ComboOption[]; value: string; activeIndex: number; searchable: boolean; searchPlaceholder?: string; onSearch: (query: string) => void; onSelect: (id: string) => void; leadingOf?: (option: ComboOption) => ReactNode; emptyText?: string; sheet?: boolean }) {
   return (
     <>
-      {searchable ? <SearchRow theme={theme} placeholder={searchPlaceholder ?? "Search..."} onChange={onSearch} autoFocus /> : null}
+      {searchable ? <SearchRow theme={theme} placeholder={searchPlaceholder ?? "Search..."} onChange={onSearch} autoFocus sheet={sheet} /> : null}
       <ScrollView style={{ flexShrink: 1, minHeight: 0 }} contentContainerStyle={{ paddingVertical: SPACING[1] }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {options.length === 0 ? <Text style={{ paddingHorizontal: SPACING[3], paddingVertical: SPACING[2], color: theme.colors.foregroundMuted, fontSize: FONT_BASE }}>{emptyText ?? "No results"}</Text> : null}
         {options.map((option, index) => (

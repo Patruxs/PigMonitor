@@ -432,29 +432,34 @@ export function HiddenProjects({ theme, count, onShow }: { theme: PluginTheme; c
   );
 }
 
+const HEAD_STACK_BELOW = 560;
+
 function ChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; onBack?: () => void; onInfo: () => void }) {
   const { row } = item;
   const colour = paint(theme, row.role, row.id);
   const sub = [row.harness, row.model && row.model !== "-" ? row.model : undefined, row.ctx ? `${row.ctx} ctx` : undefined, row.turns ? `${row.turns} turns` : undefined].filter(Boolean).join(" · ");
   const project = basenameOf(item.dir.path);
+  const [width, setWidth] = useState(0);
+  const compact = width > 0 && width < HEAD_STACK_BELOW;
+  const link = <NativeLink theme={theme} id={row.id} native={native} chat={chat} writable={writable} />;
   return (
-    <View style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface0 }}>
-    <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[3], paddingTop: SPACING[2] }} accessibilityLabel={`In project ${project}${item.teamName ? `, team ${item.teamName}` : ""}`}>
+    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface0 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[3], paddingTop: SPACING[2], overflow: "hidden" }} accessibilityLabel={`In project ${project}${item.teamName ? `, team ${item.teamName}` : ""}`}>
       <Icon name="Folder" size={12} color={theme.colors.accent} />
-      <Text style={[text(theme, "label"), { color: theme.colors.foreground, fontWeight: "600" }]} numberOfLines={1}>
+      <Text style={[text(theme, "label"), { color: theme.colors.foreground, fontWeight: "600", flexShrink: 0 }]} numberOfLines={1}>
         {project}
       </Text>
-      <Text style={[text(theme, "label"), { flexShrink: 1 }]} numberOfLines={1} ellipsizeMode="head">
+      <Text style={[text(theme, "label"), { flexShrink: 1, minWidth: 0 }]} numberOfLines={1} ellipsizeMode="head">
         {item.dir.label}
       </Text>
       {item.teamName ? (
         <>
           <Icon name="ChevronRight" size={11} color={theme.colors.foregroundMuted} />
           <Icon name="Users" size={12} color={theme.colors.foregroundMuted} />
-          <Text style={[text(theme, "label"), { color: theme.colors.foreground, fontWeight: "600" }]} numberOfLines={1}>
+          <Text style={[text(theme, "label"), { color: theme.colors.foreground, fontWeight: "600", flexShrink: 0 }]} numberOfLines={1}>
             {item.teamName}
           </Text>
-          {item.template ? <Text style={text(theme, "label")}>{item.template}</Text> : null}
+          {item.template ? <Text style={[text(theme, "label"), { flexShrink: 0 }]} numberOfLines={1}>{item.template}</Text> : null}
         </>
       ) : (
         <>
@@ -474,7 +479,7 @@ function ChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { the
         <StatusDot theme={theme} status={row.status} dim={row.dim} />
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: SPACING[0.5] }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
+        <View style={{ flexDirection: "row", flexWrap: compact ? "wrap" : "nowrap", alignItems: "center", columnGap: SPACING[2], rowGap: SPACING[0.5] }}>
           <Text style={[text(theme, "rowTitle"), { fontWeight: "600", flexShrink: 1 }]} numberOfLines={1}>
             {row.name}
           </Text>
@@ -485,8 +490,9 @@ function ChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { the
         <Text style={text(theme, "label")} numberOfLines={1}>
           {sub || item.preview}
         </Text>
+        {compact ? <View style={{ flexDirection: "row", marginTop: SPACING[0.5] }}>{link}</View> : null}
       </View>
-      <NativeLink theme={theme} id={row.id} native={native} chat={chat} writable={writable} />
+      {compact ? null : link}
       <Pressable onPress={onInfo} accessibilityRole="button" accessibilityLabel="About this session" hitSlop={SPACING[2]} style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" }}>
         <Icon name="Info" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />
       </Pressable>

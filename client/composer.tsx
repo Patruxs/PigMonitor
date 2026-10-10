@@ -54,7 +54,7 @@ const MIRRORED_STYLES = ["fontFamily", "fontSize", "fontWeight", "fontStyle", "f
 
 const dom = globalThis as { document?: Document; window?: Window; navigator?: Navigator };
 const isWeb = dom.document !== undefined;
-const isMac = /Mac|iPhone|iPad/.test(dom.navigator?.platform ?? "");
+const isMac = /Macintosh|Mac OS|iPhone|iPad|iPod/i.test(dom.navigator?.userAgent ?? "") || /Mac|iPhone|iPad|iPod/i.test(dom.navigator?.platform ?? "");
 const FOCUS_HINT = isMac ? "⌘L to focus" : "Ctrl+L to focus";
 const DESKTOP_PLACEHOLDER = "Message the agent, tag @files, or use /commands and /skills";
 const MOBILE_PLACEHOLDER = "Message, @files, /commands";

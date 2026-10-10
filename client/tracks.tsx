@@ -4,7 +4,7 @@ import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import type { StreamItem, TodoEntry } from "../shared/stream.ts";
-import { AnchoredPopover } from "./kit/menu.tsx";
+import { AnchoredPopover, SheetText } from "./kit/menu.tsx";
 import { hostColours, MAX_CONTENT_WIDTH, RADIUS, SPACING } from "./kit/theme.ts";
 import { BUSY_MS, usePoll } from "./poll.ts";
 
@@ -131,9 +131,9 @@ function TaskRow({ theme, task }: { theme: PluginTheme; task: TodoEntry }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], flexGrow: 1, flexShrink: 1, minWidth: 0 }} accessibilityLabel={label}>
       <Icon name={isCompleted ? "CircleCheck" : isRunning ? "CircleDot" : "Circle"} size={16} color={isRunning ? theme.colors.accent : extraMuted} />
-      <Text numberOfLines={1} style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, fontSize: 14, color: isCompleted ? extraMuted : isRunning ? theme.colors.foreground : theme.colors.foregroundMuted, textDecorationLine: isCompleted ? "line-through" : "none" }}>
+      <SheetText numberOfLines={1} style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, fontSize: 14, color: isCompleted ? extraMuted : isRunning ? theme.colors.foreground : theme.colors.foregroundMuted, textDecorationLine: isCompleted ? "line-through" : "none" }}>
         {label}
-      </Text>
+      </SheetText>
     </View>
   );
 }
@@ -237,11 +237,11 @@ function SubagentsTrack({ theme, rows, status, onOpen, onArchive, onArchiveFinis
                 {(active) => (
                   <>
                     <Icon name="Archive" size={ROW_ICON_SIZE} color={active ? theme.colors.foreground : theme.colors.foregroundMuted} />
-                    <Text style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, fontSize: 14, color: theme.colors.foreground }} numberOfLines={1}>
+                    <SheetText style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, fontSize: 14, color: theme.colors.foreground }} numberOfLines={1}>
                       Archive finished subagents
-                    </Text>
-                    {status.kind === "archiving" ? <Text style={{ fontSize: 12, color: theme.colors.foregroundMuted }}>{`${status.completedCount}/${status.totalCount}`}</Text> : null}
-                    {status.kind === "failed" ? <Text style={{ fontSize: 12, color: theme.colors.foregroundMuted }}>{`Retry (${status.failedCount}/${status.totalCount})`}</Text> : null}
+                    </SheetText>
+                    {status.kind === "archiving" ? <SheetText style={{ fontSize: 12, color: theme.colors.foregroundMuted }}>{`${status.completedCount}/${status.totalCount}`}</SheetText> : null}
+                    {status.kind === "failed" ? <SheetText style={{ fontSize: 12, color: theme.colors.foregroundMuted }}>{`Retry (${status.failedCount}/${status.totalCount})`}</SheetText> : null}
                   </>
                 )}
               </TrackRow>
@@ -268,9 +268,9 @@ function SubagentsTrack({ theme, rows, status, onOpen, onArchive, onArchiveFinis
                 {(active) => (
                   <>
                     <View style={{ width: ROW_ICON_SIZE, alignItems: "center", justifyContent: "center" }}>{bucket ? <TrackMark theme={theme} bucket={bucket} /> : <Icon name="Bot" size={ROW_ICON_SIZE} color={theme.colors.foregroundMuted} />}</View>
-                    <Text style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, fontSize: 14, color: theme.colors.foreground }} numberOfLines={1}>
+                    <SheetText style={{ flexGrow: 1, flexShrink: 1, minWidth: 0, fontSize: 14, color: theme.colors.foreground }} numberOfLines={1}>
                       {label}
-                    </Text>
+                    </SheetText>
                     <Pressable accessibilityRole="button" accessibilityLabel={`Archive ${label}`} hitSlop={8} onPress={() => onArchive(row.id)} style={{ padding: SPACING[1], opacity: active ? 1 : 0, pointerEvents: active ? "auto" : "none" }}>
                       {({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => <Icon name="Archive" size={ROW_ICON_SIZE} color={hovered || pressed ? theme.colors.foreground : theme.colors.foregroundMuted} />}
                     </Pressable>

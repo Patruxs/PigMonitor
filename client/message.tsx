@@ -11,7 +11,7 @@ import { buildToolCallPresentation, type PlanOutcome, type ToolCallDetail, type 
 import { AttachmentLightbox } from "./kit/lightbox.tsx";
 import { Markdown, usePicture } from "./kit/markdown.tsx";
 import { AttachmentFrame, AttachmentLabel, AttachmentThumbnail } from "./kit/pill.tsx";
-import { CONTENT_FONT, CONTENT_LINE, hostColours, ICON_SIZE, RADIUS, SPACING, STREAM_METADATA_FONT } from "./kit/theme.ts";
+import { CONTENT_FONT, CONTENT_LINE, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, RADIUS, SPACING, STREAM_METADATA_FONT } from "./kit/theme.ts";
 import { ToolCallDetailsContent } from "./tool-details.tsx";
 
 const isWeb = Platform.OS === "web";
@@ -134,7 +134,7 @@ export function AssistantTurnFooter({ theme, getContent, timing }: { theme: Plug
 export const TURN_FOOTER_BOTTOM_SPACING = SPACING[8];
 
 export function TurnFooterRow({ children }: { children: ReactNode }) {
-  return <View style={{ width: "100%", alignSelf: "center", paddingHorizontal: SPACING[2], marginTop: SPACING[2] + 5 }}>{children}</View>;
+  return <View style={{ width: "100%", maxWidth: MAX_CONTENT_WIDTH, alignSelf: "center", paddingHorizontal: SPACING[2], marginTop: SPACING[2] + 5 }}>{children}</View>;
 }
 
 export function RunningTurnFooter({ theme, startedAt }: { theme: PluginTheme; startedAt: Date | null }) {

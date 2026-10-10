@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { Modal, ScrollView } from "@getpaseo/plugin/client/react-native";
-import { useEffect, useRef, type ReactNode } from "react";
-import { Pressable, Text, useWindowDimensions, View, type PressableStateCallbackType } from "react-native";
+import { ScrollView } from "@getpaseo/plugin/client/react-native";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Modal, Pressable, Text, useWindowDimensions, View, type PressableStateCallbackType, type TextProps } from "react-native";
 import { RADIUS, SPACING, text } from "./theme.ts";
 
 export interface MenuItem {
@@ -14,18 +14,64 @@ export interface MenuItem {
 
 const MENU_MIN_WIDTH = 220;
 const MENU_OFFSET = 8;
-const MENU_ITEM_HEIGHT = 28;
+const MENU_ITEM_HEIGHT = { sheet: 40, popover: 28 } as const;
 const SHEET_BELOW_WIDTH = 720;
+const SHEET_RADIUS = 12;
+const SHEET_MAX_HEIGHT_RATIO = 0.8;
+const SHEET_BACKDROP_OPACITY = 0.45;
 
-const dom = globalThis as { document?: Document };
+const dom = globalThis as { document?: Document; window?: Window };
 
 function hoveredOf(state: PressableStateCallbackType): boolean {
   return (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;
 }
 
+const SheetFont = createContext<string | undefined>(undefined);
+
+export function SheetText({ style, ...props }: TextProps) {
+  const fontFamily = useContext(SheetFont);
+  return <Text {...props} style={fontFamily ? [style, { fontFamily }] : style} />;
+}
+
+export function useSheetPresentation(): boolean {
+  return useWindowDimensions().width < SHEET_BELOW_WIDTH;
+}
+
+function BottomSheet({ theme, open, title, fontFamily, onClose, children }: { theme: PluginTheme; open: boolean; title: string; fontFamily: string | undefined; onClose: () => void; children: ReactNode }) {
+  const { height } = useWindowDimensions();
+  return (
+    <Modal transparent animationType="fade" statusBarTranslucent visible={open} onRequestClose={onClose}>
+      <SheetFont.Provider value={fontFamily}>
+      <View style={{ flex: 1, justifyContent: "flex-end" }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `rgba(0,0,0,${SHEET_BACKDROP_OPACITY})` }} />
+        <View accessibilityLabel={title} style={{ maxHeight: height * SHEET_MAX_HEIGHT_RATIO, backgroundColor: theme.colors.surface0, borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, borderWidth: 1, borderColor: theme.colors.border, paddingBottom: SPACING[1] }}>
+          <View style={{ alignItems: "center", paddingVertical: SPACING[2] }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: theme.colors.surface2 }} />
+          </View>
+          <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], paddingHorizontal: SPACING[3], paddingTop: SPACING[1], paddingBottom: SPACING[3] }}>
+              <Text style={{ fontSize: 14, fontWeight: "500", color: theme.colors.foreground, flexShrink: 1, fontFamily }} numberOfLines={1}>
+                {title}
+              </Text>
+            </View>
+            {children}
+          </ScrollView>
+        </View>
+      </View>
+      </SheetFont.Provider>
+    </Modal>
+  );
+}
+
 export function AnchoredPopover({ theme, open, label, role, onClose, panel, minWidth, maxWidth, maxHeight, offset, children }: { theme: PluginTheme; open: boolean; label: string; role?: "menu"; onClose: () => void; panel: ReactNode; minWidth: number; maxWidth?: number; maxHeight?: number; offset: number; children: ReactNode }) {
   const anchor = useRef<View>(null);
-  const sheet = useWindowDimensions().width < SHEET_BELOW_WIDTH;
+  const sheet = useSheetPresentation();
+  const [fontFamily, setFontFamily] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const node = anchor.current as unknown as Element | null;
+    if (!open || !sheet || !node || !dom.window?.getComputedStyle) return;
+    setFontFamily(dom.window.getComputedStyle(node).fontFamily || undefined);
+  }, [open, sheet]);
   useEffect(() => {
     const doc = dom.document;
     if (!open || !doc || sheet) return;
@@ -51,9 +97,9 @@ export function AnchoredPopover({ theme, open, label, role, onClose, panel, minW
     return (
       <View ref={anchor} style={{ position: "relative" }}>
         {children}
-        <Modal title={label} open={open} onOpenChange={(next) => !next && onClose()}>
-          <Modal.Content contentContainerStyle={{ padding: SPACING[1], gap: 0 }}>{panel}</Modal.Content>
-        </Modal>
+        <BottomSheet theme={theme} open={open} title={label} fontFamily={fontFamily} onClose={onClose}>
+          {panel}
+        </BottomSheet>
       </View>
     );
   }
@@ -70,6 +116,7 @@ export function AnchoredPopover({ theme, open, label, role, onClose, panel, minW
 }
 
 export function AnchoredMenu({ theme, open, label, items, onClose, children }: { theme: PluginTheme; open: boolean; label: string; items: MenuItem[]; onClose: () => void; children: ReactNode }) {
+  const itemHeight = useSheetPresentation() ? MENU_ITEM_HEIGHT.sheet : MENU_ITEM_HEIGHT.popover;
   const panel = items.map((item) => (
     <Pressable
       key={item.id}
@@ -80,12 +127,12 @@ export function AnchoredMenu({ theme, open, label, items, onClose, children }: {
         onClose();
         item.onSelect();
       }}
-      style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: MENU_ITEM_HEIGHT, marginHorizontal: SPACING[1], paddingHorizontal: SPACING[2], paddingVertical: SPACING[1], borderRadius: RADIUS.md, opacity: item.disabled ? 0.5 : 1, backgroundColor: !item.disabled && (state.pressed || hoveredOf(state)) ? theme.colors.surface2 : "transparent" })}
+      style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: itemHeight, marginHorizontal: SPACING[1], paddingHorizontal: SPACING[2], paddingVertical: SPACING[1], borderRadius: RADIUS.md, opacity: item.disabled ? 0.5 : 1, backgroundColor: !item.disabled && (state.pressed || hoveredOf(state)) ? theme.colors.surface2 : "transparent" })}
     >
       {item.icon}
-      <Text style={text(theme, "rowTitle")} numberOfLines={1}>
+      <SheetText style={text(theme, "rowTitle")} numberOfLines={1}>
         {item.label}
-      </Text>
+      </SheetText>
     </Pressable>
   ));
   return (

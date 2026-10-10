@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useState, type ReactNode } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { hostColours, RADIUS, SPACING } from "./theme.ts";
 
 const CONTENT_HEIGHT = 48;
@@ -9,7 +9,8 @@ const LABEL_MAX_WIDTH = 260;
 const ICON_SLOT = 18;
 const REMOVE_SIZE = 24;
 
-const alwaysShowRemove = (globalThis as { document?: Document }).document === undefined;
+const isNative = (globalThis as { document?: Document }).document === undefined;
+const COMPACT_FORM_FACTOR_BELOW = 720;
 
 function frameStyle(theme: PluginTheme) {
   return { borderRadius: RADIUS.md, borderWidth: 1, borderColor: hostColours(theme).borderAccent, overflow: "hidden" as const };
@@ -52,7 +53,8 @@ export function AttachmentThumbnail({ theme, uri }: { theme: PluginTheme; uri: s
 export function AttachmentPill({ theme, openLabel, removeLabel, disabled, onOpen, onRemove, children }: { theme: PluginTheme; openLabel: string; removeLabel: string; disabled?: boolean; onOpen?: () => void; onRemove: () => void; children: ReactNode }) {
   const [bodyHovered, setBodyHovered] = useState(false);
   const [removeHovered, setRemoveHovered] = useState(false);
-  const showRemove = alwaysShowRemove || bodyHovered || removeHovered;
+  const isCompact = useWindowDimensions().width < COMPACT_FORM_FACTOR_BELOW;
+  const showRemove = isNative || isCompact || bodyHovered || removeHovered;
   return (
     <View style={{ position: "relative" }}>
       <Pressable onPress={onOpen} disabled={disabled} onHoverIn={() => setBodyHovered(true)} onHoverOut={() => setBodyHovered(false)} accessibilityRole="button" accessibilityLabel={openLabel} style={frameStyle(theme)}>
