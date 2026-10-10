@@ -1,17 +1,17 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { Conversation } from "../shared/conversations.ts";
 import { basenameOf } from "../shared/events.ts";
 import type { Native } from "../shared/native.ts";
 import { AVATAR, Pill, RoleAvatar, STATUS_WORD, StatusDot, StatusPill, StatusWord, paint } from "./kit/chat.tsx";
 import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
+import { useCompact } from "./kit/platform.ts";
 import { AVATAR_LG, ICON_SIZE, SPACING, text } from "./kit/theme.ts";
 import { NativeLink, type NativeChat } from "./native.tsx";
 
 const HEAD_STACK_BELOW = 560;
-const COMPACT_HEAD_BELOW = 720;
 const COMPACT_HEAD_HEIGHT = 44;
 const COMPACT_STATUS_DOT = 10;
 
@@ -69,7 +69,7 @@ function CompactChatHead({ theme, item, native, chat, writable, steps, onBack, o
 }
 
 export function ChatHead({ theme, item, native, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
-  const compactFormFactor = useWindowDimensions().width < COMPACT_HEAD_BELOW;
+  const compactFormFactor = useCompact();
   const [width, setWidth] = useState(0);
   if (compactFormFactor) return <CompactChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />;
   const stacked = width > 0 && width < HEAD_STACK_BELOW;

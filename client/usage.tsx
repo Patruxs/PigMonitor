@@ -5,9 +5,8 @@ import { useEffect, useState } from "react";
 import { Image, Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { usageReports } from "../shared/rpc.ts";
 import { clampPct, displayPercent, formatDisplayPct, formatResetLabel, formatUsageFreshness, replaceReport, reportContent, reportMessages, resolveAgentUsageView, resolveBalance, statusText, USAGE_COPY, USAGE_DISPLAY_AS, windowTone, windowTrailing, type UsageBalanceData, type UsageReportEntryData, type UsageTone, type UsageWindowData } from "../shared/usage.ts";
-import { COMPACT_BREAKPOINT } from "../shared/controls.ts";
 import { Anchored, FONT_BASE, FONT_SM, hoveredOf } from "./controls-kit.tsx";
-import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
+import { COMPACT_BELOW, hostColours, RADIUS, SPACING } from "./kit/theme.ts";
 
 const isNative = Platform.OS !== "web";
 const RED_300 = "#fca5a5";
@@ -155,7 +154,7 @@ function RefreshButton({ theme, sourceLabel, fetchedAt, pending, compact, onRefr
 
 function UsageCard({ theme, entry, refreshable, onRefresh }: { theme: PluginTheme; entry: UsageReportEntryData; refreshable: boolean; onRefresh: () => Promise<boolean> }) {
   const { width } = useWindowDimensions();
-  const isCompact = width < COMPACT_BREAKPOINT;
+  const isCompact = width < COMPACT_BELOW;
   const [refreshState, setRefreshState] = useState<"idle" | "pending" | "failed">("idle");
   const showsFreshnessInline = isNative || isCompact || !refreshable;
   const usage = entry.report;

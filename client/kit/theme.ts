@@ -113,6 +113,8 @@ export function text(theme: PluginTheme, role: Role, colour?: Colour): TextStyle
   return { ...style, color: theme.colors[colour ?? base] };
 }
 
+export const COMPACT_BELOW = 720;
+
 /** At least this wide, the Sessions tab is a conversation list beside the open session; narrower, one at a time. */
 export const CHAT_SPLIT_MIN = 680;
 

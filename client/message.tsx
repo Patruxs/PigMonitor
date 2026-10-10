@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { copyText, Icon, Modal, useRevealedText } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View, type TextStyle, type ViewStyle } from "react-native";
+import { ActivityIndicator, Platform, Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
 import { forgeOf } from "../shared/attach.ts";
 import { splitMarkdownBlocks } from "../shared/markdown.ts";
 import type { AttachmentData } from "../shared/rpc.ts";
@@ -11,18 +11,18 @@ import { buildToolCallPresentation, type PlanOutcome, type ToolCallDetail, type 
 import { AttachmentLightbox } from "./kit/lightbox.tsx";
 import { Markdown, usePicture } from "./kit/markdown.tsx";
 import { AttachmentFrame, AttachmentLabel, AttachmentThumbnail } from "./kit/pill.tsx";
+import { useCompact } from "./kit/platform.ts";
 import { CONTENT_FONT, CONTENT_LINE, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, RADIUS, SPACING, STREAM_METADATA_FONT } from "./kit/theme.ts";
 import { ToolCallDetailsContent } from "./tool-details.tsx";
 
 const isWeb = Platform.OS === "web";
 const SELECTABLE = (isWeb ? { userSelect: "text" } : {}) as ViewStyle;
 const ANYWHERE = (isWeb ? { overflowWrap: "anywhere" } : {}) as TextStyle;
-const COMPACT_WIDTH = 720;
 const TIMESTAMP_REVEAL_MS = 3000;
 const COPIED_MS = 1500;
 
 export function useIsCompact(): boolean {
-  return useWindowDimensions().width < COMPACT_WIDTH;
+  return useCompact();
 }
 
 export function formatDuration(durationMs: number): string {

@@ -3,7 +3,7 @@ import { usePaseo, useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
-import { buildSelectorProviders, COMPACT_BREAKPOINT, filterAndRankOptions, filterSelectableModels, formatAgentModeLabel, formatThinkingOptionLabel, getAgentFeatureIcon, getAgentModeIcon, getAgentModeOptionIcon, getFeatureHighlightColor, getFeatureTooltip, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveControlPresentation, resolveToolbarGlyphSize, selectorOpenRefetchDecision, shortModelLabel, type ControlDensity, type ControlPresentation, type Feature, type Mode, type ProviderEntry, type SelectorProvider } from "../shared/controls.ts";
+import { buildSelectorProviders, filterAndRankOptions, filterSelectableModels, formatAgentModeLabel, formatThinkingOptionLabel, getAgentFeatureIcon, getAgentModeIcon, getAgentModeOptionIcon, getFeatureHighlightColor, getFeatureTooltip, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveControlPresentation, resolveToolbarGlyphSize, selectorOpenRefetchDecision, shortModelLabel, type ControlDensity, type ControlPresentation, type Feature, type Mode, type ProviderEntry, type SelectorProvider } from "../shared/controls.ts";
 import type { Usage } from "../shared/context-meter.ts";
 import { agentConfig } from "../shared/rpc.ts";
 import { useRegisterModeCycle } from "./composer.tsx";
@@ -11,7 +11,7 @@ import { ContextWindowMeter } from "./context-meter.tsx";
 import { Anchored, ComboList, ControlTrigger, PALETTE, SearchRow, sidebarColour, ToolbarGlyph, TooltipText, useComboKeys, type ComboOption } from "./controls-kit.tsx";
 import { ProviderGlyph } from "./controls-provider-icons.tsx";
 import { COMPACT_MODEL_VIEWPORT, CompactModelTrigger, DesktopModelSelector, ModelBrowserBody, useModelBrowser, type IconSvgs, type ModelBrowserState } from "./controls-model.tsx";
-import { SPACING } from "./kit/theme.ts";
+import { COMPACT_BELOW, SPACING } from "./kit/theme.ts";
 
 type PaseoApi = ReturnType<typeof usePaseo>;
 type AgentHandle = ReturnType<PaseoApi["agents"]["ref"]>;
@@ -377,7 +377,7 @@ function SheetModal({ model, title, open, onClose, browser, usesBottomSheet, pus
 function CompactControls({ model }: { model: ControlsModel }) {
   const { theme } = model;
   const { width } = useWindowDimensions();
-  const usesBottomSheet = width < COMPACT_BREAKPOINT;
+  const usesBottomSheet = width < COMPACT_BELOW;
   const [isOpen, setIsOpen] = useState(false);
   const [pushed, setPushed] = useState<Pushed>(null);
   const rootBrowser = useModelBrowser({ providers: model.providers, selectedProvider: model.provider, selectedModel: model.selectedModelId, isLoading: model.isModelLoading });

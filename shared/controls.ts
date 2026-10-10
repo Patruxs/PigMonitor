@@ -261,8 +261,6 @@ export function resolveToolbarGlyphSize(platform: "web" | "native"): number {
   return platform === "native" ? 20 : 16;
 }
 
-export const COMPACT_BREAKPOINT = 720;
-
 export interface ModelRow {
   key: string;
   provider: string;

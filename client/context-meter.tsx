@@ -2,11 +2,10 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Modal } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
 import { Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
-import { COMPACT_BREAKPOINT } from "../shared/controls.ts";
 import { clampPercentage, formatSessionCost, formatTokenCount, meterGeometry, meterState, progressTone, type Usage } from "../shared/context-meter.ts";
 import { Anchored, FONT_BASE, FONT_SM, PALETTE } from "./controls-kit.tsx";
 import { ProgressRing } from "./kit/progress-ring.tsx";
-import { hostColours, SPACING } from "./kit/theme.ts";
+import { COMPACT_BELOW, hostColours, SPACING } from "./kit/theme.ts";
 import { AgentUsage, useHostReportsUsage } from "./usage.tsx";
 
 const SHOW_PERCENTAGE = false;
@@ -46,7 +45,7 @@ function Details({ theme, agentId, context, sessionCost, showTitle, refreshable 
 export function ContextWindowMeter({ theme, agentId, usage, status, glyphSize }: { theme: PluginTheme; agentId?: string; usage: Usage | null; status: string | null; glyphSize?: number }) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const { width } = useWindowDimensions();
-  const isCompact = width < COMPACT_BREAKPOINT;
+  const isCompact = width < COMPACT_BELOW;
   const showsUsage = useHostReportsUsage() && agentId !== undefined;
   const state = meterState(usage, status);
   const geometry = meterGeometry(SHOW_PERCENTAGE, glyphSize);

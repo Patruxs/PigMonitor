@@ -2,6 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { ScrollView } from "@getpaseo/plugin/client/react-native";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Modal, Platform, Pressable, Text, useWindowDimensions, View, type PressableStateCallbackType, type TextProps } from "react-native";
+import { useCompact } from "./platform.ts";
 import { RADIUS, SPACING, text } from "./theme.ts";
 
 export interface MenuItem {
@@ -15,7 +16,6 @@ export interface MenuItem {
 const MENU_MIN_WIDTH = 220;
 const MENU_OFFSET = 8;
 const MENU_ITEM_HEIGHT = { sheet: 40, popover: 28 } as const;
-const SHEET_BELOW_WIDTH = 720;
 const SHEET_RADIUS = 12;
 const SHEET_MAX_HEIGHT_RATIO = 0.8;
 const SHEET_BACKDROP_OPACITY = 0.45;
@@ -35,7 +35,7 @@ export function SheetText({ style, ...props }: TextProps) {
 }
 
 export function useSheetPresentation(): boolean {
-  return useWindowDimensions().width < SHEET_BELOW_WIDTH;
+  return useCompact();
 }
 
 function BottomSheet({ theme, open, title, fontFamily, onClose, onDismiss, children }: { theme: PluginTheme; open: boolean; title: string; fontFamily: string | undefined; onClose: () => void; onDismiss?: () => void; children: ReactNode }) {
