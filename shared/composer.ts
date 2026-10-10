@@ -1,5 +1,6 @@
 import { forgeAttachment } from "./attach.ts";
 import type { AttachmentData, ForgeItemData, ImageData, UploadedFileData } from "./rpc.ts";
+import type { DictationStatus } from "./speech.ts";
 
 export interface ImageMetadata {
   id: string;
@@ -153,6 +154,22 @@ export async function sendQueuedComposerMessageNow(input: { agentId: string; mes
     input.queue.write(withQueue(input.agentId, (queue) => [item, ...queue]));
     return { status: "failed", errorMessage: error instanceof Error ? error.message : FAILED_TO_SEND };
   }
+}
+
+export type ComposerFocus = "input" | "pane" | "outside";
+export type ComposerKeyAction = "focus-input" | "interrupt" | "dictation-cancel";
+
+export function resolveComposerKey(input: { key: string; primary: boolean; shift: boolean; alt: boolean; focus: ComposerFocus; dictation: DictationStatus; isAgentRunning: boolean; isCancelling: boolean }): ComposerKeyAction | null {
+  if (input.focus === "outside") return null;
+  const key = input.key.toLowerCase();
+  const plain = !input.primary && !input.alt;
+  const chord = input.primary && !input.alt && !input.shift;
+  if (key === "escape" && plain && !input.shift) {
+    if (input.dictation !== "idle") return "dictation-cancel";
+    return input.isAgentRunning && !input.isCancelling ? "interrupt" : null;
+  }
+  if (chord && key === "l") return "focus-input";
+  return null;
 }
 
 export type PrimaryActionKind = "send" | "active" | "none";

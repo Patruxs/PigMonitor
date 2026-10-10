@@ -228,10 +228,10 @@ function RoundButton({ theme, label, onPress, disabled, filled, children }: { th
   );
 }
 
-export function DictationButton({ theme, disabled = false, onInsert, onInsertAndSend, onActiveChange }: { theme: PluginTheme; disabled?: boolean; onInsert: (text: string) => void; onInsertAndSend: (text: string) => void; onActiveChange: (active: boolean) => void }) {
-  const dictation = useDictation({ onInsert, onInsertAndSend });
+export type Dictation = ReturnType<typeof useDictation>;
+
+export function DictationButton({ theme, disabled = false, dictation }: { theme: PluginTheme; disabled?: boolean; dictation: Dictation }) {
   const { status } = dictation;
-  useEffect(() => onActiveChange(status !== "idle"), [onActiveChange, status]);
   if (!dictation.supported) return null;
 
   if (status === "idle") {

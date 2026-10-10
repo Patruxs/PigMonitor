@@ -8,6 +8,7 @@ import {
   editQueuedComposerMessage,
   MIN_INPUT_HEIGHT,
   queueComposerMessage,
+  resolveComposerKey,
   resolveMaxInputHeight,
   resolvePrimaryActionKind,
   sendQueuedComposerMessageNow,
@@ -15,6 +16,8 @@ import {
   submitAgentInput,
   toggleForgeAttachment,
   type ComposerAttachment,
+  type ComposerFocus,
+  type ComposerKeyAction,
   type ImageMetadata,
   type QueuedComposerMessage,
 } from "../shared/composer.ts";
@@ -33,7 +36,7 @@ import { queueWriter, useQueuedMessages } from "./queue.ts";
 import { registerComposerRestore, restoreComposerTextIfEmpty } from "./rewind.tsx";
 import type { AgentTimeline } from "./timeline.ts";
 import { ComposerTracks } from "./tracks.tsx";
-import { DictationButton } from "./dictation.tsx";
+import { DictationButton, useDictation } from "./dictation.tsx";
 
 export { canAttach };
 
@@ -61,7 +64,8 @@ const FOCUS_HINT = isMac ? "⌘L to focus" : "Ctrl+L to focus";
 const DESKTOP_PLACEHOLDER = "Message the agent, tag @files, or use /commands and /skills";
 const MOBILE_PLACEHOLDER = "Message, @files, /commands";
 
-type KeyPressEvent = NativeSyntheticEvent<{ key: string; shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean; isComposing?: boolean; keyCode?: number }>;
+type KeyPressEvent = NativeSyntheticEvent<{ key: string; shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean; isComposing?: boolean; keyCode?: number }>;
+type KeyChord = { key: string; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean };
 
 function hoveredOf(state: PressableStateCallbackType): boolean {
   return (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;
@@ -165,7 +169,6 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
   const initial = useMemo(() => (draftKey === undefined ? { text: "", attachments: [] } : readDraft(draftKey)), []);
   const [value, setValue] = useState(initial.text);
   const [cursor, setCursor] = useState(initial.text.length);
-  const [isDictating, setIsDictating] = useState(false);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>(initial.attachments);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -343,6 +346,9 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
     composerHeight.reset();
   };
 
+  const dictation = useDictation({ onInsert: insertTranscript, onInsertAndSend: sendTranscript });
+  const isDictating = dictation.status !== "idle";
+
   const handleQueueMessage = () => {
     if (!agentId) return;
     const trimmed = value.trim();
@@ -400,29 +406,33 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
     input.current?.focus();
   }, [stop, isAgentRunning, isCancellingAgent, timeline, toast]);
 
+  const keys = useRef({ resolve: (_chord: KeyChord, _focus: ComposerFocus): ComposerKeyAction | null => null, run: (_action: ComposerKeyAction) => {} });
+  keys.current = {
+    resolve: (chord, focus) => resolveComposerKey({ key: chord.key, primary: isMac ? chord.metaKey === true && chord.ctrlKey !== true : chord.ctrlKey === true && chord.metaKey !== true, shift: chord.shiftKey === true, alt: chord.altKey === true, focus, dictation: dictation.status, isAgentRunning, isCancelling: isCancellingAgent }),
+    run: (action) => {
+      if (action === "focus-input") return focusInput();
+      if (action === "interrupt") return handleCancelAgent();
+      if (action === "dictation-cancel") return void dictation.cancel();
+    },
+  };
+
   useEffect(() => {
     const doc = dom.document;
     if (!doc) return;
-    const inPane = (target: EventTarget | null) => {
-      if (target === doc.body || target === null) return true;
-      const pane = nodeOf(root)?.parentElement;
-      return pane !== null && pane !== undefined && target instanceof Node && pane.contains(target);
-    };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || !inPane(event.target)) return;
-      if (event.key === "Escape") {
-        handleCancelAgent();
-        return;
-      }
-      const focusChord = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
-      if (focusChord && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "l") {
-        event.preventDefault();
-        focusInput();
-      }
+      if (event.defaultPrevented || event.isComposing) return;
+      const field = nodeOf(input);
+      if (field !== null && event.target === field) return;
+      const pane = nodeOf(root)?.parentElement;
+      const focus: ComposerFocus = event.target === doc.body || (pane && event.target instanceof Node && pane.contains(event.target)) ? "pane" : "outside";
+      const action = keys.current.resolve(event, focus);
+      if (!action) return;
+      if (action !== "interrupt") event.preventDefault();
+      keys.current.run(action);
     };
     doc.addEventListener("keydown", onKeyDown);
     return () => doc.removeEventListener("keydown", onKeyDown);
-  }, [handleCancelAgent, focusInput]);
+  }, []);
 
   const pickImage = async () => addImages(await readImageFiles(await chooseFiles("image/*")));
   const pickFile = async () => uploadSelectedFiles(await chooseFiles(null));
@@ -453,6 +463,12 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
     const native = event.nativeEvent;
     if (native.isComposing || native.keyCode === 229) return;
     if (autocomplete.onKeyPress({ key: native.key, preventDefault: () => event.preventDefault() })) return;
+    const action = keys.current.resolve(native, "input");
+    if (action) {
+      if (action !== "interrupt") event.preventDefault();
+      keys.current.run(action);
+      return;
+    }
     if (native.key !== "Enter" || isCompactFormFactor || native.shiftKey) return;
     if (disabled || isSubmitLoading) return;
     event.preventDefault();
@@ -535,7 +551,7 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
               </View>
               <View style={{ flexShrink: 0, flexDirection: "row", alignItems: "center", gap: SPACING[1] }}>
                 {trailingContent}
-                <DictationButton theme={theme} disabled={disabled} onInsert={insertTranscript} onInsertAndSend={sendTranscript} onActiveChange={setIsDictating} />
+                <DictationButton theme={theme} disabled={disabled} dictation={dictation} />
                 {primaryAction === "active" && !isDictating ? (
                   <Pressable onPress={handleCancelAgent} disabled={isCancellingAgent} accessibilityRole="button" accessibilityLabel={isCancellingAgent ? "Canceling agent" : "Stop agent"} style={{ width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, backgroundColor: CANCEL_RED, alignItems: "center", justifyContent: "center", marginLeft: SPACING[1], opacity: isCancellingAgent ? 0.5 : 1 }}>
                     {isCancellingAgent ? <ActivityIndicator size="small" color="white" /> : <View style={{ width: 11, height: 11, borderRadius: 2, backgroundColor: "white" }} />}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolvePrimaryActionKind, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer.ts";
+import { resolveComposerKey, resolvePrimaryActionKind, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer.ts";
 
 function memoryQueue(initial: QueuedComposerMessage[]): QueueWriter & { items: () => QueuedComposerMessage[] } {
   let state = new Map([["a", initial]]);
@@ -59,4 +59,12 @@ test("compact layouts keep the send button with an empty input, but a running ag
   assert.equal(resolvePrimaryActionKind({ ...empty, isAgentRunning: false, keepSendVisible: true }), "send");
   assert.equal(resolvePrimaryActionKind({ ...empty, isAgentRunning: false, keepSendVisible: false }), "none");
   assert.equal(resolvePrimaryActionKind({ ...empty, isAgentRunning: true, keepSendVisible: true }), "active");
+});
+
+const key = (over: Partial<Parameters<typeof resolveComposerKey>[0]>) => resolveComposerKey({ key: "Escape", primary: false, shift: false, alt: false, focus: "input", dictation: "idle", isAgentRunning: true, isCancelling: false, ...over });
+
+test("Escape cancels a recording before it would stop the agent, and stops nothing from another input or dialog", () => {
+  assert.equal(key({ dictation: "recording" }), "dictation-cancel");
+  assert.equal(key({ focus: "pane" }), "interrupt");
+  assert.equal(key({ focus: "outside" }), null);
 });
