@@ -42,14 +42,15 @@ export default function contribute(server: PluginServerContext) {
     return pickDatabase(state.status === "ready" ? state.values.database : "");
   };
 
-  const transcripts = new TranscriptReader(reader, pastedImageSaver(`${ATTACH_ROOT}/pasted`));
+  const savePasted = pastedImageSaver(`${ATTACH_ROOT}/pasted`);
+  const transcripts = new TranscriptReader(reader, savePasted);
   server.handle(transcript, async ({ id, before, limit, since }) => {
     return transcripts.read(await database(), id, before, limit, me.current(piggeryHome())?.id, since);
   });
 
   server.handle(imageFile, async ({ path }) => readImage(path));
 
-  const prompts = new PromptImageReader(pastedImageSaver(`${ATTACH_ROOT}/pasted`));
+  const prompts = new PromptImageReader(savePasted);
   server.handle(promptImages, async ({ id }) => prompts.read(reader, await database(), id));
   if (!observeOnly) me.warm(piggeryHome());
   server.handle(person, async () => {

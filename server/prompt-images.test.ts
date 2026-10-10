@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { appendFileSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -53,4 +53,13 @@ test("the same words sent again without an image leave the image on the message 
   writeFileSync(file, prompt("u1", "look", true) + prompt("u2", "look", false));
   const shown = withPromptImages([userMessage("c1", "look"), userMessage("c2", "look")], reader.prompts(file));
   assert.deepEqual(imagesOf(shown).map((paths) => paths.length), [1, 0]);
+});
+
+test("a session file replaced by another is read from its start, not from where the old one ended", () => {
+  const { file, reader } = session();
+  writeFileSync(file, prompt("u1", "old", true));
+  assert.deepEqual(reader.prompts(file).map((p) => p.uuid), ["u1"]);
+  writeFileSync(`${file}.next`, prompt("u8", "new", false) + prompt("u9", "newer", true));
+  renameSync(`${file}.next`, file);
+  assert.deepEqual(reader.prompts(file).map((p) => p.uuid), ["u8", "u9"]);
 });

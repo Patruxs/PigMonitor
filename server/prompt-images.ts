@@ -1,6 +1,7 @@
-import { closeSync, existsSync, openSync, readSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { promptKeys, type Prompt, type PromptImage } from "../shared/prompt-images.ts";
 import type { SaveImage } from "../shared/claude-log.ts";
+import { JsonlTail } from "./jsonl-tail.ts";
 import type { MailReader } from "./mail.ts";
 
 export type PromptImagesResult = { ok: true; prompts: Prompt[] } | { ok: false; code: "failed"; error: string };
@@ -12,11 +13,9 @@ interface Block {
 }
 
 interface Read {
-  offset: number;
+  tail: JsonlTail;
   prompts: Prompt[];
 }
-
-const NEWLINE = 10;
 
 function promptOf(line: string, saveImage: SaveImage): Prompt | null {
   let entry: { type?: string; uuid?: string; isMeta?: boolean; message?: { content?: unknown } };
@@ -48,23 +47,10 @@ export class PromptImageReader {
   }
 
   prompts(file: string): Prompt[] {
-    const size = statSync(file).size;
+    const stat = statSync(file);
     let read = this.reads.get(file);
-    if (!read || size < read.offset) read = { offset: 0, prompts: [] };
-    if (size > read.offset) {
-      const chunk = Buffer.alloc(size - read.offset);
-      const fd = openSync(file, "r");
-      try {
-        readSync(fd, chunk, 0, chunk.length, read.offset);
-      } finally {
-        closeSync(fd);
-      }
-      const end = chunk.lastIndexOf(NEWLINE);
-      if (end >= 0) {
-        const added = chunk.subarray(0, end).toString("utf8").split("\n").flatMap((line) => promptOf(line, this.saveImage) ?? []);
-        read = { offset: read.offset + end + 1, prompts: [...read.prompts, ...added] };
-      }
-    }
+    if (!read || !read.tail.continues(stat)) read = { tail: new JsonlTail(file, stat), prompts: [] };
+    read.prompts.push(...read.tail.lines(stat).flatMap((line) => promptOf(line, this.saveImage) ?? []));
     this.reads.set(file, read);
     return read.prompts.some((prompt) => prompt.images.length > 0) ? read.prompts : [];
   }

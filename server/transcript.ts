@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync, openSync, readdirSync, readSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import type { MailMessage } from "../shared/mail.ts";
 import { Parser, usageOf, type ContextReading, type SaveImage } from "../shared/claude-log.ts";
 import { mergeMail } from "../shared/transcript-mail.ts";
 import type { Item, Transcript } from "../shared/transcript.ts";
 import type { MailReader, Participant } from "./mail.ts";
+import { JsonlTail } from "./jsonl-tail.ts";
 import { claudeToolCall } from "./tool-detail.ts";
 
 export interface Cursor {
@@ -16,10 +17,7 @@ export interface Cursor {
 export type TranscriptResult = ({ ok: true } & Transcript & Cursor) | { ok: false; code: "nodb" | "failed" | "nolog"; error: string };
 
 interface RunLog {
-  file: string;
-  ino: number;
-  offset: number;
-  rest: Buffer;
+  tail: JsonlTail;
   parser: Parser;
 }
 
@@ -29,8 +27,6 @@ interface Logs {
   shown: string[];
   revs: number[];
 }
-
-const NEWLINE = 0x0a;
 
 export function logsDirOf(dbFile: string, id: string): string {
   return path.join(path.dirname(dbFile), "logs", id);
@@ -61,52 +57,25 @@ export class TranscriptReader {
     this.saveImage = saveImage;
   }
 
-  private feed(run: RunLog, text: string, rev: number): void {
-    for (const line of text.split("\n")) run.parser.line(line);
+  private feed(run: RunLog, lines: string[], rev: number): void {
+    if (lines.length === 0) return;
+    for (const line of lines) run.parser.line(line);
     run.parser.stamp();
-    for (const i of run.parser.changed) {
-      this.stamps.set(run.parser.items[i], rev);
-    }
+    for (const i of run.parser.changed) this.stamps.set(run.parser.items[i], rev);
     run.parser.changed.clear();
-  }
-
-  private grow(run: RunLog, size: number, rev: number): void {
-    if (size > run.offset) {
-      const chunk = Buffer.allocUnsafe(size - run.offset);
-      const fd = openSync(run.file, "r");
-      try {
-        readSync(fd, chunk, 0, chunk.length, run.offset);
-      } finally {
-        closeSync(fd);
-      }
-      run.offset = size;
-      const buf = run.rest.length > 0 ? Buffer.concat([run.rest, chunk]) : chunk;
-      const end = buf.lastIndexOf(NEWLINE);
-      run.rest = buf.subarray(end + 1);
-      if (end >= 0) this.feed(run, buf.subarray(0, end).toString("utf8"), rev);
-    }
-    if (run.rest.length === 0) return;
-    const last = run.rest.toString("utf8");
-    try {
-      JSON.parse(last);
-    } catch {
-      return;
-    }
-    run.rest = Buffer.alloc(0);
-    this.feed(run, last, rev);
   }
 
   private synced(key: string, files: string[], rev: number): Logs {
     let logs = this.logs.get(key);
     const stats = files.map((file) => statSync(file));
-    const kept = logs !== undefined && logs.runs.length <= files.length && logs.runs.every((run, k) => run.file === files[k] && run.ino === stats[k].ino && run.offset <= stats[k].size);
+    const kept = logs !== undefined && logs.runs.length <= files.length && logs.runs.every((run, k) => run.tail.file === files[k] && run.tail.continues(stats[k]));
     if (!logs || !kept) {
       logs = { epoch: randomUUID(), runs: [], shown: [], revs: [] };
       this.logs.set(key, logs);
     }
     files.forEach((file, k) => {
-      const run = (logs.runs[k] ??= { file, ino: stats[k].ino, offset: 0, rest: Buffer.alloc(0), parser: new Parser(path.basename(file, ".jsonl"), this.saveImage, claudeToolCall) });
-      this.grow(run, stats[k].size, rev);
+      const run = (logs.runs[k] ??= { tail: new JsonlTail(file, stats[k]), parser: new Parser(path.basename(file, ".jsonl"), this.saveImage, claudeToolCall) });
+      this.feed(run, run.tail.lines(stats[k]), rev);
     });
     return logs;
   }
