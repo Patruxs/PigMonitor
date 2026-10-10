@@ -13,9 +13,9 @@ import { BUSY_MS, usePoll } from "./poll.ts";
 
 type ArchiveFinishedStatus = { kind: "idle" } | { kind: "archiving"; completedCount: number; totalCount: number } | { kind: "failed"; failedCount: number; totalCount: number };
 
-const PILL_MIN_HEIGHT = 32;
+export const TRACK_PILL_MIN_HEIGHT = 32;
 const PILL_RADIUS = 16;
-const PILL_CLEARANCE = 10;
+export const TRACK_PILL_CLEARANCE = 10;
 const PANEL_MIN_WIDTH = 280;
 const PANEL_MAX_WIDTH = 620;
 const PANEL_MAX_HEIGHT = 440;
@@ -64,7 +64,7 @@ function TrackPill({ theme, segments, title, accessibilityLabel, panel }: { them
         accessibilityLabel={accessibilityLabel ?? segments.map((s) => s.text).join(" ")}
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((was) => !was)}
-        style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: PILL_MIN_HEIGHT, paddingHorizontal: SPACING[3], paddingVertical: SPACING[1], borderRadius: PILL_RADIUS, borderWidth: 1, borderColor: hostColours(theme).borderAccent, backgroundColor: open || state.pressed || (state as { hovered?: boolean }).hovered ? theme.colors.surface2 : theme.colors.surface1 })}
+        style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: TRACK_PILL_MIN_HEIGHT, paddingHorizontal: SPACING[3], paddingVertical: SPACING[1], borderRadius: PILL_RADIUS, borderWidth: 1, borderColor: hostColours(theme).borderAccent, backgroundColor: open || state.pressed || (state as { hovered?: boolean }).hovered ? theme.colors.surface2 : theme.colors.surface1 })}
       >
         <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 1, minWidth: 0, gap: SPACING[4] }}>
           {segments.map((segment) => (
@@ -257,7 +257,7 @@ export function ComposerTracks({ theme, agentId, items, onOpenAgent }: { theme: 
   useEffect(() => () => publishTracksVisible(agentId, false), [agentId]);
   if (!visible) return null;
   return (
-    <View style={{ position: "absolute", left: 0, right: 0, bottom: "100%", alignItems: "center", paddingHorizontal: SPACING[4], paddingBottom: PILL_CLEARANCE, pointerEvents: "box-none", zIndex: 5 }}>
+    <View style={{ position: "absolute", left: 0, right: 0, bottom: "100%", alignItems: "center", paddingHorizontal: SPACING[4], paddingBottom: TRACK_PILL_CLEARANCE, pointerEvents: "box-none", zIndex: 5 }}>
       <View style={{ width: "100%", maxWidth: MAX_CONTENT_WIDTH, flexDirection: "row", alignItems: "center", gap: SPACING[1], pointerEvents: "box-none" }}>
         {tasks.length > 0 ? <TaskList theme={theme} tasks={tasks} /> : null}
         <SubagentsTrack theme={theme} rows={rows} status={archiveStatus} onOpen={onOpenAgent} onArchive={(id) => void archive(id)} onArchiveFinished={() => void archiveFinished()} />

@@ -13,6 +13,7 @@ import { ChatFind, useChatFindSelectedMessageId, type AgentHistory } from "./cha
 import { NativeViewport, WebViewport, type ViewportHandle, type ViewportProps } from "./stream-viewport.tsx";
 import { ChatOutlineRail, useChatOutline } from "./outline.tsx";
 import { PermissionRequestCard } from "./permission.tsx";
+import { TRACK_PILL_CLEARANCE, TRACK_PILL_MIN_HEIGHT } from "./tracks.tsx";
 import type { PermissionRequest, PermissionResponse } from "./timeline.ts";
 
 const isWeb = Platform.OS === "web";
@@ -47,18 +48,12 @@ export interface StreamViewProps {
   composerTracks?: boolean;
 }
 
-const COMPOSER_PILL_MIN_HEIGHT = 32;
-
-function composerPillClearance(compact: boolean): number {
-  return compact ? SPACING[2] : 10;
-}
-
 function composerTrackTailClearance(compact: boolean): number {
-  return (compact ? SPACING[6] : 20) + COMPOSER_PILL_MIN_HEIGHT + composerPillClearance(compact);
+  return (compact ? SPACING[6] : 20) + TRACK_PILL_MIN_HEIGHT + TRACK_PILL_CLEARANCE;
 }
 
-function composerTrackControlClearance(compact: boolean): number {
-  return composerPillClearance(compact) * 2 + COMPOSER_PILL_MIN_HEIGHT;
+function composerTrackControlClearance(): number {
+  return TRACK_PILL_CLEARANCE * 2 + TRACK_PILL_MIN_HEIGHT;
 }
 
 function useStreamHistoryWindow(streamKey: string, items: StreamItem[], loadRemoteOlder: () => Promise<boolean>) {
@@ -150,7 +145,7 @@ const Row = memo(function Row({ theme, layout, cwd, pending, renderPiggery, rend
 export function StreamView({ theme, streamKey, tail, head, turn, cwd, permissions = [], pendingClientMessageIds, history, emptyText = "Start chatting with this agent...", syncError, renderPiggery, renderUserActions, onRespond, onReadingPosition, viewportRef: externalViewportRef, overlay, outline: outlineSource, composerTracks = false }: StreamViewProps) {
   const compact = useIsCompact();
   const tailClearance = composerTracks ? composerTrackTailClearance(compact) : 0;
-  const controlClearance = composerTracks ? composerTrackControlClearance(compact) : 0;
+  const controlClearance = composerTracks ? composerTrackControlClearance() : 0;
   const [nearBottom, setNearBottom] = useState(true);
   const internalViewportRef = useRef<ViewportHandle | null>(null);
   const viewportRef = externalViewportRef ?? internalViewportRef;
