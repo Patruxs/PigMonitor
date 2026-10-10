@@ -5,24 +5,11 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type R
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import type { StreamItem } from "../shared/stream.ts";
 import type { TodoEntry } from "../shared/todos.ts";
+import { bucketOf, hasComposerTracks, isFinished, latestTasksFromStream, pillPresentation, resolveRowLabel, type Bucket, type Segment, type SubagentRow } from "../shared/tracks.ts";
 import { AnchoredPopover, SheetText } from "./kit/menu.tsx";
 import { hostColours, MAX_CONTENT_WIDTH, RADIUS, SPACING } from "./kit/theme.ts";
 import { BUSY_MS, usePoll } from "./poll.ts";
 
-type Bucket = "needs_input" | "failed" | "attention" | "running";
-
-interface Segment {
-  bucket: Bucket | null;
-  text: string;
-}
-
-interface SubagentRow {
-  id: string;
-  title: string | null;
-  status: string;
-  turnOpen: boolean;
-  createdAt: number;
-}
 
 type ArchiveFinishedStatus = { kind: "idle" } | { kind: "archiving"; completedCount: number; totalCount: number } | { kind: "failed"; failedCount: number; totalCount: number };
 
@@ -38,17 +25,6 @@ const DOT_SIZE = 6;
 const PARENT_AGENT_ID_LABEL = "paseo.parent-agent-id";
 const SUBAGENT_PAGE = 200;
 
-export function latestTasksFromStream(items: readonly StreamItem[]): TodoEntry[] {
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const item = items[index];
-    if (item?.kind === "todo_list") return item.items;
-  }
-  return [];
-}
-
-export function hasComposerTracks(items: readonly StreamItem[], subagentCount: number, archiving = false): boolean {
-  return subagentCount > 0 || latestTasksFromStream(items).length > 0 || archiving;
-}
 
 const visibleTracks = new Map<string, boolean>();
 const trackListeners = new Set<() => void>();
@@ -72,16 +48,10 @@ export function useHasComposerTracks(agentId: string | undefined): boolean {
   );
 }
 
-function dotColour(theme: PluginTheme, bucket: Exclude<Bucket, "running">): string {
-  if (bucket === "needs_input") return theme.colors.statusWarning;
-  if (bucket === "failed") return theme.colors.statusDanger;
-  return theme.colors.statusSuccess;
-}
-
 function TrackMark({ theme, bucket }: { theme: PluginTheme; bucket: Bucket | null }) {
   if (!bucket) return null;
   if (bucket === "running") return <ActivityIndicator size={10} color={theme.colors.accent} />;
-  return <View style={{ width: DOT_SIZE, height: DOT_SIZE, borderRadius: DOT_SIZE / 2, backgroundColor: dotColour(theme, bucket) }} />;
+  return <View style={{ width: DOT_SIZE, height: DOT_SIZE, borderRadius: DOT_SIZE / 2, backgroundColor: theme.colors.statusDanger }} />;
 }
 
 function TrackPill({ theme, segments, title, accessibilityLabel, panel }: { theme: PluginTheme; segments: Segment[]; title: string; accessibilityLabel?: string; panel: (close: () => void) => ReactNode }) {
@@ -158,45 +128,6 @@ function TaskList({ theme, tasks }: { theme: PluginTheme; tasks: TodoEntry[] }) 
   );
 }
 
-function resolveRowLabel(title: string | null | undefined): string | null {
-  const normalized = typeof title === "string" ? title.trim() : "";
-  if (!normalized || normalized.toLowerCase() === "new agent") return null;
-  return normalized;
-}
-
-function bucketOf(row: SubagentRow): Bucket | null {
-  const status = row.turnOpen ? "running" : row.status === "running" ? "idle" : row.status;
-  if (status === "error") return "failed";
-  if (status === "running") return "running";
-  return null;
-}
-
-function isFinished(row: SubagentRow): boolean {
-  return row.status === "idle" || row.status === "error";
-}
-
-const ACTIVE_ORDER: Bucket[] = ["needs_input", "failed", "attention", "running"];
-
-function statusLabel(bucket: Bucket, count: number): string {
-  if (bucket === "running") return `${count} working`;
-  if (bucket === "failed") return `${count} failed`;
-  if (bucket === "needs_input") return count === 1 ? "1 needs input" : `${count} need input`;
-  return `${count} ready to review`;
-}
-
-function pillPresentation(rows: SubagentRow[]): { segments: Segment[]; accessibilityLabel: string } {
-  const buckets = rows.map(bucketOf);
-  const counts = ACTIVE_ORDER.flatMap((bucket) => {
-    const count = buckets.filter((candidate) => candidate === bucket).length;
-    return count > 0 ? [{ bucket, count }] : [];
-  });
-  if (counts.length === 0) {
-    const label = rows.length === 1 ? "1 subagent" : `${rows.length} subagents`;
-    return { segments: [{ bucket: null, text: label }], accessibilityLabel: label };
-  }
-  const labels = counts.map(({ bucket, count }) => statusLabel(bucket, count));
-  return { segments: counts.map(({ bucket }, index) => ({ bucket, text: labels[index] ?? "" })), accessibilityLabel: labels.join(", ") };
-}
 
 function useSubagents(parentAgentId: string, bump: number): SubagentRow[] {
   const paseo = usePaseo();
