@@ -111,7 +111,7 @@ function OpenStream({ theme, id, timeline, cwd, draftKey, viewportRef }: { theme
       viewportRef={viewportRef}
       outline={{ agentId: timeline.agentId, epoch: timeline.epoch, fetchPromptWindow: timeline.jumpToPrompt }}
       composerTracks={composerTracks}
-      renderUserActions={(message) => (message.messageId ? <RewindMenu theme={theme} capabilities={timeline.agent?.capabilities} agentId={timeline.agentId} messageId={message.messageId} rewoundText={message.text} draftKey={draftKey} onRewound={timeline.refetchTail} /> : null)}
+      renderUserActions={(message) => (message.messageId ? <RewindMenu theme={theme} capabilities={timeline.agent?.capabilities} agentId={timeline.agentId} messageId={message.messageId} rewoundText={message.text} rewoundImages={message.images} draftKey={draftKey} onRewound={timeline.refetchTail} /> : null)}
     />
   );
 }

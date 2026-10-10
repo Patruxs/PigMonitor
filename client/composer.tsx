@@ -9,11 +9,13 @@ import {
   queueComposerMessage,
   resolveMaxInputHeight,
   resolvePrimaryActionKind,
+  restoreComposerIfEmpty,
   sendQueuedComposerMessageNow,
   splitAttachmentsForSubmit,
   submitAgentInput,
   type ComposerAttachment,
-  } from "../shared/composer.ts";
+  type ComposerContent,
+} from "../shared/composer.ts";
 import { attachmentChoices, type AttachmentChoiceId } from "../shared/attachment-menu.ts";
 import { type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { withTranscript } from "../shared/speech.ts";
@@ -26,7 +28,7 @@ import { AttachmentLightbox } from "./kit/lightbox.tsx";
 import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
 import { COMPACT_BELOW, CONTENT_FONT, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, SPACING, text } from "./kit/theme.ts";
 import { drainWhenIdle, queueWriter, useQueuedMessages } from "./queue.tsx";
-import { registerComposerRestore, restoreComposerTextIfEmpty } from "./rewind.tsx";
+import { registerComposerRestore } from "./rewind.tsx";
 import type { AgentTimeline } from "./timeline.ts";
 import { ComposerTracks } from "./tracks.tsx";
 import { DictationButton, useDictation } from "./dictation.tsx";
@@ -111,6 +113,8 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
   const isCancellingAgent = timeline ? timeline.turn.isCancelling || localCancelling : localCancelling;
   const intake = useComposerAttachments({ initial: initial.attachments, text: value, cwd, field: input, disabled, isProcessing });
   const { attachments, setAttachments, pendingFiles } = intake;
+  const content = useRef<ComposerContent>({ text: value, attachments });
+  content.current = { text: value, attachments };
   const isSubmitLoading = isProcessing || pendingFiles.length > 0;
   const hasSendableContent = value.trim().length > 0 || attachments.length > 0;
   const onQueue = agentId !== undefined;
@@ -134,12 +138,13 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
 
   useEffect(() => {
     if (draftKey === undefined) return;
-    return registerComposerRestore(draftKey, (restored) => {
-      setValue((current) => {
-        const next = restoreComposerTextIfEmpty(current, restored);
-        setCursor(next.length);
-        return next;
-      });
+    return registerComposerRestore(draftKey, (rewound) => {
+      const next = restoreComposerIfEmpty(content.current, rewound);
+      if (next !== content.current) {
+        setValue(next.text);
+        setCursor(next.text.length);
+        setAttachments(next.attachments);
+      }
       focusInput();
     });
   }, [draftKey, focusInput]);

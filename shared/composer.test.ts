@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createQueueDrainer, isMacLike, resolveComposerKey, resolvePrimaryActionKind, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer.ts";
+import { createQueueDrainer, isMacLike, resolveComposerKey, resolvePrimaryActionKind, restoreComposerIfEmpty, rewoundImageOf, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer.ts";
 
 function memoryQueue(initial: QueuedComposerMessage[]): QueueWriter & { items: () => QueuedComposerMessage[] } {
   let state = new Map([["a", initial]]);
@@ -113,4 +113,13 @@ test("after a resume the participant's queue drains to the new agent, not the ol
 
 test("Apple keyboards use ⌘ for find and focus on a Mac, an iPad and an iPhone alike, and Ctrl elsewhere", () => {
   assert.deepEqual([{ platform: "MacIntel" }, { platform: "iPad" }, { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)" }, { platform: "Win32" }, { platform: "Linux x86_64" }, undefined].map(isMacLike), [true, true, true, false, false, false]);
+});
+
+test("a rewind puts the prompt's text and images back into an empty composer and leaves a started draft alone", () => {
+  const image = rewoundImageOf({ id: "i1" }, "data:image/jpeg;base64,AAAA", 0);
+  assert.deepEqual(image.kind === "image" ? [image.metadata.mimeType, image.metadata.dataUrl] : null, ["image/jpeg", "data:image/jpeg;base64,AAAA"]);
+  const rewound = { text: "look at this", attachments: [image] };
+  assert.deepEqual(restoreComposerIfEmpty({ text: "", attachments: [] }, rewound), rewound);
+  const draft = { text: "half typed", attachments: [] };
+  assert.equal(restoreComposerIfEmpty(draft, rewound), draft);
 });
