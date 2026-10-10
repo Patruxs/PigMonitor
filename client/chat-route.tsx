@@ -77,8 +77,8 @@ export function useChatRouting(ids: string[], selected: string, navigation: Navi
     ready: lastKnown.current !== null && lastAgents.current !== null,
     canOpen: navigation !== undefined,
     routeOf: (id) => {
-      const session = byId.get(id);
-      return chatRouteOf(session, session?.ref ? agents.get(session.ref) : undefined);
+      const participant = byId.get(id);
+      return chatRouteOf(participant, participant?.ref ? agents.get(participant.ref) : undefined);
     },
     participant: (id) => byId.get(id),
     open: (agentId) => navigation?.openAgent({ agentId, ...(serverId ? { serverId } : {}) }),

@@ -7,17 +7,17 @@ export type ParticipantRecord = z.infer<typeof ParticipantRecord>;
 
 export type ChatRoute = { kind: "open"; agentId: string } | { kind: "resume" } | { kind: "mail"; why: string };
 
-export function resumable(session: ParticipantRecord): boolean {
-  return session.gone && session.harness === "claude" && !!session.ref && !!session.cwd;
+export function resumable(participant: ParticipantRecord): boolean {
+  return participant.gone && participant.harness === "claude" && !!participant.ref && !!participant.cwd;
 }
 
-export function chatRouteOf(session: ParticipantRecord | undefined, agentId: string | undefined): ChatRoute {
+export function chatRouteOf(participant: ParticipantRecord | undefined, agentId: string | undefined): ChatRoute {
   if (agentId) return { kind: "open", agentId };
-  if (!session) return { kind: "mail", why: "a session piggery knows no harness session for" };
-  if (resumable(session)) return { kind: "resume" };
-  if (session.gone) return { kind: "mail", why: `an ended ${session.harness ?? "agent"} session` };
-  if (session.mode === "headless") return { kind: "mail", why: "a headless piggery worker" };
-  if (session.harness !== "claude") return { kind: "mail", why: `a ${session.harness ?? "non-claude"} session outside Paseo` };
+  if (!participant) return { kind: "mail", why: "a session piggery knows no harness session for" };
+  if (resumable(participant)) return { kind: "resume" };
+  if (participant.gone) return { kind: "mail", why: `an ended ${participant.harness ?? "agent"} session` };
+  if (participant.mode === "headless") return { kind: "mail", why: "a headless piggery worker" };
+  if (participant.harness !== "claude") return { kind: "mail", why: `a ${participant.harness ?? "non-claude"} session outside Paseo` };
   return { kind: "mail", why: "a claude session running outside Paseo" };
 }
 
@@ -50,12 +50,12 @@ export interface StepIns {
   resume: boolean;
 }
 
-export function stepInsOf(row: Pick<Row, "kind" | "actions">, session: ParticipantRecord | undefined): StepIns {
-  const stopped = session?.state === "gone" || session?.state === "parked";
+export function stepInsOf(row: Pick<Row, "kind" | "actions">, participant: ParticipantRecord | undefined): StepIns {
+  const stopped = participant?.state === "gone" || participant?.state === "parked";
   return {
     kill: row.actions?.kill === true,
     model: row.actions?.pick === true,
-    resume: row.kind === "member" && session?.mode === "headless" && !session.teamClosed && stopped,
+    resume: row.kind === "member" && participant?.mode === "headless" && !participant.teamClosed && stopped,
   };
 }
 

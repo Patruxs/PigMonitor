@@ -36,11 +36,11 @@ async function imported(id: string): Promise<string | null> {
   }
 }
 
-export async function resumeInPaseo(session: ParticipantRecord | undefined): Promise<Resumed> {
-  if (!session || !resumable(session)) return { ok: false, code: "denied", error: "Only an ended claude session can be resumed in Paseo; a live one is still owned by its process." };
-  const before = await imported(session.id);
+export async function resumeInPaseo(participant: ParticipantRecord | undefined): Promise<Resumed> {
+  if (!participant || !resumable(participant)) return { ok: false, code: "denied", error: "Only an ended claude session can be resumed in Paseo; a live one is still owned by its process." };
+  const before = await imported(participant.id);
   if (before) return { ok: true, agentId: before };
-  const r = await runPaseo(["import", session.ref as string, "--provider", "claude", "--cwd", session.cwd, "--label", labelOf(session.id)]);
+  const r = await runPaseo(["import", participant.ref as string, "--provider", "claude", "--cwd", participant.cwd, "--label", labelOf(participant.id)]);
   if (!r.ok) return { ok: false, code: "failed", error: `paseo import failed: ${r.error}` };
   try {
     const agentId = (JSON.parse(r.out) as { agentId?: unknown }).agentId;
