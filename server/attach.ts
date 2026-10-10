@@ -53,3 +53,14 @@ function decodedSize(base64: string): number {
 export function uploadTooLarge(fileName: string, base64: string): string | null {
   return decodedSize(base64) > MAX_UPLOAD_BYTES ? `${fileName} is too large (max ${MAX_UPLOAD_BYTES / 1024 / 1024}MB)` : null;
 }
+
+export async function mailBody(root: string, to: string, body: string, images: ImageData[], attachments: AttachmentData[]): Promise<{ ok: true; body: string } | { ok: false; code: "failed"; error: string }> {
+  let files: string[];
+  try {
+    files = await saveImages(root, to, images);
+  } catch (error) {
+    return { ok: false, code: "failed", error: `Could not save the image: ${String((error as Error).message ?? error)}` };
+  }
+  const composed = bodyWithAttachments(bodyWithImages(body, files), attachments);
+  return composed ? { ok: true, body: composed } : { ok: false, code: "failed", error: "Nothing to send." };
+}

@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { attachmentText, bodyWithAttachments, bodyWithImages, saveImages, uploadTooLarge } from "./attach.ts";
+import { attachmentText, bodyWithAttachments, bodyWithImages, saveImages, uploadTooLarge, mailBody } from "./attach.ts";
 import { forgeAttachment, MAX_UPLOAD_BYTES } from "../shared/attach.ts";
 
 test("an image sent as mail is saved under the session's folder and its path is in the body", async () => {
@@ -40,4 +40,8 @@ test("files and issues or PRs sent as mail are appended to the body as Paseo ren
 test("an upload over Paseo's 50MB limit is refused before it reaches the daemon", () => {
   assert.equal(uploadTooLarge("big.bin", Buffer.alloc(MAX_UPLOAD_BYTES).toString("base64")), null);
   assert.match(uploadTooLarge("big.bin", Buffer.alloc(MAX_UPLOAD_BYTES + 1).toString("base64")) ?? "", /big\.bin is too large/);
+});
+
+test("mail with no text, images or attachments is refused before it reaches piggery", async () => {
+  assert.deepEqual(await mailBody("/nowhere", "w1", "", [], []), { ok: false, code: "failed", error: "Nothing to send." });
 });

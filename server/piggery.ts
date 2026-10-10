@@ -4,6 +4,8 @@ import { execFile } from "node:child_process";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
+import { TAIL_VERSION, type TailKind } from "../shared/view.ts";
+import { adminCall, type AdminResult } from "./admin.ts";
 
 export type Result = { ok: true; out: string } | { ok: false; code: "missing" | "down" | "older" | "failed"; error: string };
 
@@ -47,4 +49,58 @@ export async function realDir(dir: string): Promise<string> {
   } catch {
     return dir;
   }
+}
+
+const STEP_IN_TIMEOUT_MS = 30000;
+
+type Failed = { ok: false; code: "missing" | "down" | "older" | "newer" | "failed"; error: string };
+
+export async function snapshotView(bin: string, dir: string | undefined): Promise<{ ok: true; view: Record<string, unknown>; dir: string | undefined } | Failed> {
+  const r = await runPiggery(bin, ["ps", "--view"]);
+  if (!r.ok) return r;
+  try {
+    const view = JSON.parse(r.out) as Record<string, unknown>;
+    return { ok: true, view, dir: dir === undefined ? undefined : await realDir(dir) };
+  } catch {
+    return { ok: false, code: "failed", error: "piggery ps --view did not print JSON." };
+  }
+}
+
+export type TailLine = { kind: TailKind; text: string; rest?: string };
+
+export async function tailView(bin: string, id: string, lines: number): Promise<{ ok: true; lines: TailLine[] } | Failed> {
+  const r = await runPiggery(bin, ["tail", id, "-n", String(lines), "--view"]);
+  if (!r.ok) return r;
+  try {
+    const doc = JSON.parse(r.out);
+    if (doc.version < TAIL_VERSION) return { ok: false, code: "older", error: `piggery speaks tail --view version ${doc.version}; this plugin reads ${TAIL_VERSION}. Update piggery.` };
+    if (doc.version > TAIL_VERSION) return { ok: false, code: "newer", error: `piggery speaks tail --view version ${doc.version}; this plugin reads ${TAIL_VERSION}. Run piggery setup paseo to update the plugin, then reload the Paseo app.` };
+    if (Array.isArray(doc.lines)) return { ok: true, lines: doc.lines as TailLine[] };
+  } catch {}
+  return { ok: false, code: "failed", error: "piggery tail --view did not print JSON." };
+}
+
+export async function abort(bin: string, id: string): Promise<{ ok: true } | Failed> {
+  const r = await runPiggery(bin, ["abort", id]);
+  return r.ok ? { ok: true } : r;
+}
+
+export type StepIn = { verb: "kill" | "resume" | "release"; id: string } | { verb: "model"; id: string; model?: string; thinking?: string };
+
+export function stepInArgs(input: StepIn): string[] | null {
+  if (input.verb !== "model") return [input.verb, input.id];
+  if (!input.model && !input.thinking) return null;
+  return ["model", input.id, ...(input.model ? [input.model] : []), ...(input.thinking ? ["--thinking", input.thinking] : [])];
+}
+
+export async function runStepIn(bin: string, input: StepIn): Promise<{ ok: true; said: string } | Failed> {
+  const args = stepInArgs(input);
+  if (!args) return { ok: false, code: "failed", error: "Choose a model or a thinking level." };
+  const r = await runPiggery(bin, args, STEP_IN_TIMEOUT_MS);
+  return r.ok ? { ok: true, said: r.out.trim() } : r;
+}
+
+export async function listModels(home: string, id: string): Promise<{ ok: true; models: string[] } | Exclude<AdminResult<unknown>, { ok: true }>> {
+  const r = await adminCall<{ models?: string[] }>(home, "models", { target: id });
+  return r.ok ? { ok: true, models: r.value?.models ?? [] } : r;
 }
