@@ -7,7 +7,8 @@ import { basenameOf } from "../shared/events.ts";
 import type { ChatRoute } from "../shared/chat-route.ts";
 import { AVATAR } from "./kit/avatar.tsx";
 import { Pill } from "./kit/pill.tsx";
-import { paint, RoleAvatar } from "./piggery/role.tsx";
+import { paint, usePalette } from "./palette.tsx";
+import { RoleAvatar } from "./piggery/role.tsx";
 import { STATUS_WORD, StatusDot, StatusPill, StatusWord } from "./piggery/status.tsx";
 import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
 import { useCompact } from "./kit/platform.ts";
@@ -42,6 +43,7 @@ function sessionItems(theme: PluginTheme, item: Conversation, route: ChatRoute, 
 }
 
 function CompactChatHead({ theme, item, route, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; route: ChatRoute; chat: ChatRouting; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
+  const palette = usePalette(theme);
   const toast = useToast();
   const { row } = item;
   const place = item.teamName ?? basenameOf(item.dir.path);
@@ -60,7 +62,7 @@ function CompactChatHead({ theme, item, route, chat, writable, steps, onBack, on
         <Text style={[text(theme, "rowTitle"), { fontWeight: "600", flexShrink: 1 }]} numberOfLines={1}>
           {row.name}
         </Text>
-        {row.role ? <Pill theme={theme} label={row.role} colour={paint(theme, row.role, row.id)} filled /> : null}
+        {row.role ? <Pill theme={theme} label={row.role} colour={paint(palette, row.role, row.id)} filled /> : null}
         <StatusWord theme={theme} status={row.status} dim={row.dim} />
         <Text style={[text(theme, "label"), { flexShrink: 2, minWidth: 0 }]} numberOfLines={1}>
           {place}
@@ -72,13 +74,14 @@ function CompactChatHead({ theme, item, route, chat, writable, steps, onBack, on
 }
 
 export function ChatHead({ theme, item, route, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; route: ChatRoute; chat: ChatRouting; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
+  const palette = usePalette(theme);
   const compactFormFactor = useCompact();
   const [width, setWidth] = useState(0);
   if (compactFormFactor) return <CompactChatHead theme={theme} item={item} route={route} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />;
   const stacked = width > 0 && width < HEAD_STACK_BELOW;
   const link = <PaseoLink theme={theme} id={item.row.id} route={route} chat={chat} writable={writable} />;
   const { row } = item;
-  const colour = paint(theme, row.role, row.id);
+  const colour = paint(palette, row.role, row.id);
   const sub = [row.harness, row.model && row.model !== "-" ? row.model : undefined, row.ctx ? `${row.ctx} ctx` : undefined, row.turns ? `${row.turns} turns` : undefined].filter(Boolean).join(" · ");
   const project = basenameOf(item.dir.path);
   return (

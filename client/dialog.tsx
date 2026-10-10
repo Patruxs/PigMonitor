@@ -8,7 +8,8 @@ import { turnOf } from "../shared/chat-route.ts";
 import { type Detail, type Row, type TailKind, type View as PigView } from "../shared/view.ts";
 import { LogStream } from "./transcript.tsx";
 import { Pill } from "./kit/pill.tsx";
-import { paint, RoleAvatar } from "./piggery/role.tsx";
+import { paint, usePalette } from "./palette.tsx";
+import { RoleAvatar } from "./piggery/role.tsx";
 import { StatusPill } from "./piggery/status.tsx";
 import { PressRow } from "./kit/press.tsx";
 import { Rows } from "./kit/rows.tsx";
@@ -81,13 +82,14 @@ function SessionStream({ theme, id, row }: { theme: PluginTheme; id: string; row
 }
 
 function Overview({ theme, detail, row, onTail, onTranscript }: { theme: PluginTheme; detail: Detail; row: Row | undefined; onTail: () => void; onTranscript: () => void }) {
+  const palette = usePalette(theme);
   const task = detail.task;
   const facts = detail.facts;
   return (
     <View style={{ gap: SPACING[3] }}>
       <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: SPACING[2] }}>
         {row && (row.kind === "member" || row.kind === "solo") ? <RoleAvatar theme={theme} name={row.name} role={row.role} id={row.id} dim={row.dim} /> : null}
-        {row?.role ? <Pill theme={theme} label={row.role} colour={paint(theme, row.role, row.id)} filled /> : null}
+        {row?.role ? <Pill theme={theme} label={row.role} colour={paint(palette, row.role, row.id)} filled /> : null}
         {row?.gate ? <Pill theme={theme} label="gate" icon="DoorOpen" /> : null}
         {row ? <StatusPill theme={theme} status={row.status} word={row.state_text} dim={row.dim} /> : null}
         {detail.sub ? <Text style={text(theme, "meta")}>{detail.sub}</Text> : null}

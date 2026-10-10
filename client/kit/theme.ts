@@ -1,5 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import type { TextStyle } from "react-native";
+import { withAlpha } from "../../shared/palette.ts";
 
 export const SPACING = { 0.5: 2, 1: 4, 1.5: 6, 2: 8, 3: 12, 4: 16, 6: 24, 8: 32 } as const;
 
@@ -91,5 +92,5 @@ export const STREAM_METADATA_FONT = 13;
 export const MAX_CONTENT_WIDTH = 820;
 
 export function tint(colour: string, alpha = "22"): string {
-  return /^#[0-9a-fA-F]{6}$/.test(colour) ? `${colour}${alpha}` : colour;
+  return withAlpha(colour, alpha);
 }

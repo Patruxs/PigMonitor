@@ -7,13 +7,16 @@ import { ParticipantRecord } from "./chat-route.ts";
 import { Transcript } from "./transcript.ts";
 import { UsageReportEntry } from "./usage-schema.ts";
 import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./speech.ts";
+import { PALETTE_KEYS, type PaletteKey } from "./palette.ts";
 
 const Failure = z.object({ ok: z.literal(false), code: z.enum(["missing", "down", "older", "newer", "failed", "nodb", "nolog", "denied"]), error: z.string() });
+
+const StateSegment = z.object({ state: z.enum(["working", "idle", "waiting", "gone"]), start: z.number(), end: z.number().nullable() });
 
 export const snapshot = defineRpc({
   name: "pigmonitor.snapshot",
   input: z.object({ dir: z.string().optional() }),
-  output: z.union([z.object({ ok: z.literal(true), view: z.record(z.string(), z.unknown()), dir: z.string().optional() }), Failure]),
+  output: z.union([z.object({ ok: z.literal(true), view: z.record(z.string(), z.unknown()), segments: z.record(z.string(), z.array(StateSegment)).optional(), dir: z.string().optional() }), Failure]),
 });
 
 export const tail = defineRpc({
@@ -239,6 +242,13 @@ export const viewSettings = defineSettings({
   scope: "host",
   version: 1,
   schema: z.object({ teams: z.record(z.string(), z.boolean()).default({}), gone: z.record(z.string(), z.boolean()).default({}), tab: z.enum(["overview", "graph", "board", "mail", "sessions"]).default("overview"), listWidth: z.number().optional(), hidden: z.record(z.string(), z.boolean()).default({}) }),
+});
+
+export const colourSettings = defineSettings({
+  id: "pigmonitor-colours",
+  scope: "host",
+  version: 1,
+  schema: z.object(Object.fromEntries(PALETTE_KEYS.map((key) => [key, z.string().optional()])) as Record<PaletteKey, z.ZodOptional<z.ZodString>>),
 });
 
 export const settings = defineSettings({

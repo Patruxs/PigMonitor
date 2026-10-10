@@ -14,7 +14,8 @@
     "skipLibCheck": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "erasableSyntaxOnly": true
   },
   "include": ["index.server.ts", "index.client.tsx", "client", "server", "shared"]
 }

@@ -6,8 +6,9 @@ import { matches, passes, projectsOf, SOLO_KEY, type Conversation, type Filter, 
 import { ageShort } from "../shared/format.ts";
 import type { Status } from "../shared/view.ts";
 import { Chip } from "./kit/badge.tsx";
-import { AvatarStack, paint, RoleAvatar } from "./piggery/role.tsx";
-import { STATUS_WORD, statusColour, StatusDot, StatusWord } from "./piggery/status.tsx";
+import { paint, statusColour, usePalette } from "./palette.tsx";
+import { AvatarStack, RoleAvatar } from "./piggery/role.tsx";
+import { STATUS_WORD, StatusDot, StatusWord } from "./piggery/status.tsx";
 import { hovered, PressRow } from "./kit/press.tsx";
 import { AVATAR_LG, ICON_SIZE, RADIUS, ROW_CHAT, ROW_MIN, SPACING, text, tint } from "./kit/theme.ts";
 import { TreeGuides, treeIndent, treeSpotsOf, type TreeSpot } from "./kit/tree.tsx";
@@ -48,23 +49,26 @@ function SearchBox({ theme, value, onChange }: { theme: PluginTheme; value: stri
 }
 
 function StatusRing({ theme, status }: { theme: PluginTheme; status: Status }) {
+  const palette = usePalette(theme);
   const size = AVATAR_LG + RING_GAP * 2;
-  return <View style={{ position: "absolute", left: -RING_GAP, top: -RING_GAP, width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: tint(statusColour(theme, status), "99") }} />;
+  return <View style={{ position: "absolute", left: -RING_GAP, top: -RING_GAP, width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: tint(statusColour(palette, status), "99") }} />;
 }
 
 function UnreadBadge({ theme, count }: { theme: PluginTheme; count: number }) {
+  const palette = usePalette(theme);
   return (
-    <View style={{ minWidth: 20, height: 20, paddingHorizontal: SPACING[1.5], borderRadius: 10, backgroundColor: theme.colors.accent, alignItems: "center", justifyContent: "center" }} accessibilityLabel={`${count} unread`}>
+    <View style={{ minWidth: 20, height: 20, paddingHorizontal: SPACING[1.5], borderRadius: 10, backgroundColor: palette.mail, alignItems: "center", justifyContent: "center" }} accessibilityLabel={`${count} unread`}>
       <Text style={{ fontSize: 11, lineHeight: 13, fontWeight: "600", color: theme.colors.surface0, fontVariant: ["tabular-nums"] }}>{count > 99 ? "99+" : String(count)}</Text>
     </View>
   );
 }
 
 function ConversationRow({ theme, item, spot, selected, now, onPress }: { theme: PluginTheme; item: Conversation; spot: TreeSpot; selected: boolean; now: number; onPress: () => void }) {
+  const palette = usePalette(theme);
   const { row } = item;
   const dim = row.dim === true || row.status === "gone";
   const busy = !dim && (row.status === "working" || row.status === "waiting");
-  const colour = dim ? theme.colors.foregroundMuted : paint(theme, row.role, row.id);
+  const colour = dim ? theme.colors.foregroundMuted : paint(palette, row.role, row.id);
   const style = (state: PressableStateCallbackType) => ({
     flexDirection: "row" as const,
     alignItems: "center" as const,

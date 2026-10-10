@@ -8,7 +8,7 @@ export default function contribute(client: PluginClientContext) {
     client.addScreen({ id: SCREEN_ID, title: "PigMonitor", Component: PigMonitorSurface }),
     client.addSidebarHeaderItem({ id: "pigmonitor", title: "PigMonitor", Component: PigMonitorSidebarItem }),
     client.addWorkspacePanel({ id: "farm", title: "PigMonitor", icon: "Activity", context: "workspace", locations: ["explorer", "workspace"], Component: FarmPanel }),
-    client.addSettingsScreen({ id: "pigmonitor", title: "PigMonitor", icon: "Activity", Component: PigMonitorSettings }),
+    client.addSettingsScreen({ id: "pigmonitor", title: "PigMonitor settings", icon: "Settings2", Component: PigMonitorSettings }),
   ];
   return () => cleanups.forEach((cleanup) => cleanup());
 }

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 import { RADIUS, SPACING, text, tint } from "./theme.ts";
 
-export { AvatarStack, paint, RoleAvatar, RolePill } from "../piggery/role.tsx";
+export { AvatarStack, RoleAvatar, RolePill } from "../piggery/role.tsx";
 export { StatusPill } from "../piggery/status.tsx";
 export { Pill } from "./pill.tsx";
 export { tint } from "./theme.ts";

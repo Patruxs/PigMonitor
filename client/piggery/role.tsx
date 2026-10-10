@@ -1,17 +1,13 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Text, View } from "react-native";
-import { HUMAN, roleColour, roleWord } from "../../shared/mail.ts";
+import { HUMAN, roleWord } from "../../shared/mail.ts";
 import { Avatar, AVATAR_SM } from "../kit/avatar.tsx";
 import { Pill } from "../kit/pill.tsx";
 import { SPACING, text } from "../kit/theme.ts";
-
-export function paint(theme: PluginTheme, role: string | undefined, id: string): string {
-  const p = roleColour(role, id);
-  return p.kind === "hex" ? p.value : theme.colors[p.value];
-}
+import { paint, usePalette } from "../palette.tsx";
 
 export function RoleAvatar({ theme, name, role, id, size, dim }: { theme: PluginTheme; name: string; role: string | undefined; id: string; size?: number; dim?: boolean }) {
-  return <Avatar theme={theme} name={name} colour={paint(theme, role, id)} size={size} icon={role === HUMAN ? "User" : undefined} dim={dim} />;
+  return <Avatar theme={theme} name={name} colour={paint(usePalette(theme), role, id)} size={size} icon={role === HUMAN ? "User" : undefined} dim={dim} />;
 }
 
 export function AvatarStack({ theme, people, max = 5 }: { theme: PluginTheme; people: { id: string; name: string; role?: string; dim?: boolean }[]; max?: number }) {
@@ -30,5 +26,5 @@ export function AvatarStack({ theme, people, max = 5 }: { theme: PluginTheme; pe
 }
 
 export function RolePill({ theme, role, id }: { theme: PluginTheme; role: string | undefined; id: string }) {
-  return <Pill theme={theme} label={roleWord(role, id)} colour={paint(theme, role, id)} filled />;
+  return <Pill theme={theme} label={roleWord(role, id)} colour={paint(usePalette(theme), role, id)} filled />;
 }

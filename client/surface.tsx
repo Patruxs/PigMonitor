@@ -9,11 +9,14 @@ import { snapshot, tail, viewSettings } from "../shared/rpc.ts";
 import { keptAxisSteps } from "../shared/axis.ts";
 import { agoText, clockText, readView, related, type Block, type Column, type Detail, type Dir, type EventRow, type Head, type Row, type Status, type TailKind, type Tone, type View as PigView } from "../shared/view.ts";
 import { DetailDialog, type Index } from "./dialog.tsx";
+import { barColours, PastSegments } from "./gantt.tsx";
+import { piecesIn, uncoveredIn, type Segment } from "../shared/segments.ts";
 import { Header } from "./header.tsx";
 import { conversationsOf, HiddenProjects, SessionsPane } from "./sessions.tsx";
 import type { Navigation } from "./native.tsx";
-import { AvatarStack, Legend, paint, Pill, RoleAvatar, RolePill, StatusPill, tint } from "./kit/chat.tsx";
-import { Chip, statusColour } from "./kit/badge.tsx";
+import { AvatarStack, Legend, Pill, RoleAvatar, RolePill, StatusPill, tint } from "./kit/chat.tsx";
+import { Chip } from "./kit/badge.tsx";
+import { paint, statusColour, StoredPalette, teamColour, usePalette } from "./palette.tsx";
 import { Disclosure } from "./kit/disclosure.tsx";
 import { PressRow } from "./kit/press.tsx";
 import { Notice } from "./kit/notice.tsx";
@@ -32,7 +35,7 @@ function useView(dir: string | undefined) {
       const r = await call({ dir });
       if (!r.ok) return r;
       const v = readView(r.view);
-      return v.ok ? { ok: true as const, value: { view: v.view, dir: r.dir ?? dir } } : v;
+      return v.ok ? { ok: true as const, value: { view: v.view, dir: r.dir ?? dir, segments: r.segments ?? {} } } : v;
     },
     `view:${dir ?? ""}`,
     (v) => pollEvery((v?.view.summary.working ?? 0) + (v?.view.summary.waiting ?? 0) > 0),
@@ -234,13 +237,6 @@ const WINDOWS: { label: string; ms: number; tick: number }[] = [
 const LABEL_W = 280;
 const LABEL_W_NARROW = 132;
 const TREE_STEP = 18;
-const TEAM_PALETTE = ["#fbbf24", "#fb923c", "#f87171", "#a3e635", "#e879f9", "#818cf8", "#22d3ee", "#facc15"];
-
-function teamColour(key: string): string {
-  let h = 0;
-  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return TEAM_PALETTE[h % TEAM_PALETTE.length];
-}
 const TREE_INK = "77";
 const TRACK_H = 52;
 const BAR_H = 26;
@@ -305,41 +301,43 @@ function Grid({ theme, scale, tick }: { theme: PluginTheme; scale: Scale; tick: 
   );
 }
 
-function barColours(theme: PluginTheme, status: Status, own: string): { fill: string; ink: string; border: string } {
-  const c = statusColour(theme, status);
-  if (status === "idle") return { fill: tint(own, "2a"), ink: theme.colors.foreground, border: tint(own, "88") };
-  return { fill: c, ink: theme.colors.surface0, border: c };
-}
-
 function stateWords(row: Row): { word: string; since: string } {
   return { word: row.state_text.replace(/^[^\p{L}]+/u, ""), since: row.since ?? "" };
 }
 
-function Track({ theme, member, scale, events, onPress }: { theme: PluginTheme; member: Member; scale: Scale; events: { t: number; tone: Tone; type: string }[]; onPress: () => void }) {
+function currentWordFits(row: Row, scale: Scale): boolean {
+  const since = row.state_since ?? row.created_at ?? scale.start;
+  return xOf(scale, scale.now) - xOf(scale, Math.max(since, scale.start)) >= WORD_MIN;
+}
+
+function Track({ theme, member, segments, scale, events, onPress }: { theme: PluginTheme; member: Member; segments: Segment[]; scale: Scale; events: { t: number; tone: Tone; type: string }[]; onPress: () => void }) {
+  const palette = usePalette(theme);
   const { row } = member;
   const born = row.created_at ?? scale.start;
   const since = row.state_since ?? born;
   const gone = row.status === "gone";
   const end = gone ? since : scale.now;
   const lifeX = xOf(scale, Math.max(born, scale.start));
-  const lifeW = Math.max(2, xOf(scale, end) - lifeX);
   const stateX = xOf(scale, Math.max(since, scale.start));
   const stateW = Math.max(6, xOf(scale, scale.now) - stateX);
   const { word, since: sinceText } = stateWords(row);
   const doing = member.detail?.task ? member.detail.task.title.replace(/^#\d+\s*/, "").trim() : "";
-  const own = paint(theme, row.role, row.id);
-  const colours = barColours(theme, row.status, own);
-  const status = statusColour(theme, row.status);
+  const own = paint(palette, row.role, row.id);
+  const colours = barColours(theme, palette, row.status, own);
   const top = TRACK_H / 2 - BAR_H / 2;
-  const inside = stateW >= WORD_MIN;
-  const outsideRoom = stateX - SPACING[2];
+  const inside = currentWordFits(row, scale);
+  const pieces = piecesIn(segments, scale.start, Math.min(since, scale.now), scale.now);
+  const lifeGaps = uncoveredIn(Math.max(born, scale.start), end, gone ? pieces : [...pieces, { start: since, end: scale.now }]);
   return (
     <PressRow theme={theme} onPress={onPress} label={`${row.name}, ${row.state_text}`} style={{ height: TRACK_H, justifyContent: "center" }}>
-      <View style={{ position: "absolute", left: lifeX, width: lifeW, top: TRACK_H / 2 - LIFE_H / 2, height: LIFE_H, borderRadius: LIFE_H / 2, backgroundColor: own, opacity: gone ? 0.25 : 0.55 }} />
+      {lifeGaps.map((gap) => (
+        <View key={gap.start} style={{ position: "absolute", left: xOf(scale, gap.start), width: Math.max(2, xOf(scale, gap.end) - xOf(scale, gap.start)), top: TRACK_H / 2 - LIFE_H / 2, height: LIFE_H, borderRadius: LIFE_H / 2, backgroundColor: own, opacity: gone ? 0.25 : 0.55 }} />
+      ))}
       {born >= scale.start && !gone ? <View style={{ position: "absolute", left: lifeX - 1, top: TRACK_H / 2 - 7, width: 3, height: 14, borderRadius: 1.5, backgroundColor: own }} /> : null}
+      <PastSegments theme={theme} pieces={pieces} xOf={(t) => xOf(scale, t)} top={top} height={BAR_H} own={own} />
       {!gone ? (
         <>
-          <View style={{ position: "absolute", left: stateX, width: stateW, top, height: BAR_H, borderRadius: 6, backgroundColor: colours.fill, borderWidth: 1, borderColor: colours.border, overflow: "hidden", justifyContent: "center", paddingHorizontal: SPACING[2] }}>
+          <View style={{ position: "absolute", left: stateX, width: stateW, top, height: BAR_H, borderRadius: 6, backgroundColor: colours.fill, borderWidth: 1, borderColor: colours.border, overflow: "hidden", justifyContent: "center", paddingHorizontal: inside ? SPACING[2] : 0 }}>
             {inside ? (
               <Text style={[text(theme, "label"), { color: colours.ink, fontWeight: "700", lineHeight: 16 }]} numberOfLines={1}>
                 {word}
@@ -348,22 +346,14 @@ function Track({ theme, member, scale, events, onPress }: { theme: PluginTheme; 
               </Text>
             ) : null}
           </View>
-          {!inside && outsideRoom > WORD_MIN ? (
-            <View style={{ position: "absolute", right: scale.width - stateX + SPACING[2], top, height: BAR_H, justifyContent: "center", maxWidth: outsideRoom }}>
-              <Text style={[text(theme, "label"), { color: status, fontWeight: "700", lineHeight: 16 }]} numberOfLines={1}>
-                {word}
-                {sinceText ? <Text style={{ fontWeight: "500", color: theme.colors.foregroundMuted }}>{`  ${sinceText}`}</Text> : null}
-              </Text>
-            </View>
-          ) : null}
         </>
       ) : (
-        <View style={{ position: "absolute", left: Math.min(xOf(scale, since), scale.width - 120), top, height: BAR_H, flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[2], borderRadius: 6, backgroundColor: tint(theme.colors.statusDanger, "1f"), borderWidth: 1, borderColor: tint(theme.colors.statusDanger, "88") }}>
-          <View style={{ width: DOT, height: DOT, borderRadius: DOT, backgroundColor: theme.colors.statusDanger }} />
-          <Text style={[text(theme, "label", "statusDanger"), { fontWeight: "600", lineHeight: 16, fontVariant: ["tabular-nums"] }]} numberOfLines={1}>{`exited ${clockText(since, scale.now)}`}</Text>
+        <View style={{ position: "absolute", left: Math.min(xOf(scale, since), scale.width - 120), top, height: BAR_H, flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[2], borderRadius: 6, backgroundColor: tint(palette.gone, "1f"), borderWidth: 1, borderColor: tint(palette.gone, "88") }}>
+          <View style={{ width: DOT, height: DOT, borderRadius: DOT, backgroundColor: palette.gone }} />
+          <Text style={[text(theme, "label"), { color: palette.gone, fontWeight: "600", lineHeight: 16, fontVariant: ["tabular-nums"] }]} numberOfLines={1}>{`exited ${clockText(since, scale.now)}`}</Text>
         </View>
       )}
-      {row.last_turn_end && row.last_turn_end >= scale.start && !gone && row.status === "idle" ? <View style={{ position: "absolute", left: xOf(scale, row.last_turn_end) - 1, top: top - 3, width: 2, height: BAR_H + 6, borderRadius: 1, backgroundColor: theme.colors.statusWarning, opacity: 0.9 }} /> : null}
+      {row.last_turn_end && row.last_turn_end >= scale.start && !gone && row.status === "idle" ? <View style={{ position: "absolute", left: xOf(scale, row.last_turn_end) - 1, top: top - 3, width: 2, height: BAR_H + 6, borderRadius: 1, backgroundColor: palette.waiting, opacity: 0.9 }} /> : null}
       {events.map((e, i) => (
         <View key={i} style={{ position: "absolute", left: xOf(scale, e.t) - 5, top: top - 6, width: 11, height: 11, borderRadius: 6, borderWidth: 2, borderColor: theme.colors.surface0, backgroundColor: e.tone === "danger" ? theme.colors.statusDanger : e.tone === "warning" ? theme.colors.statusWarning : theme.colors.accent }} />
       ))}
@@ -394,11 +384,12 @@ function TreeGuides({ theme, depth, colour, last }: { theme: PluginTheme; depth:
   );
 }
 
-function TrackLabel({ theme, member, narrow, last, onPress }: { theme: PluginTheme; member: Member; narrow: boolean; last: boolean; onPress: () => void }) {
+function TrackLabel({ theme, member, narrow, last, stateHere, onPress }: { theme: PluginTheme; member: Member; narrow: boolean; last: boolean; stateHere: boolean; onPress: () => void }) {
+  const palette = usePalette(theme);
   const { row } = member;
-  const colour = paint(theme, row.role, row.id);
+  const colour = paint(palette, row.role, row.id);
   const dim = row.status === "gone";
-  const status = statusColour(theme, row.status);
+  const status = statusColour(palette, row.status);
   const indent = row.depth * TREE_STEP;
   return (
     <PressRow theme={theme} onPress={onPress} label={row.name} style={{ height: TRACK_H, flexDirection: "row", alignItems: "center", gap: SPACING[2], paddingLeft: SPACING[3] + indent, paddingRight: SPACING[2], opacity: dim ? 0.55 : 1 }}>
@@ -414,17 +405,23 @@ function TrackLabel({ theme, member, narrow, last, onPress }: { theme: PluginThe
           </Text>
           {row.gate ? <Icon name="DoorOpen" size={11} color={theme.colors.foregroundMuted} /> : null}
         </View>
-        {narrow ? null : (
+        {narrow && !stateHere ? null : (
           <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5] }}>
-            <RolePill theme={theme} role={row.role} id={row.id} />
-            {row.ctx ? <Text style={[text(theme, "label"), { fontVariant: ["tabular-nums"] }]} numberOfLines={1}>{row.ctx}</Text> : null}
+            {narrow ? null : <RolePill theme={theme} role={row.role} id={row.id} />}
+            {row.ctx && !narrow ? <Text style={[text(theme, "label"), { fontVariant: ["tabular-nums"], flexShrink: 1 }]} numberOfLines={1}>{row.ctx}</Text> : null}
+            {stateHere ? (
+              <Text style={[text(theme, "label"), { color: status, fontWeight: "700", flexShrink: 0 }]} numberOfLines={1}>
+                {stateWords(row).word}
+                {row.since ? <Text style={{ fontWeight: "500", color: theme.colors.foregroundMuted }}>{` ${row.since}`}</Text> : null}
+              </Text>
+            ) : null}
           </View>
         )}
       </View>
       {row.unacked > 0 ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: SPACING[1.5], height: 20, borderRadius: 10, backgroundColor: tint(theme.colors.statusWarning, "1f") }}>
-          <Icon name="Mail" size={11} color={theme.colors.statusWarning} />
-          <Text style={[text(theme, "label", "statusWarning"), { fontVariant: ["tabular-nums"], fontWeight: "600" }]}>{row.unacked}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: SPACING[1.5], height: 20, borderRadius: 10, backgroundColor: tint(palette.mail, "1f") }}>
+          <Icon name="Mail" size={11} color={palette.mail} />
+          <Text style={[text(theme, "label"), { color: palette.mail, fontVariant: ["tabular-nums"], fontWeight: "600" }]}>{row.unacked}</Text>
         </View>
       ) : null}
     </PressRow>
@@ -432,13 +429,14 @@ function TrackLabel({ theme, member, narrow, last, onPress }: { theme: PluginThe
 }
 
 function CountDots({ theme, rows }: { theme: PluginTheme; rows: Row[] }) {
+  const palette = usePalette(theme);
   const c = countStatuses(rows);
   const parts = (["working", "waiting", "idle", "gone"] as const).filter((s) => c[s] > 0);
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[3] }}>
       {parts.map((s) => (
         <View key={s} style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1] }}>
-          <View style={{ width: DOT, height: DOT, borderRadius: DOT, backgroundColor: statusColour(theme, s) }} />
+          <View style={{ width: DOT, height: DOT, borderRadius: DOT, backgroundColor: statusColour(palette, s) }} />
           <Text style={[text(theme, "label"), { fontVariant: ["tabular-nums"] }]}>
             <Text style={{ color: theme.colors.foreground, fontWeight: "600" }}>{c[s]}</Text>
             {` ${s}`}
@@ -450,8 +448,9 @@ function CountDots({ theme, rows }: { theme: PluginTheme; rows: Row[] }) {
 }
 
 function LaneHead({ theme, group, open, onToggle, onInfo }: { theme: PluginTheme; group: Group; open: boolean; onToggle: () => void; onInfo: (id: string) => void }) {
+  const palette = usePalette(theme);
   const faces = group.members.filter((m) => m.row.status !== "gone");
-  const accent = group.solo ? theme.colors.foregroundMuted : teamColour(group.key);
+  const accent = group.solo ? theme.colors.foregroundMuted : teamColour(palette, group.key);
   return (
     <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: group.solo ? theme.colors.surface1 : tint(accent, "14"), borderLeftWidth: 3, borderLeftColor: accent }}>
       <PressRow theme={theme} onPress={onToggle} expanded={open} label={`${open ? "Collapse" : "Expand"} ${group.title}`} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
@@ -476,6 +475,7 @@ function LaneHead({ theme, group, open, onToggle, onInfo }: { theme: PluginTheme
 }
 
 function ChartLegend({ theme }: { theme: PluginTheme }) {
+  const palette = usePalette(theme);
   const bar = (colour: string, label: string, border?: string) => (
     <View key={label} style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5] }}>
       <View style={{ width: 18, height: 10, borderRadius: 3, backgroundColor: colour, borderWidth: border ? 1 : 0, borderColor: border }} />
@@ -492,12 +492,12 @@ function ChartLegend({ theme }: { theme: PluginTheme }) {
   );
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACING[4], rowGap: SPACING[2] }}>
-      {bar(theme.colors.statusSuccess, "working")}
-      {bar(theme.colors.statusWarning, "waiting")}
+      {bar(palette.working, "working")}
+      {bar(palette.waiting, "waiting")}
       {bar(tint(theme.colors.accent, "2a"), "idle, in the agent's colour", tint(theme.colors.accent, "88"))}
       {mark(tint(theme.colors.accent, "99"), "alive", "line")}
-      {mark(theme.colors.statusWarning, "last turn ended", "tick")}
-      {mark(theme.colors.statusDanger, "exited", "dot")}
+      {mark(palette.waiting, "last turn ended", "tick")}
+      {mark(palette.gone, "exited", "dot")}
       {mark(theme.colors.accent, "event", "dot")}
     </View>
   );
@@ -533,7 +533,8 @@ function TimeSlider({ theme, viewportW, contentW, scrollX, onScrollTo }: { theme
   );
 }
 
-function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { theme: PluginTheme; view: PigView; dirs: Dir[]; h: Handlers; index: Index; whole: boolean; width: number; now: number; empty: string }) {
+function Overview({ theme, view, segments, dirs, h, index, whole, width, now, empty }: { theme: PluginTheme; view: PigView; segments: Record<string, Segment[]>; dirs: Dir[]; h: Handlers; index: Index; whole: boolean; width: number; now: number; empty: string }) {
+  const palette = usePalette(theme);
   const [pick, setPick] = useState(1);
   const win = WINDOWS[pick];
   const narrow = width < 640;
@@ -603,7 +604,7 @@ function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { t
             </View>
           </View>
           {groups.map((g) => {
-            const lane = g.solo ? theme.colors.foregroundMuted : teamColour(g.key);
+            const lane = g.solo ? theme.colors.foregroundMuted : teamColour(palette, g.key);
             return (
             <View key={g.key} style={{ borderTopWidth: 1, borderTopColor: theme.colors.border }}>
               <Animated.View style={[{ width: cardW }, sticky]}>
@@ -615,13 +616,13 @@ function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { t
                       <Animated.View style={[{ width: labelW, marginLeft: -3, paddingLeft: 3, borderRightWidth: 1, borderRightColor: divider }, sticky]}>
                         <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: tint(lane, i % 2 === 1 ? "0e" : "06") }} />
                         <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: tint(lane, "77") }} />
-                        <TrackLabel theme={theme} member={m} narrow={narrow} last={lastSibling(g.members, i)} onPress={() => h.open(m.row.id)} />
+                        <TrackLabel theme={theme} member={m} narrow={narrow} last={lastSibling(g.members, i)} stateHere={m.row.status !== "gone" && scale.width > 0 && !currentWordFits(m.row, scale)} onPress={() => h.open(m.row.id)} />
                       </Animated.View>
                       <View style={{ width: trackW, paddingRight: NOW_PAD, position: "relative" }}>
                         {scale.width > 0 ? (
                           <>
                             <Grid theme={theme} scale={scale} tick={win.tick} />
-                            <Track theme={theme} member={m} scale={scale} events={eventsOf(m.row.name)} onPress={() => h.open(m.row.id)} />
+                            <Track theme={theme} member={m} segments={segments[m.row.id] ?? []} scale={scale} events={eventsOf(m.row.name)} onPress={() => h.open(m.row.id)} />
                           </>
                         ) : null}
                       </View>
@@ -641,7 +642,7 @@ function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { t
               <View style={{ flex: 1 }} />
               <View style={{ flexDirection: "row", gap: SPACING[1] }}>
                 {sleepers.slice(0, 4).map((s) => (
-                  <Pill key={s.key} theme={theme} label={s.name} colour={teamColour(s.key)} filled onPress={() => h.open(s.info)} />
+                  <Pill key={s.key} theme={theme} label={s.name} colour={teamColour(palette, s.key)} filled onPress={() => h.open(s.info)} />
                 ))}
                 {sleepers.length > 4 ? <Text style={text(theme, "label")}>{`+${sleepers.length - 4}`}</Text> : null}
               </View>
@@ -660,13 +661,14 @@ function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { t
 const ACTIVITY_SHOWN = 5;
 
 function ActivityLine({ theme, event, index }: { theme: PluginTheme; event: EventRow; index: Index }) {
+  const palette = usePalette(theme);
   const s = sentenceOf(event);
   const rows = [...index.values()];
   const byName = (name: string | undefined) => (name ? rows.find((r) => r.name === name && r.kind !== "team" && r.kind !== "gone") : undefined);
   const actorRow = byName(s.actor);
   const objectRow = byName(s.object);
   const tone = event.tone === "danger" ? theme.colors.statusDanger : event.tone === "warning" ? theme.colors.statusWarning : undefined;
-  const ink = (r: Row | undefined) => ({ color: tone ?? (r ? paint(theme, r.role, r.id) : theme.colors.foreground), fontWeight: "600" as const });
+  const ink = (r: Row | undefined) => ({ color: tone ?? (r ? paint(palette, r.role, r.id) : theme.colors.foreground), fontWeight: "600" as const });
   const strong = ink(actorRow);
   const strongObject = ink(objectRow);
   return (
@@ -1244,6 +1246,7 @@ function GraphEmpty({ theme, team, goneCount, onShowGone }: { theme: PluginTheme
  * state colours mean.
  */
 function Graph({ theme, view, dirs, open }: { theme: PluginTheme; view: PigView; dirs?: Dir[]; open: (id: string) => void }) {
+  const palette = usePalette(theme);
   const [team, setTeam] = useState("");
   const [gone, setGone] = useState(false);
   const [opened, setOpened] = useState<Record<string, boolean>>({});
@@ -1265,7 +1268,7 @@ function Graph({ theme, view, dirs, open }: { theme: PluginTheme; view: PigView;
   const bands = allBands.filter((b) => !hidden.has(b.dir.path));
   const graphOptions = allBands.map((b) => ({ value: b.dir.path, label: dirWords(b.dir.label).name, count: b.items.length }));
   const columns = view.board.columns.filter((c) => c.status !== "gone" || goneShown);
-  const legend = columns.filter((c) => shown.some((i) => i.row.status === c.status)).map((c) => ({ label: columnWord(c), colour: statusColour(theme, c.status) }));
+  const legend = columns.filter((c) => shown.some((i) => i.row.status === c.status)).map((c) => ({ label: columnWord(c), colour: statusColour(palette, c.status) }));
   return (
     <View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACING[2], paddingHorizontal: SPACING[4], paddingTop: SPACING[3] }}>
@@ -1400,7 +1403,7 @@ function Shell({ theme, compact, dir, empty, navigation, serverId }: { theme: Pl
             {view && dirs.length === 0 ? <Notice theme={theme} kind="empty" detail={empty} /> : null}
             {view && !graph ? (
               <View style={{ paddingHorizontal: SPACING[4], paddingTop: SPACING[4] }}>
-                <Overview theme={theme} view={view} dirs={dirs} h={h} index={index} whole={whole} width={width} now={now} empty={empty} />
+                <Overview theme={theme} view={view} segments={snap?.segments ?? {}} dirs={dirs} h={h} index={index} whole={whole} width={width} now={now} empty={empty} />
               </View>
             ) : null}
             {view && hidden > 0 ? (
@@ -1419,12 +1422,12 @@ function Shell({ theme, compact, dir, empty, navigation, serverId }: { theme: Pl
 
 /** Sidebar surface: every directory, like piggery top. */
 export function PigMonitorSurface({ theme, layout, navigation, host }: PluginSurfaceProps) {
-  return <Shell theme={theme} compact={layout.compact} navigation={navigation} serverId={host.id} empty="Open an agent session, or ask one to make a team." />;
+  return <StoredPalette><Shell theme={theme} compact={layout.compact} navigation={navigation} serverId={host.id} empty="Open an agent session, or ask one to make a team." /></StoredPalette>;
 }
 
 /** Workspace panel: the teams and sessions of this workspace's directory. */
 export function FarmPanel({ theme, layout, workspaceId, navigation, host }: PluginWorkspacePanelProps) {
   const dir = useWorkspace(workspaceId, (w) => w.directory);
   if (!dir) return <View style={{ flex: 1, backgroundColor: theme.colors.surface0 }} />;
-  return <Shell theme={theme} compact={layout.compact} dir={dir} navigation={navigation} serverId={host.id} empty="No team works here yet. Ask your agent: “make a supervisor-executor team for …”" />;
+  return <StoredPalette><Shell theme={theme} compact={layout.compact} dir={dir} navigation={navigation} serverId={host.id} empty="No team works here yet. Ask your agent: “make a supervisor-executor team for …”" /></StoredPalette>;
 }

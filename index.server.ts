@@ -5,7 +5,7 @@ import type { PluginServerContext } from "@getpaseo/plugin/server";
 import type { input as ZodInput, output as ZodOutput, ZodType } from "zod";
 import { piggeryPath } from "./server/installed.ts";
 import { PiggeryDb, pickDatabase } from "./server/db.ts";
-import { abort, listModels, piggeryHome, pickBin, runStepIn, snapshotView, tailView } from "./server/piggery.ts";
+import { abort, listModels, piggeryHome, pickBin, realDir, runPiggery, runStepIn, tailView } from "./server/piggery.ts";
 import { Person } from "./server/person.ts";
 import { checkoutRemoteUrl, configureAgent, listClaudeAgents, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
 import { ATTACH_ROOT, mailBody, uploadTooLarge } from "./server/attach.ts";
@@ -13,9 +13,10 @@ import { TranscriptReader } from "./server/transcript.ts";
 import { createLinker, linkStore, type Link } from "./server/links.ts";
 import { PromptImageReader } from "./server/prompt-images.ts";
 import { notifyHooksSet } from "./server/notify.ts";
+import { StateRecorder, STATES_FILE } from "./server/states.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
-import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, paseoLinks, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
+import { agentConfig, colourSettings, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, paseoLinks, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
 import { messageOf } from "./shared/errors.ts";
 
 const LINKS_FRESH_MS = 15000;
@@ -28,12 +29,19 @@ export default function contribute(server: PluginServerContext) {
     server.handle(contract, observeOnly ? async () => OBSERVE_ONLY_REFUSAL as ZodInput<O> : handler);
   const stored = server.registerSettings(settings);
   server.registerSettings(viewSettings);
+  server.registerSettings(colourSettings);
   const bin = async () => {
     const state = await stored.read();
     return pickBin(state.status === "ready" ? state.values.path : "", piggeryPath);
   };
 
-  server.handle(snapshot, async ({ dir }) => snapshotView(await bin(), dir));
+  const states = new StateRecorder(STATES_FILE, async () => runPiggery(await bin(), ["ps", "--view"]));
+  states.start();
+  server.handle(snapshot, async ({ dir }) => {
+    const r = await states.snapshot();
+    if (!r.ok) return r;
+    return { ok: true as const, view: r.view, segments: states.segments(), dir: dir === undefined ? undefined : await realDir(dir) };
+  });
   server.handle(tail, async ({ id, lines }) => tailView(await bin(), id, lines));
 
   const db = new PiggeryDb();
@@ -124,6 +132,7 @@ export default function contribute(server: PluginServerContext) {
   });
 
   return () => {
+    states.stop();
     me.stop();
     db.close();
   };

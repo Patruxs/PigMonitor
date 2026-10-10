@@ -18,5 +18,3 @@ export function Chip({ theme, label, count, on, onPress }: { theme: PluginTheme;
     </Pressable>
   );
 }
-
-export { statusColour } from "../piggery/status.tsx";

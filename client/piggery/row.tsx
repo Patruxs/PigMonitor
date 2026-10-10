@@ -7,21 +7,23 @@ import { taskWords, type Row } from "../../shared/view.ts";
 import { Pill } from "../kit/pill.tsx";
 import { hovered, PressRow } from "../kit/press.tsx";
 import { CARD_RADIUS, DOT, ROW_ONE, SPACING, text, tint } from "../kit/theme.ts";
-import { paint, RoleAvatar } from "./role.tsx";
-import { statusColour, StatusPill } from "./status.tsx";
+import { paint, statusColour, usePalette } from "../palette.tsx";
+import { RoleAvatar } from "./role.tsx";
+import { StatusPill } from "./status.tsx";
 
 export function Lead({ left, children }: { left: number; children: ReactNode }) {
   return <View style={{ flex: 1, minWidth: left + NAME_MIN, flexDirection: "row", alignItems: "center", gap: SPACING[2], paddingLeft: left, paddingRight: SPACING[2], overflow: "hidden" }}>{children}</View>;
 }
 
 export function Tail({ theme, row, columns, dim }: { theme: PluginTheme; row: Row; columns: Columns; dim?: boolean }) {
+  const palette = usePalette(theme);
   const num = { fontVariant: ["tabular-nums" as const] };
   const cell = { minWidth: 0 };
   const faded = dim ?? row.dim === true;
   return (
     <View style={{ width: tailWidth(columns), flexShrink: 0, flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
       {columns === "both" ? (
-        <View style={{ flex: SHARE.role, minWidth: 0, flexDirection: "row" }}>{row.role ? <Pill theme={theme} label={row.role} colour={faded ? theme.colors.foregroundMuted : paint(theme, row.role, row.id)} filled={!faded} /> : null}</View>
+        <View style={{ flex: SHARE.role, minWidth: 0, flexDirection: "row" }}>{row.role ? <Pill theme={theme} label={row.role} colour={faded ? theme.colors.foregroundMuted : paint(palette, row.role, row.id)} filled={!faded} /> : null}</View>
       ) : null}
       <View style={{ flex: SHARE.state, minWidth: STATE_MIN, flexDirection: "row" }}>
         <StatusPill theme={theme} status={row.status} word={row.state_text} dim={faded} />
@@ -33,6 +35,7 @@ export function Tail({ theme, row, columns, dim }: { theme: PluginTheme; row: Ro
 }
 
 export function AgentRow({ theme, row, left, slot, columns, onPress }: { theme: PluginTheme; row: Row; left: number; slot: number; columns: Columns; onPress: () => void }) {
+  const palette = usePalette(theme);
   const dim = row.dim === true;
   return (
     <PressRow theme={theme} onPress={onPress} label={`${row.name}, ${row.state_text}`} style={{ flexDirection: "row", minHeight: ROW_ONE + SPACING[1] }}>
@@ -43,7 +46,7 @@ export function AgentRow({ theme, row, left, slot, columns, onPress }: { theme: 
             {row.name}
           </Text>
           {row.gate ? <Pill theme={theme} label="gate" icon="DoorOpen" /> : null}
-          {columns !== "both" && row.role ? <Text style={[text(theme, "label"), { color: dim ? theme.colors.foregroundMuted : paint(theme, row.role, row.id) }]} numberOfLines={1}>{row.role}</Text> : null}
+          {columns !== "both" && row.role ? <Text style={[text(theme, "label"), { color: dim ? theme.colors.foregroundMuted : paint(palette, row.role, row.id) }]} numberOfLines={1}>{row.role}</Text> : null}
         </Lead>
         <Tail theme={theme} row={row} columns={columns} />
       </View>
@@ -53,11 +56,12 @@ export function AgentRow({ theme, row, left, slot, columns, onPress }: { theme: 
 }
 
 export function AgentCard({ theme, row, task, onPress }: { theme: PluginTheme; row: Row; task?: string; onPress: () => void }) {
+  const palette = usePalette(theme);
   const dim = row.dim === true;
-  const colour = dim ? theme.colors.foregroundMuted : paint(theme, row.role, row.id);
+  const colour = dim ? theme.colors.foregroundMuted : paint(palette, row.role, row.id);
   const doing = task ? taskWords(task) : "";
   const fallback = row.kind === "solo" ? `${row.harness ?? "agent"} session` : "No task yet";
-  const status = statusColour(theme, row.status, dim);
+  const status = statusColour(palette, row.status, dim);
   const busy = row.status === "working" || row.status === "waiting";
   const style = (state: PressableStateCallbackType) => {
     return {

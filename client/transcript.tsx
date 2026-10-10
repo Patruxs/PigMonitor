@@ -17,7 +17,8 @@ import { AVATAR, AVATAR_SM } from "./kit/avatar.tsx";
 import { Panel, Quiet } from "./kit/chat.tsx";
 import { Pill } from "./kit/pill.tsx";
 import { tint } from "./kit/theme.ts";
-import { paint, RoleAvatar } from "./piggery/role.tsx";
+import { paint, usePalette } from "./palette.tsx";
+import { RoleAvatar } from "./piggery/role.tsx";
 import { Notice } from "./piggery/notice.tsx";
 import { SPACING, text } from "./kit/theme.ts";
 import { BUSY_MS, useNow, usePoll } from "./poll.ts";
@@ -65,8 +66,9 @@ function Message({ avatar, colour, children }: { avatar: ReactNode; colour: stri
 }
 
 function MailBubble({ theme, mail, at, role, now }: { theme: PluginTheme; mail: PiggeryStreamItem["source"]; at: number; role: string | undefined; now: number }) {
+  const palette = usePalette(theme);
   const from = mail.from ?? "mail";
-  const colour = paint(theme, role, from);
+  const colour = paint(palette, role, from);
   return (
     <Message colour={colour} avatar={<RoleAvatar theme={theme} name={from} role={role} id={from} />}>
       <Header

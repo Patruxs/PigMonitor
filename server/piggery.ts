@@ -52,21 +52,11 @@ const STEP_IN_TIMEOUT_MS = 30000;
 
 type Failed = { ok: false; code: "missing" | "down" | "older" | "newer" | "failed"; error: string };
 
-export async function snapshotView(bin: string, dir: string | undefined): Promise<{ ok: true; view: Record<string, unknown>; dir: string | undefined } | Failed> {
-  const r = await runPiggery(bin, ["ps", "--view"]);
-  if (!r.ok) return r;
-  const view = View.safeParse(parsedJson(r.out));
-  if (!view.success) return { ok: false, code: "failed", error: "piggery ps --view did not print JSON." };
-  return { ok: true, view: view.data, dir: dir === undefined ? undefined : await realDir(dir) };
-}
-
 const TailLine = z.object({ kind: z.enum(TAIL_KINDS), text: z.string(), rest: z.string().optional() });
 
 export type TailLine = z.infer<typeof TailLine>;
 
 const TailDoc = z.object({ version: z.number(), lines: z.array(TailLine) });
-
-const View = z.record(z.string(), z.unknown());
 
 const Models = z.object({ models: z.array(z.string()).optional() }).nullable().optional();
 
