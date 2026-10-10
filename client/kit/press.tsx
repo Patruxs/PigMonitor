@@ -5,11 +5,14 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import type { ReactNode } from "react";
 import { Pressable, type PressableStateCallbackType, type ViewStyle } from "react-native";
 
+export function hovered(state: PressableStateCallbackType): boolean {
+  return (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;
+}
+
 export function PressRow({ theme, onPress, expanded, label, style, children }: { theme: PluginTheme; onPress?: () => void; expanded?: boolean; label?: string; style?: ViewStyle; children: ReactNode }) {
   const tint = (state: PressableStateCallbackType) => {
-    const hovered = (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;
     if (onPress === undefined) return "transparent";
-    return state.pressed ? theme.colors.surface2 : hovered ? theme.colors.surface1 : "transparent";
+    return state.pressed ? theme.colors.surface2 : hovered(state) ? theme.colors.surface1 : "transparent";
   };
   return (
     <Pressable
