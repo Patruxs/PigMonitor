@@ -6,7 +6,7 @@ import { Platform, Pressable, View, useWindowDimensions, type LayoutChangeEvent 
 import { buildSelectorProviders, filterAndRankOptions, filterSelectableModels, formatAgentModeLabel, formatThinkingOptionLabel, getAgentFeatureIcon, getAgentModeIcon, getAgentModeOptionIcon, getFeatureHighlightColor, getFeatureTooltip, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveControlPresentation, resolveToolbarGlyphSize, selectorOpenRefetchDecision, shortModelLabel, type ControlDensity, type ControlPresentation, type Feature, type Mode, type ProviderEntry, type SelectorProvider } from "../shared/controls.ts";
 import type { Usage } from "../shared/context-meter.ts";
 import { agentConfig } from "../shared/rpc.ts";
-import { useRegisterModeCycle } from "./composer.tsx";
+import { useRegisterModeCycle } from "./composer-keys.tsx";
 import { ContextWindowMeter } from "./context-meter.tsx";
 import { Anchored, ComboList, ControlTrigger, PALETTE, SearchRow, sidebarColour, ToolbarGlyph, TooltipText, useComboKeys, type ComboOption } from "./controls-kit.tsx";
 import { ProviderGlyph } from "./controls-provider-icons.tsx";

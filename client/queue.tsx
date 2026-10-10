@@ -1,7 +1,13 @@
+import type { PluginTheme } from "@getpaseo/plugin";
+import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useSyncExternalStore } from "react";
+import { Pressable, Text, View } from "react-native";
 import { createQueueDrainer, splitAttachmentsForSubmit, type QueuedComposerMessage, type QueueWriter } from "../shared/composer.ts";
 import { sendToAgent, type PaseoApi } from "./native.tsx";
+import { ICON_SIZE, SPACING } from "./kit/theme.ts";
 import { BUSY_MS } from "./poll.ts";
+
+const QUEUE_BUTTON = 32;
 
 const EMPTY: QueuedComposerMessage[] = [];
 
@@ -58,5 +64,23 @@ export function drainWhenIdle(paseo: PaseoApi, agentId: string): void {
       const failed = await sendToAgent(paseo, agentId, message.text, wire.images, wire.attachments, message.id);
       if (failed) throw new Error(failed);
     },
+  );
+}
+
+export function QueuedMessageRow({ theme, item, onEdit, onSendNow }: { theme: PluginTheme; item: QueuedComposerMessage; onEdit: () => void; onSendNow: () => void }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACING[3], paddingVertical: SPACING[2], backgroundColor: theme.colors.surface1, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, gap: SPACING[2] }}>
+      <Text style={{ flex: 1, color: theme.colors.foreground, fontSize: 14 }} numberOfLines={2} ellipsizeMode="tail">
+        {item.text}
+      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
+        <Pressable onPress={onEdit} accessibilityRole="button" accessibilityLabel="Edit queued message" style={{ width: QUEUE_BUTTON, height: QUEUE_BUTTON, borderRadius: QUEUE_BUTTON / 2, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface2 }}>
+          <Icon name="Pencil" size={ICON_SIZE.sm} color={theme.colors.foreground} />
+        </Pressable>
+        <Pressable onPress={onSendNow} accessibilityRole="button" accessibilityLabel="Send queued message now" style={{ width: QUEUE_BUTTON, height: QUEUE_BUTTON, borderRadius: QUEUE_BUTTON / 2, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.accent }}>
+          <Icon name="ArrowUp" size={ICON_SIZE.sm} color={theme.colors.accentForeground} />
+        </Pressable>
+      </View>
+    </View>
   );
 }
