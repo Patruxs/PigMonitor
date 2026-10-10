@@ -5,7 +5,8 @@ import { ActivityIndicator, Platform, Pressable, Text, View, type TextStyle, typ
 import { forgeOf } from "../shared/attach.ts";
 import { splitMarkdownBlocks } from "../shared/markdown.ts";
 import type { AttachmentData } from "../shared/rpc.ts";
-import type { AssistantSpacing, TurnTiming } from "../shared/stream-layout.ts";
+import type { AssistantSpacing } from "../shared/stream-layout.ts";
+import type { TurnTiming } from "../shared/turns.ts";
 import type { TaskActivity, UserMessageImage } from "../shared/stream.ts";
 import { buildToolCallPresentation, type PlanOutcome, type ToolCallDetail, type ToolCallIcon, type TodoEntry, type ToolCallDisplayStatus } from "../shared/tool-call.ts";
 import { AttachmentLightbox } from "./kit/lightbox.tsx";

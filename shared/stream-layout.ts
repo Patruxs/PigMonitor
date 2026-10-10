@@ -1,33 +1,7 @@
 import type { AssistantMessageItem, StreamItem } from "./stream.ts";
+import { continuesResponse, continuesTurn, isPrompt, isResponseBoundary, type TurnTiming } from "./turns.ts";
 
 const GAP = { 1: 4, 3: 12, 4: 16 } as const;
-
-export function continuesTurn(previous: StreamItem | null, next: StreamItem | null): boolean {
-  if (!previous || !next) return false;
-  if (previous.turnId !== undefined && next.turnId !== undefined) return previous.turnId === next.turnId;
-  return !isPrompt(next);
-}
-
-export function isPrompt(item: StreamItem): boolean {
-  return item.kind === "user_message" || (item.kind === "piggery" && item.prompt);
-}
-
-export function continuesResponse(previous: StreamItem | null, next: StreamItem | null): boolean {
-  if (!previous || !next) return false;
-  return continuesTurn(previous, next) || !isPrompt(next);
-}
-
-function isTurnBoundary(previous: StreamItem | null, next: StreamItem | null): boolean {
-  return previous !== null && next !== null && !continuesTurn(previous, next);
-}
-
-function isResponseBoundary(previous: StreamItem | null, next: StreamItem | null): boolean {
-  return previous !== null && next !== null && !continuesResponse(previous, next);
-}
-
-export function startsNewTurn(item: StreamItem, previous: StreamItem | null): boolean {
-  return previous === null || isTurnBoundary(previous, item);
-}
 
 function isSameAssistantBlockGroup(item: StreamItem | null | undefined, other: StreamItem | null | undefined): boolean {
   return item?.kind === "assistant_message" && other?.kind === "assistant_message" && item.blockGroupId !== undefined && item.blockGroupId === other.blockGroupId;
@@ -59,47 +33,6 @@ export function getGapBetweenStreamItems(item: StreamItem | null, belowItem: Str
   if (isToolSequenceItem(item) && belowItem.kind === "assistant_message") return GAP[1];
   if (isSameAssistantBlockGroup(item, belowItem)) return GAP[3];
   return GAP[4];
-}
-
-export interface TurnTiming {
-  completedAt: Date;
-  durationMs: number | null;
-  costUsd?: number;
-}
-
-export interface StreamTurnTiming {
-  byAssistantId: Map<string, TurnTiming>;
-  runningStartedAt: Date | null;
-}
-
-export function deriveStreamTurnTiming(params: { isTurnActive: boolean; activeTurnStartedAt: Date | null; tail: StreamItem[]; head: StreamItem[] }): StreamTurnTiming {
-  const byAssistantId = new Map<string, TurnTiming>();
-  let startedAt: Date | null = null;
-  let lastAt: Date | null = null;
-  let assistantIds: string[] = [];
-  let reported: { durationMs?: number; costUsd?: number } | null = null;
-  let previous: StreamItem | null = null;
-  const flush = () => {
-    if (!lastAt || assistantIds.length === 0) return;
-    const measured = startedAt ? Math.max(0, lastAt.getTime() - startedAt.getTime()) : null;
-    const timing: TurnTiming = { completedAt: lastAt, durationMs: reported?.durationMs ?? measured, ...(reported?.costUsd !== undefined ? { costUsd: reported.costUsd } : {}) };
-    for (const id of assistantIds) byAssistantId.set(id, timing);
-  };
-  for (const item of [...params.tail, ...params.head]) {
-    if (startsNewTurn(item, previous)) {
-      flush();
-      startedAt = isPrompt(item) ? item.timestamp : null;
-      lastAt = null;
-      assistantIds = [];
-      reported = null;
-    }
-    lastAt = item.timestamp;
-    if (item.kind === "assistant_message") assistantIds.push(item.id);
-    if (item.kind === "piggery" && item.source.kind === "turn-end") reported = item.source;
-    previous = item;
-  }
-  if (!params.isTurnActive) flush();
-  return { byAssistantId, runningStartedAt: params.isTurnActive ? params.activeTurnStartedAt : null };
 }
 
 export type StreamToolSequence = "single" | "first" | "middle" | "last" | "none";
@@ -252,117 +185,5 @@ export function layoutStream(input: { isTurnActive: boolean; history: StreamItem
     history: layoutSegment({ ...shared, items: input.history, boundaryIndex: historyBoundaryIndex, boundaryAboveItem: null, boundaryBelowItem: liveHeadBoundaryIndex === null ? null : input.liveHead[0], boundaryAboveItems: null, boundaryAboveIndex: null, phase: "complete" }),
     liveHead: layoutSegment({ ...shared, items: input.liveHead, boundaryIndex: liveHeadBoundaryIndex, boundaryAboveItem: historyBoundaryIndex === null ? null : input.history[historyBoundaryIndex], boundaryBelowItem: null, boundaryAboveItems: input.history, boundaryAboveIndex: historyBoundaryIndex, phase: input.isTurnActive ? "streaming" : "complete" }),
     auxiliaryTurnFooter,
-  };
-}
-
-export const MOUNTED_RECENT_STREAM_ITEMS = 20;
-
-export function findMountedWindowStart(items: StreamItem[], minMountedCount: number): number {
-  if (items.length <= minMountedCount) return 0;
-  let start = Math.max(items.length - minMountedCount, 0);
-  while (start > 0 && !isPrompt(items[start])) start -= 1;
-  return start;
-}
-
-export function findEarlierHistoryWindowStart(items: StreamItem[], start: number, itemId: string | undefined): number {
-  const targetIndex = itemId ? items.findIndex((item) => (item.kind === "assistant_message" ? (item.blockGroupId ?? item.id) : item.id) === itemId) : -1;
-  const targetStart = targetIndex >= 0 && targetIndex < start ? targetIndex : start;
-  if (!itemId) return findMountedWindowStart(items.slice(0, targetStart), MOUNTED_RECENT_STREAM_ITEMS);
-  return findMountedWindowStart(items.slice(0, targetStart + 1), 1);
-}
-
-export const HISTORY_START_THRESHOLD_PX = 96;
-
-export type HistoryStartPaginationState =
-  | { status: "dormant" }
-  | { status: "ready" }
-  | { status: "loading"; requestedProgressKey: string; requestObserved: boolean }
-  | { status: "settling"; loadedProgressKey: string }
-  | { status: "latched" };
-
-export interface HistoryStartPaginationInput {
-  distanceFromHistoryStart: number;
-  hasOlderHistory: boolean;
-  isLoadingOlderHistory: boolean;
-  isReady: boolean;
-  progressKey: string | null;
-}
-
-export interface HistoryStartPaginationTransition {
-  state: HistoryStartPaginationState;
-  shouldLoad: boolean;
-}
-
-export function isHistoryStartLoadingOperation(state: HistoryStartPaginationState): boolean {
-  return state.status === "loading" || state.status === "settling";
-}
-
-export function rearmHistoryStartPagination(state: HistoryStartPaginationState): HistoryStartPaginationState {
-  return state.status === "dormant" || state.status === "latched" ? { status: "ready" } : state;
-}
-
-export function abandonHistoryStartPaginationRequest(state: HistoryStartPaginationState, requestedProgressKey: string): HistoryStartPaginationState {
-  if (state.status !== "loading" || state.requestObserved || state.requestedProgressKey !== requestedProgressKey) return state;
-  return { status: "latched" };
-}
-
-function startLoading(progressKey: string): HistoryStartPaginationTransition {
-  return { state: { status: "loading", requestedProgressKey: progressKey, requestObserved: false }, shouldLoad: true };
-}
-
-export function evaluateHistoryStartPagination(state: HistoryStartPaginationState, input: HistoryStartPaginationInput): HistoryStartPaginationTransition {
-  if (state.status === "dormant" || state.status === "settling") return { state, shouldLoad: false };
-  if (state.status === "loading") {
-    if (input.progressKey !== null && input.progressKey !== state.requestedProgressKey) return { state: { status: "settling", loadedProgressKey: input.progressKey }, shouldLoad: false };
-    if (input.isLoadingOlderHistory && !state.requestObserved) return { state: { ...state, requestObserved: true }, shouldLoad: false };
-    if (!input.isLoadingOlderHistory && !input.hasOlderHistory) return { state: { status: "latched" }, shouldLoad: false };
-    if (state.requestObserved && !input.isLoadingOlderHistory && input.progressKey === state.requestedProgressKey) return { state: { status: "latched" }, shouldLoad: false };
-    return { state, shouldLoad: false };
-  }
-  if (input.distanceFromHistoryStart > HISTORY_START_THRESHOLD_PX) return state.status === "ready" ? { state, shouldLoad: false } : { state: { status: "ready" }, shouldLoad: false };
-  if (state.status === "latched" || !input.isReady || !input.hasOlderHistory || input.isLoadingOlderHistory || input.progressKey === null) return { state, shouldLoad: false };
-  return startLoading(input.progressKey);
-}
-
-export function settleHistoryStartPagination(state: HistoryStartPaginationState, input: HistoryStartPaginationInput): HistoryStartPaginationTransition {
-  if (state.status !== "settling") return { state, shouldLoad: false };
-  const atStart = input.distanceFromHistoryStart <= HISTORY_START_THRESHOLD_PX;
-  if (!atStart || !input.isReady || !input.hasOlderHistory || input.isLoadingOlderHistory || input.progressKey === null) return { state: atStart ? { status: "latched" } : { status: "ready" }, shouldLoad: false };
-  return startLoading(input.progressKey);
-}
-
-export interface RowGeometry {
-  id: string;
-  top: number;
-  height: number;
-}
-
-const READING_POSITION_OFFSET_PX = 8;
-
-export function createReadingAnchor() {
-  let anchor: { id: string; top: number } | null = null;
-  let geometry: readonly RowGeometry[] = [];
-  const readingRow = (scrollTop: number) => geometry.find((row) => row.top + row.height > scrollTop + READING_POSITION_OFFSET_PX);
-  const project = (scrollTop: number, row: Pick<RowGeometry, "id" | "top"> | undefined) => scrollTop + (anchor && row?.id === anchor.id ? row.top - anchor.top : 0);
-  return {
-    getRowId: () => anchor?.id ?? null,
-    getReadingRowId: (scrollTop: number) => readingRow(scrollTop)?.id ?? geometry.at(-1)?.id ?? null,
-    project,
-    reset() {
-      anchor = null;
-    },
-    scroll(scrollTop: number) {
-      const next = readingRow(scrollTop);
-      anchor = next ? { id: next.id, top: next.top } : null;
-    },
-    reconcile(scrollTop: number, rows: readonly RowGeometry[], userScrolled = false): number {
-      geometry = rows;
-      const previous = anchor && rows.find((row) => row.id === anchor?.id);
-      if (anchor && !previous && !userScrolled) return scrollTop;
-      const correctedTop = project(scrollTop, previous ?? undefined);
-      const next = previous && !userScrolled ? previous : readingRow(correctedTop);
-      anchor = next ? { id: next.id, top: next.top } : null;
-      return correctedTop;
-    },
   };
 }

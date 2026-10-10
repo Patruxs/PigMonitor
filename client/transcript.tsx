@@ -7,7 +7,7 @@ import { withIncrement, type Item, type Transcript } from "../shared/transcript.
 import type { Usage } from "../shared/context-meter.ts";
 import { streamOfLog } from "../shared/log-stream.ts";
 import type { PiggeryStreamItem } from "../shared/stream.ts";
-import type { TurnPresentation } from "../shared/timeline.ts";
+import type { TurnPresentation } from "../shared/turns.ts";
 import { StreamView, type ViewportHandle } from "./stream.tsx";
 import { clockText } from "../shared/view.ts";
 import { Markdown } from "./markdown.tsx";

@@ -9,17 +9,12 @@ import {
   planTimelineTailFetch,
   processAgentStreamEvents,
   processTimelineResponse,
-  reduceTurnLiveness,
-  resolveTurnPresentation,
-  turnLivenessOfEvents,
-  TURN_LIVENESS_IDLE,
   type StreamEventInput,
   type TimelineFetchPlan,
   type TimelinePage,
   type TimelineState,
-  type TurnLiveness,
-  type TurnPresentation,
 } from "../shared/timeline.ts";
+import { reduceTurnLiveness, resolveTurnPresentation, turnLivenessOfEvents, TURN_LIVENESS_IDLE, type TurnLiveness, type TurnPresentation } from "../shared/turns.ts";
 import type { ToolCallDetail } from "../shared/tool-call.ts";
 
 type PaseoApi = ReturnType<typeof usePaseo>;

@@ -2,28 +2,24 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, ScrollView as SheetScrollView } from "@getpaseo/plugin/client/react-native";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ActivityIndicator, Platform, Pressable, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView as NativeScrollView } from "react-native";
+import { collectAssistantResponseContent, layoutStream, type StreamLayoutItem, type TurnFooterHost } from "../shared/stream-layout.ts";
 import {
   abandonHistoryStartPaginationRequest,
-  collectAssistantResponseContent,
-  deriveStreamTurnTiming,
+  createReadingAnchor,
   evaluateHistoryStartPagination,
   findEarlierHistoryWindowStart,
   findMountedWindowStart,
   isHistoryStartLoadingOperation,
-  layoutStream,
   MOUNTED_RECENT_STREAM_ITEMS,
-  createReadingAnchor,
   rearmHistoryStartPagination,
   settleHistoryStartPagination,
   type HistoryStartPaginationInput,
   type HistoryStartPaginationState,
   type HistoryStartPaginationTransition,
-  type StreamLayoutItem,
-  type TurnFooterHost,
-} from "../shared/stream-layout.ts";
+} from "../shared/stream-scroll.ts";
 import type { PiggeryStreamItem, StreamItem } from "../shared/stream.ts";
 import { createStreamPresentation, getStreamItemMessageId } from "../shared/stream-presentation.ts";
-import type { TurnPresentation } from "../shared/timeline.ts";
+import { deriveStreamTurnTiming, type TurnPresentation } from "../shared/turns.ts";
 import { hostColours, MAX_CONTENT_WIDTH, SPACING } from "./kit/theme.ts";
 import { TURN_FOOTER_BOTTOM_SPACING, AssistantMessage, Notification, CompactionMarker, CompletedTurnFooter, RunningTurnFooter, SpeakMessage, ThoughtBadge, TodoListCard, ToolCall, TurnFooterRow, UserMessage, useIsCompact } from "./message.tsx";
 import { ChatFind, useChatFindSelectedMessageId, type AgentHistory } from "./chat-find.tsx";

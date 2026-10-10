@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { StreamItem } from "./stream.ts";
 import { streamOfLog } from "./log-stream.ts";
-import { createReadingAnchor, deriveStreamTurnTiming, layoutStream } from "./stream-layout.ts";
+import { layoutStream } from "./stream-layout.ts";
+import { createReadingAnchor } from "./stream-scroll.ts";
+import { deriveStreamTurnTiming } from "./turns.ts";
 
 const at = (s: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, s));
 
