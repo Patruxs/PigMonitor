@@ -20,6 +20,8 @@ import { BUSY_MS, QUIET_MS, usePoll } from "./poll.ts";
 import { Composer, canAttach } from "./composer.tsx";
 import { FileDropZone } from "./attachments-drop.tsx";
 import { AgentContextMeter, AgentControls } from "./controls.tsx";
+import { SessionContextMeter } from "./context-meter.tsx";
+import type { Usage } from "../shared/context-meter.ts";
 import { NativeLink, useNative, useStop, type Navigation, type NativeChat, type Stop } from "./native.tsx";
 import { MailStream } from "./transcript.tsx";
 import { StreamView, type ViewportHandle } from "./stream.tsx";
@@ -613,7 +615,7 @@ function StopTurn({ theme, stop }: { theme: PluginTheme; stop: Stop }) {
   );
 }
 
-function ThroughGate({ theme, gate, stop, onPick }: { theme: PluginTheme; gate: Conversation | undefined; stop: Stop | undefined; onPick: (id: string) => void }) {
+function ThroughGate({ theme, gate, stop, onPick, trailing }: { theme: PluginTheme; gate: Conversation | undefined; stop: Stop | undefined; onPick: (id: string) => void; trailing?: ReactNode }) {
   const words = gate ? `You talk to this team through ${gate.row.name}${gate.row.role ? ` (${gate.row.role})` : ""}` : "This team has no gate you can write to";
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[3], borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface0, paddingHorizontal: SPACING[4], paddingVertical: SPACING[3] }}>
@@ -625,6 +627,7 @@ function ThroughGate({ theme, gate, stop, onPick }: { theme: PluginTheme; gate: 
         {gate ? <Icon name="ChevronRight" size={12} color={theme.colors.foregroundMuted} /> : null}
       </Pressable>
       {stop?.running ? <StopTurn theme={theme} stop={stop} /> : null}
+      {trailing}
     </View>
   );
 }
@@ -684,6 +687,8 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
   const writable = item.row.kind === "solo" || item.row.gate === true;
   const thread = useThread(me, item.row.id, bump);
   const viewportRef = useRef<ViewportHandle | null>(null);
+  const [logUsage, setLogUsage] = useState<Usage | null>(null);
+  const logStatus = item.row.status === "working" ? "running" : item.row.status;
   const sent = () => {
     viewportRef.current?.scrollToBottom();
     setBump((n) => n + 1);
@@ -715,11 +720,11 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
     <FileDropZone theme={theme} style={{ flex: 1, minWidth: 0 }}>
     <KeyboardAvoidingPane>
       <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} onBack={onBack} onInfo={onInfo} />
-      {timeline ? <OpenStream theme={theme} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} />}
+      {timeline ? <OpenStream theme={theme} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} onUsage={setLogUsage} />}
       {writable ? (
-        <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={native.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} stop={stop} agent={native.kind === "open" && timeline ? { agentId: native.agentId, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />
+        <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={native.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : ({ isCompactLayout }) => <SessionContextMeter theme={theme} usage={logUsage} status={logStatus} isCompactLayout={isCompactLayout} />} stop={stop} agent={native.kind === "open" && timeline ? { agentId: native.agentId, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />
       ) : (
-        <ThroughGate theme={theme} gate={gateOf(item, all)} stop={stop} onPick={onPick} />
+        <ThroughGate theme={theme} gate={gateOf(item, all)} stop={stop} onPick={onPick} trailing={timeline ? undefined : <SessionContextMeter theme={theme} usage={logUsage} status={logStatus} isCompactLayout={false} />} />
       )}
     </KeyboardAvoidingPane>
     </FileDropZone>

@@ -1,3 +1,4 @@
+import type { Usage } from "./context-meter.ts";
 import type { ToolCallDetail } from "./tool-call.ts";
 
 export type ItemKind = "session" | "user" | "wake" | "assistant" | "thinking" | "tool" | "mail" | "turn" | "compaction" | "delivery";
@@ -42,6 +43,7 @@ export interface Transcript {
   role?: string;
   files: number;
   roles?: Record<string, string>;
+  usage?: Usage;
 }
 
 
@@ -65,6 +67,13 @@ export type ToolResultBlock = Block;
 
 export type DescribeTool = (name: string, input: unknown, result: ToolResultBlock | undefined, cwd: string | undefined) => ToolCall;
 
+interface TokenUsage {
+  input_tokens?: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+  output_tokens?: number;
+}
+
 interface Entry {
   type?: string;
   subtype?: string;
@@ -75,7 +84,8 @@ interface Entry {
   isSynthetic?: boolean;
   isCompactSummary?: boolean;
   compact_metadata?: { trigger?: string; pre_tokens?: number };
-  message?: { role?: string; content?: string | Block[] };
+  parent_tool_use_id?: string | null;
+  message?: { role?: string; content?: string | Block[]; model?: string; usage?: TokenUsage };
   model?: string;
   cwd?: string;
   session_id?: string;
@@ -83,6 +93,24 @@ interface Entry {
   duration_ms?: number;
   num_turns?: number;
   is_error?: boolean;
+  modelUsage?: Record<string, { contextWindow?: number }>;
+}
+
+export interface ContextReading {
+  used?: { tokens: number; model?: string };
+  windows: Record<string, number>;
+}
+
+const count = (n: number | undefined): number => (typeof n === "number" && Number.isFinite(n) ? n : 0);
+
+export function tokensInContext(usage: TokenUsage): number {
+  return count(usage.input_tokens) + count(usage.cache_creation_input_tokens) + count(usage.cache_read_input_tokens) + count(usage.output_tokens);
+}
+
+export function usageOf(reading: ContextReading): Usage | undefined {
+  if (!reading.used) return undefined;
+  const max = reading.used.model ? reading.windows[reading.used.model] : undefined;
+  return { contextWindowUsedTokens: reading.used.tokens, ...(max ? { contextWindowMaxTokens: max } : {}) };
 }
 
 export function inputText(input: unknown): string {
@@ -151,6 +179,7 @@ const stamp = (e: Entry): number | undefined => {
 
 export class Parser {
   readonly items: Item[] = [];
+  readonly context: ContextReading = { windows: {} };
   private open = new Map<string, { item: Item; name: string; input: unknown }>();
   private readonly run: string | undefined;
   private readonly saveImage: SaveImage | undefined;
@@ -187,6 +216,7 @@ export class Parser {
   entry(e: Entry): void {
     if (e.isSidechain) return;
     if (!this.cwd && e.cwd) this.cwd = e.cwd;
+    this.measure(e);
     const at = stamp(e);
     if (e.type === "system" && e.subtype === "init") {
       const began = [e.session_id, e.model, e.cwd].join("\n");
@@ -223,6 +253,13 @@ export class Parser {
     if (content === undefined) return;
     if (e.type === "assistant") this.assistant(content, at);
     else this.user(content, at, e.isSynthetic === true);
+  }
+
+  private measure(e: Entry): void {
+    if (e.type === "assistant" && !e.parent_tool_use_id && e.message?.usage) this.context.used = { tokens: tokensInContext(e.message.usage), model: e.message.model };
+    if (e.type === "result" && e.modelUsage) {
+      for (const [model, use] of Object.entries(e.modelUsage)) if (typeof use?.contextWindow === "number" && use.contextWindow > 0) this.context.windows[model] = use.contextWindow;
+    }
   }
 
   private assistant(content: string | Block[], at: number | undefined): void {
@@ -319,8 +356,12 @@ function stampUntimed(items: Item[]): Item[] {
   return items;
 }
 
-export function parseLines(text: string, run?: string, saveImage?: SaveImage, describe?: DescribeTool): Item[] {
+export function parseLog(text: string, run?: string, saveImage?: SaveImage, describe?: DescribeTool): { items: Item[]; context: ContextReading } {
   const p = new Parser(run, saveImage, describe);
   for (const line of text.split("\n")) p.line(line);
-  return stampUntimed(p.items);
+  return { items: stampUntimed(p.items), context: p.context };
+}
+
+export function parseLines(text: string, run?: string, saveImage?: SaveImage, describe?: DescribeTool): Item[] {
+  return parseLog(text, run, saveImage, describe).items;
 }

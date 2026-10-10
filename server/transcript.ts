@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import type { MailMessage } from "../shared/mail.ts";
 import { withMail } from "../shared/thread.ts";
-import { parseLines, type Item, type SaveImage, type Transcript } from "../shared/transcript.ts";
+import { parseLog, usageOf, type ContextReading, type Item, type SaveImage, type Transcript } from "../shared/transcript.ts";
 import type { MailReader, Participant } from "./mail.ts";
 import { claudeToolCall } from "./tool-detail.ts";
 
@@ -12,6 +12,7 @@ interface Cached {
   size: number;
   mtime: number;
   items: Item[];
+  context: ContextReading;
 }
 
 export function logsDirOf(dbFile: string, id: string): string {
@@ -41,13 +42,14 @@ export class TranscriptReader {
     this.saveImage = saveImage;
   }
 
-  private parsed(file: string, run: string | undefined): Item[] {
+  private parsed(file: string, run: string | undefined): Cached {
     const st = statSync(file);
     const had = this.cache.get(file);
-    if (had && had.size === st.size && had.mtime === st.mtimeMs) return had.items;
-    const items = parseLines(readFileSync(file, "utf8"), run, this.saveImage, claudeToolCall);
-    this.cache.set(file, { size: st.size, mtime: st.mtimeMs, items });
-    return items;
+    if (had && had.size === st.size && had.mtime === st.mtimeMs) return had;
+    const { items, context } = parseLog(readFileSync(file, "utf8"), run, this.saveImage, claudeToolCall);
+    const fresh = { size: st.size, mtime: st.mtimeMs, items, context };
+    this.cache.set(file, fresh);
+    return fresh;
   }
 
   read(dbFile: string, id: string, before: number | undefined, limit: number, person?: string): TranscriptResult {
@@ -62,7 +64,14 @@ export class TranscriptReader {
     }
     try {
       const logged: Item[] = [];
-      for (const file of files) logged.push(...this.parsed(file, path.basename(file, ".jsonl")));
+      const context: ContextReading = { windows: {} };
+      for (const file of files) {
+        const run = this.parsed(file, path.basename(file, ".jsonl"));
+        logged.push(...run.items);
+        context.used = run.context.used;
+        Object.assign(context.windows, run.context.windows);
+      }
+      const usage = usageOf(context);
       let messages: MailMessage[] = [];
       try {
         messages = this.mail.involving(dbFile, id);
@@ -74,7 +83,7 @@ export class TranscriptReader {
           roles = this.mail.teammates(dbFile, who.team_id);
         } catch {}
       }
-      return { ok: true, items: page(all, before, limit), total: all.length, name: who?.name ?? id, role: who?.role ?? undefined, files: files.length, ...(roles ? { roles } : {}) };
+      return { ok: true, items: page(all, before, limit), total: all.length, name: who?.name ?? id, role: who?.role ?? undefined, files: files.length, ...(roles ? { roles } : {}), ...(usage ? { usage } : {}) };
     } catch (error) {
       return { ok: false, code: "failed", error: `Could not read the session log: ${String((error as Error).message ?? error)}` };
     }

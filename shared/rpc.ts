@@ -142,7 +142,7 @@ const Item = z.object({
 export const transcript = defineRpc({
   name: "pigmonitor.transcript",
   input: z.object({ id: z.string().min(1), before: z.number().int().optional(), limit: z.number().int().min(1).max(200000).default(20000) }),
-  output: z.union([z.object({ ok: z.literal(true), items: z.array(Item), total: z.number().int(), name: z.string(), role: z.string().optional(), files: z.number().int(), roles: z.record(z.string(), z.string()).optional() }), Failure]),
+  output: z.union([z.object({ ok: z.literal(true), items: z.array(Item), total: z.number().int(), name: z.string(), role: z.string().optional(), files: z.number().int(), roles: z.record(z.string(), z.string()).optional(), usage: z.object({ contextWindowUsedTokens: z.number().optional(), contextWindowMaxTokens: z.number().optional() }).optional() }), Failure]),
 });
 
 export type TranscriptResult = { ok: true } & Transcript;

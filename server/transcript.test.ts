@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -81,6 +81,29 @@ test("TranscriptReader reads a session's harness transcript, its tool calls as P
     const none = reader.read(path.join(dir, "piggery.db"), "NOBODY", undefined, 10);
     assert.equal(none.ok, false);
     if (!none.ok) assert.equal(none.code, "nolog");
+  } finally {
+    mail.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a worker's context is the last main-thread usage, out of the window its harness reported for that model, and no window before one is reported", () => {
+  const dir = farm();
+  const mail = new MailReader();
+  try {
+    const run = readFileSync(path.join(import.meta.dirname, "fixtures", "worker-run.jsonl"), "utf8").split("\n");
+    const firstResult = run.findIndex((line) => line.includes('"type":"result"'));
+    const log = path.join(dir, "logs", "X1", "RUN1.jsonl");
+    mkdirSync(path.dirname(log), { recursive: true });
+    const reader = new TranscriptReader(mail);
+    writeFileSync(log, run.slice(0, firstResult).join("\n"));
+    const working = reader.read(path.join(dir, "piggery.db"), "X1", undefined, 10);
+    assert.ok(working.ok);
+    if (working.ok) assert.deepEqual(working.usage, { contextWindowUsedTokens: 19_609 });
+    writeFileSync(log, run.join("\n"));
+    const done = reader.read(path.join(dir, "piggery.db"), "X1", undefined, 10);
+    assert.ok(done.ok);
+    if (done.ok) assert.deepEqual(done.usage, { contextWindowUsedTokens: 19_781, contextWindowMaxTokens: 1_000_000 });
   } finally {
     mail.close();
     rmSync(dir, { recursive: true, force: true });

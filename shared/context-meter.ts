@@ -57,13 +57,14 @@ export function ringSvg({ size, radius, strokeWidth, percentage, trackColor, pro
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${track}${progress}</svg>`;
 }
 
-export type MeterState = { kind: "hidden" } | { kind: "pending" } | { kind: "ready"; percentage: number; usedTokens: number; maxTokens: number };
+export type MeterState = { kind: "hidden" } | { kind: "pending" } | { kind: "used"; usedTokens: number } | { kind: "ready"; percentage: number; usedTokens: number; maxTokens: number };
 
 export function meterState(usage: Usage | null, status: string | null): MeterState {
   const maxTokens = usage?.contextWindowMaxTokens ?? null;
   const usedTokens = usage?.contextWindowUsedTokens ?? null;
   const percentage = usagePercentage(maxTokens, usedTokens);
   if (percentage !== null && maxTokens !== null && usedTokens !== null) return { kind: "ready", percentage, usedTokens, maxTokens };
+  if (maxTokens === null && usedTokens !== null && Number.isFinite(usedTokens) && usedTokens > 0) return { kind: "used", usedTokens };
   return status === "initializing" || status === "running" ? { kind: "pending" } : { kind: "hidden" };
 }
 

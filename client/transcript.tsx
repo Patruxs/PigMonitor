@@ -1,9 +1,10 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { transcript } from "../shared/rpc.ts";
 import type { Item, Transcript } from "../shared/transcript.ts";
+import type { Usage } from "../shared/context-meter.ts";
 import { streamOfTranscript } from "../shared/stream-mail.ts";
 import type { PiggeryStreamItem } from "../shared/stream.ts";
 import type { TurnPresentation } from "../shared/timeline.ts";
@@ -24,7 +25,7 @@ export function useTranscript(id: string, limit: number, refresh = 0) {
   return usePoll(
     async () => {
       const r = await call({ id, limit });
-      return r.ok ? { ok: true as const, value: { items: r.items, total: r.total, name: r.name, role: r.role, files: r.files, roles: r.roles } as Transcript } : r;
+      return r.ok ? { ok: true as const, value: { items: r.items, total: r.total, name: r.name, role: r.role, files: r.files, roles: r.roles, usage: r.usage } as Transcript } : r;
     },
     `${id}:${limit}:${refresh}`,
     () => BUSY_MS,
@@ -81,13 +82,15 @@ export function MailIn({ theme, item, role, now }: { theme: PluginTheme; item: I
   );
 }
 
-export function MailStream({ theme, id, refresh, working, workingSince, cwd, viewportRef }: { theme: PluginTheme; id: string; refresh?: number; working: boolean; workingSince?: number; cwd?: string; viewportRef?: { current: ViewportHandle | null } }) {
+export function MailStream({ theme, id, refresh, working, workingSince, cwd, viewportRef, onUsage }: { theme: PluginTheme; id: string; refresh?: number; working: boolean; workingSince?: number; cwd?: string; viewportRef?: { current: ViewportHandle | null }; onUsage?: (usage: Usage | null) => void }) {
   const [limit, setLimit] = useState(PAGE);
   const now = useNow(30000);
   const { value: fresh, error } = useTranscript(id, limit, refresh);
   const kept = useRef<{ id: string; limit: number; value: Transcript } | null>(null);
   if (fresh) kept.current = { id, limit, value: fresh };
   const value = fresh ?? (kept.current?.id === id ? kept.current.value : null);
+  const usage = value?.usage ?? null;
+  useEffect(() => onUsage?.(usage), [onUsage, usage?.contextWindowUsedTokens, usage?.contextWindowMaxTokens]);
   const isLoadingOlder = fresh === null && value !== null && (kept.current?.limit ?? limit) < limit;
   const tail = useMemo(() => streamOfTranscript(value?.items ?? []), [value]);
   const hasOlder = value !== null && value.total > value.items.length;

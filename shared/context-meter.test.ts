@@ -24,6 +24,7 @@ test("token counts round to k and m", () => {
 test("without usage the meter hides unless the agent is starting or running", () => {
   assert.deepEqual([meterState(null, "idle"), meterState({}, "closed"), meterState(null, "running"), meterState({ contextWindowMaxTokens: 0, contextWindowUsedTokens: 5 }, "initializing")], [{ kind: "hidden" }, { kind: "hidden" }, { kind: "pending" }, { kind: "pending" }]);
   assert.deepEqual(meterState({ contextWindowMaxTokens: 1_000_000, contextWindowUsedTokens: 250_000 }, "idle"), { kind: "ready", percentage: 25, usedTokens: 250_000, maxTokens: 1_000_000 });
+  assert.deepEqual(meterState({ contextWindowUsedTokens: 19_609 }, "running"), { kind: "used", usedTokens: 19_609 });
 });
 
 test("the native arc starts at twelve o'clock and sweeps clockwise by the percentage", () => {
