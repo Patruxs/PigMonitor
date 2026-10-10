@@ -17,7 +17,6 @@ export interface PaseoDaemonClient {
   getDirectorySuggestions(options: { query: string; limit?: number; cwd?: string; includeFiles?: boolean; includeDirectories?: boolean }): Promise<unknown>;
   getCheckoutStatus(cwd: string): Promise<unknown>;
   getLastServerInfoMessage(): unknown;
-  fetchAgents(options: { filter?: { includeArchived?: boolean }; sort?: { key: string; direction: "asc" | "desc" }[]; page?: { limit: number; cursor?: string } }): Promise<unknown>;
   startDictationStream(dictationId: string, format: string): Promise<void>;
   sendDictationStreamChunk(dictationId: string, seq: number, audio: string, format: string): void;
   finishDictationStream(dictationId: string, finalSeq: number): Promise<unknown>;
@@ -26,7 +25,7 @@ export interface PaseoDaemonClient {
 
 export const DAEMON_TIMEOUT_MS = 30000;
 
-export const DAEMON_METHODS = ["setAgentModel", "setAgentMode", "setAgentThinkingOption", "setAgentFeature", "listUsageReports", "uploadFile", "searchForge", "listAgentTimelinePrompts", "rewindAgent", "searchAgentTimeline", "getDirectorySuggestions", "getCheckoutStatus", "getLastServerInfoMessage", "fetchAgents"] as const satisfies readonly (keyof PaseoDaemonClient)[];
+export const DAEMON_METHODS = ["setAgentModel", "setAgentMode", "setAgentThinkingOption", "setAgentFeature", "listUsageReports", "uploadFile", "searchForge", "listAgentTimelinePrompts", "rewindAgent", "searchAgentTimeline", "getDirectorySuggestions", "getCheckoutStatus", "getLastServerInfoMessage"] as const satisfies readonly (keyof PaseoDaemonClient)[];
 
 export const DICTATION_METHODS = ["startDictationStream", "sendDictationStreamChunk", "finishDictationStream", "cancelDictationStream"] as const satisfies readonly (keyof PaseoDaemonClient)[];
 

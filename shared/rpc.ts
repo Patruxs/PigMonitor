@@ -112,7 +112,7 @@ export const sessions = defineRpc({
 
 export const paseoLinks = defineRpc({
   name: "pigmonitor.paseo-links",
-  input: z.object({}),
+  input: z.object({ agents: z.array(z.object({ agentId: z.string(), sessionId: z.string(), archived: z.boolean() })).max(2000) }),
   output: z.union([z.object({ ok: z.literal(true), links: z.array(z.object({ participantId: z.string(), agentId: z.string() })), formerly: z.array(z.string()) }), Failure]),
 });
 

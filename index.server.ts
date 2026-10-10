@@ -7,18 +7,16 @@ import { piggeryPath } from "./server/installed.ts";
 import { PiggeryDb, pickDatabase } from "./server/db.ts";
 import { abort, listModels, piggeryHome, pickBin, runStepIn, snapshotView, tailView } from "./server/piggery.ts";
 import { Person } from "./server/person.ts";
-import { checkoutRemoteUrl, configureAgent, listClaudeAgents, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
+import { checkoutRemoteUrl, configureAgent, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
 import { ATTACH_ROOT, mailBody, uploadTooLarge } from "./server/attach.ts";
 import { TranscriptReader } from "./server/transcript.ts";
-import { createLinker, linkStore, type LinkState } from "./server/links.ts";
+import { createLinker, linkStore } from "./server/links.ts";
 import { PromptImageReader } from "./server/prompt-images.ts";
 import { notifyHooksSet } from "./server/notify.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
 import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, paseoLinks, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
 import { messageOf } from "./shared/errors.ts";
-
-const LINKS_FRESH_MS = 15000;
 
 export const OBSERVE_ONLY_REFUSAL = { ok: false as const, code: "denied" as const, error: "This Paseo daemon runs PigMonitor observe-only, so nothing is sent to piggery or Paseo." };
 
@@ -81,20 +79,12 @@ export default function contribute(server: PluginServerContext) {
     }
   });
   const linker = createLinker({ store: observeOnly ? { load: () => ({ links: [], formerly: [] }), save: () => undefined } : linkStore(path.join(piggeryHome(), "paseo-links.json")) });
-  let linking: { at: number; links: Promise<({ ok: true } & LinkState) | { ok: false; code: "failed"; error: string }> } | null = null;
-  server.handle(paseoLinks, async () => {
-    if (linking && Date.now() - linking.at < LINKS_FRESH_MS) return linking.links;
-    const links = (async () => {
-      const listed = await listClaudeAgents();
-      if (!listed.ok) return listed;
-      try {
-        return { ok: true as const, ...linker.links(listed.agents, db.claudeSessions(await database())) };
-      } catch (error) {
-        return { ok: false as const, code: "failed" as const, error: `Could not read piggery's database: ${messageOf(error)}` };
-      }
-    })();
-    linking = { at: Date.now(), links };
-    return links;
+  server.handle(paseoLinks, async ({ agents }) => {
+    try {
+      return { ok: true as const, ...linker.links(agents, db.claudeSessions(await database())) };
+    } catch (error) {
+      return { ok: false as const, code: "failed" as const, error: `Could not read piggery's database: ${messageOf(error)}` };
+    }
   });
   changes(upload, async ({ fileName, mimeType, data }) => {
     const tooLarge = uploadTooLarge(fileName, data);

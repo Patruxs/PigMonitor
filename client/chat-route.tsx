@@ -20,24 +20,28 @@ const MAX_PAGES = 5;
 interface PaseoListing {
   byRef: Map<string, PaseoHeld>;
   byAgent: Map<string, ListedAgent>;
+  sessions: { agentId: string; sessionId: string; archived: boolean }[];
 }
 
-const EMPTY_LISTING: PaseoListing = { byRef: new Map(), byAgent: new Map() };
-interface Linked {
+interface Routing extends PaseoListing {
   links: ReadonlyMap<string, string>;
   formerly: ReadonlySet<string>;
 }
 
-const NO_LINKS: Linked = { links: new Map(), formerly: new Set() };
+const NO_ROUTING: Routing = { byRef: new Map(), byAgent: new Map(), sessions: [], links: new Map(), formerly: new Set() };
 
 async function agentsFor(paseo: PaseoApi, wantedRefs: string[]): Promise<PaseoListing> {
-  const listing: PaseoListing = { byRef: new Map(), byAgent: new Map() };
+  const listing: PaseoListing = { byRef: new Map(), byAgent: new Map(), sessions: [] };
   const missing = () => wantedRefs.some((ref) => !listing.byRef.has(ref));
   let cursor: string | undefined;
   for (let page = 0; page < MAX_PAGES && missing(); page++) {
     const r = await paseo.agents.list({ filter: { includeArchived: true }, sort: [{ key: "updated_at", direction: "desc" }], page: { limit: PAGE_SIZE, ...(cursor ? { cursor } : {}) } });
     for (const [ref, held] of agentsBySession(r.entries)) if (!listing.byRef.has(ref)) listing.byRef.set(ref, held);
     for (const [agentId, listed] of agentsById(r.entries)) listing.byAgent.set(agentId, listed);
+    for (const { agent } of r.entries) {
+      const sessionId = agent.persistence?.sessionId;
+      if (sessionId && agent.provider.startsWith("claude")) listing.sessions.push({ agentId: agent.id, sessionId, archived: Boolean(agent.archivedAt) });
+    }
     if (!r.pageInfo.hasMore || !r.pageInfo.nextCursor) break;
     cursor = r.pageInfo.nextCursor;
   }
@@ -63,7 +67,7 @@ export function useChatRouting(ids: string[], selected: string, navigation: Navi
   const callResume = useRpc(resume);
   const [bump, setBump] = useState(0);
   const lastKnown = useRef<ParticipantRecord[] | null>(null);
-  const lastAgents = useRef<PaseoListing | null>(null);
+  const lastAgents = useRef<Routing | null>(null);
   const [liveBusy, setLiveBusy] = useState<ReadonlyMap<string, boolean | null>>(new Map());
   useEffect(
     () =>
@@ -89,20 +93,13 @@ export function useChatRouting(ids: string[], selected: string, navigation: Navi
   const followed = known.filter((s) => !s.gone || s.id === selected);
   const wantedRefs = followed.flatMap((s) => (s.ref ? [s.ref] : []));
   const callLinks = useRpc(paseoLinks);
-  const { value: linked, error: linksFailed } = usePoll(
-    async () => {
-      const r = await callLinks({});
-      return r.ok ? { ok: true as const, value: { links: new Map(r.links.map((link) => [link.participantId, link.agentId])), formerly: new Set(r.formerly) } as Linked } : r;
-    },
-    "paseo-links",
-    () => QUIET_MS,
-  );
-  const { links, formerly } = linked ?? NO_LINKS;
   const { value: found } = usePoll(
     async () => {
-      if (wantedRefs.length === 0) return { ok: true as const, value: EMPTY_LISTING };
       try {
-        return { ok: true as const, value: await agentsFor(paseo, wantedRefs) };
+        const listing = wantedRefs.length === 0 ? NO_ROUTING : await agentsFor(paseo, wantedRefs);
+        const r = await callLinks({ agents: listing.sessions });
+        if (!r.ok) return r;
+        return { ok: true as const, value: { ...listing, links: new Map(r.links.map((link) => [link.participantId, link.agentId])), formerly: new Set(r.formerly) } as Routing };
       } catch (error) {
         return { ok: false as const, code: "failed", error: messageOf(error) };
       }
@@ -111,10 +108,11 @@ export function useChatRouting(ids: string[], selected: string, navigation: Navi
     () => QUIET_MS,
   );
   if (found) lastAgents.current = found;
-  const listing = lastAgents.current ?? EMPTY_LISTING;
+  const listing = lastAgents.current ?? NO_ROUTING;
+  const { links, formerly } = listing;
   const heldBy = (id: string) => heldAgentOf(byId.get(id), listing.byRef, links, listing.byAgent);
   return {
-    ready: lastKnown.current !== null && lastAgents.current !== null && (linked !== null || linksFailed !== null),
+    ready: lastKnown.current !== null && lastAgents.current !== null,
     formerlyLinked: (id) => formerly.has(id) && !links.has(id),
     canOpen: navigation !== undefined,
     routeOf: (id) => chatRouteOf(byId.get(id), heldBy(id)?.agentId),
