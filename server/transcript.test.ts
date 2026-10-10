@@ -10,11 +10,11 @@ import { withIncrement } from "../shared/transcript.ts";
 import { logsDirOf, runLogs, TranscriptReader } from "./transcript.ts";
 
 test("the logs of a participant sit beside the database, one file per run, in run order", () => {
-  assert.equal(logsDirOf("/farm/piggery.db", "P1"), path.join("/farm", "logs", "P1"));
+  assert.equal(logsDirOf("/piggery/piggery.db", "P1"), path.join("/piggery", "logs", "P1"));
   assert.deepEqual(runLogs("/nowhere/at/all"), []);
 });
 
-function farm(): string {
+function fakePiggery(): string {
   const dir = mkdtempSync(path.join(tmpdir(), "piggery-transcript-"));
   const db = new DatabaseSync(path.join(dir, "piggery.db"));
   db.exec(`
@@ -33,7 +33,7 @@ function farm(): string {
 }
 
 test("TranscriptReader joins a worker's runs in order and names it from the database", () => {
-  const dir = farm();
+  const dir = fakePiggery();
   const piggery = new PiggeryDb();
   try {
     const reader = new TranscriptReader(piggery);
@@ -61,7 +61,7 @@ test("TranscriptReader joins a worker's runs in order and names it from the data
 });
 
 test("TranscriptReader reads a session's harness transcript, its tool calls as Paseo details only, and says when there is no log", () => {
-  const dir = farm();
+  const dir = fakePiggery();
   const piggery = new PiggeryDb();
   try {
     const reader = new TranscriptReader(piggery);
@@ -82,7 +82,7 @@ test("TranscriptReader reads a session's harness transcript, its tool calls as P
 });
 
 test("a worker's context is the last main-thread usage, out of the window its harness reported for that model, and no window before one is reported", () => {
-  const dir = farm();
+  const dir = fakePiggery();
   const piggery = new PiggeryDb();
   try {
     const run = readFileSync(path.join(import.meta.dirname, "fixtures", "worker-run.jsonl"), "utf8").split("\n");
@@ -105,7 +105,7 @@ test("a worker's context is the last main-thread usage, out of the window its ha
 });
 
 test("a poll with the last cursor gets only what is new or changed since, across a half-written line, a tool result and a new run, and adds up to a full read", () => {
-  const dir = farm();
+  const dir = fakePiggery();
   const piggery = new PiggeryDb();
   try {
     const db = path.join(dir, "piggery.db");
@@ -147,7 +147,7 @@ test("a poll with the last cursor gets only what is new or changed since, across
 });
 
 test("mail that arrives or is read between two polls is sent from where it lands in the merged list", () => {
-  const dir = farm();
+  const dir = fakePiggery();
   const piggery = new PiggeryDb();
   try {
     const db = path.join(dir, "piggery.db");
@@ -185,7 +185,7 @@ test("mail that arrives or is read between two polls is sent from where it lands
 });
 
 test("a log row keeps its id when mail lands before it, so the row is not remounted", () => {
-  const dir = farm();
+  const dir = fakePiggery();
   const piggery = new PiggeryDb();
   try {
     const db = path.join(dir, "piggery.db");

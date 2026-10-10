@@ -18,7 +18,7 @@ test("whereOf builds the scope, the participant and the held filter", () => {
   assert.deepEqual(whereOf({ limit: 10, participant: "p", held: true }), { sql: " WHERE (m.from_id = ? OR m.to_id = ?) AND m.held_reason IS NOT NULL", params: ["p", "p"] });
 });
 
-function farm(): { dir: string; file: string } {
+function fakePiggery(): { dir: string; file: string } {
   const dir = mkdtempSync(path.join(tmpdir(), "piggery-mail-"));
   const file = path.join(dir, "piggery.db");
   const db = new DatabaseSync(file);
@@ -39,7 +39,7 @@ function farm(): { dir: string; file: string } {
 }
 
 test("PiggeryDb reads mail newest first with names, reply seqs and the teams it mentions", () => {
-  const { dir, file } = farm();
+  const { dir, file } = fakePiggery();
   const reader = new PiggeryDb();
   try {
     const r = reader.read(file, { limit: 10 });
@@ -61,7 +61,7 @@ test("PiggeryDb reads mail newest first with names, reply seqs and the teams it 
 });
 
 test("PiggeryDb scopes by the person's mail with one participant, and takes the newest up to the limit", () => {
-  const { dir, file } = farm();
+  const { dir, file } = fakePiggery();
   const reader = new PiggeryDb();
   try {
     const between = reader.read(file, { limit: 10, participants: ["solo"], participant: "lead" });
