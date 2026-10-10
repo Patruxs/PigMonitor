@@ -3,45 +3,11 @@ import { isRecord } from "./guards.ts";
 
 export type ToolCallIconName = "wrench" | "square_terminal" | "eye" | "pencil" | "search" | "bot" | "sparkles" | "brain" | "mic_vocal";
 
-export type ToolCallDetail =
-  | { type: "shell"; command: string; cwd?: string; output?: string; exitCode?: number | null }
-  | { type: "read"; filePath: string; content?: string; offset?: number; limit?: number }
-  | { type: "edit"; filePath: string; oldString?: string; newString?: string; unifiedDiff?: string }
-  | { type: "write"; filePath: string; content?: string }
-  | {
-      type: "search";
-      query: string;
-      toolName?: "search" | "grep" | "glob" | "web_search";
-      content?: string;
-      filePaths?: string[];
-      webResults?: Array<{ title: string; url: string }>;
-      annotations?: string[];
-      numFiles?: number;
-      numMatches?: number;
-      durationMs?: number;
-      durationSeconds?: number;
-      truncated?: boolean;
-      mode?: "content" | "files_with_matches" | "count";
-    }
-  | { type: "fetch"; url: string; prompt?: string; result?: string; code?: number; codeText?: string; bytes?: number; durationMs?: number }
-  | {
-      type: "worktree_setup";
-      worktreePath: string;
-      branchName: string;
-      log: string;
-      commands: Array<{ index: number; command: string; cwd: string; log: string; status: "running" | "completed" | "failed"; exitCode: number | null; durationMs?: number }>;
-      truncated?: boolean;
-    }
-  | { type: "sub_agent"; subAgentType?: string; description?: string; childSessionId?: string; log: string; actions?: Array<{ index: number; toolName: string; summary?: string }> }
-  | { type: "plain_text"; label?: string; text?: string; icon?: ToolCallIconName }
-  | { type: "plan"; text: string }
-  | { type: "unknown"; input: unknown; output: unknown };
-
-const UnknownValue = z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(z.unknown()), z.object({}).passthrough()]);
+const UnknownValue: z.ZodType<unknown> = z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(z.unknown()), z.object({}).passthrough()]);
 
 export const ToolError: z.ZodType<unknown> = z.union([z.boolean(), z.number(), z.string(), z.array(z.unknown()), z.object({}).passthrough()]);
 
-export const ToolCallDetail: z.ZodType<ToolCallDetail, unknown> = z.discriminatedUnion("type", [
+export const ToolCallDetail = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("worktree_setup"),
     worktreePath: z.string(),
@@ -82,6 +48,8 @@ export const ToolCallDetail: z.ZodType<ToolCallDetail, unknown> = z.discriminate
   z.object({ type: z.literal("plan"), text: z.string() }),
   z.object({ type: z.literal("unknown"), input: UnknownValue, output: UnknownValue }),
 ]);
+
+export type ToolCallDetail = z.infer<typeof ToolCallDetail>;
 
 export const TOOL_CALL_STATUSES = ["running", "completed", "failed", "canceled"] as const;
 
