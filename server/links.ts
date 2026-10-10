@@ -95,7 +95,7 @@ export function createLinker({ store, readParent = forkParentOf }: { store: Link
   let lastAgent = new Map([...loaded.previous, ...loaded.links].map((link) => [link.participantId, link.agentId]));
 
   const ancestorsOf = (agent: AgentSession, dirs: string[], knownRefs: Set<string>): string[] => {
-    const key = `${agent.agentId}:${agent.sessionId}`;
+    const key = `${agent.agentId}:${agent.sessionId}:${dirs.join("|")}`;
     const known = ancestry.get(key);
     if (known) return known;
     const found: string[] = [];
@@ -131,6 +131,18 @@ export function createLinker({ store, readParent = forkParentOf }: { store: Link
       for (const [participantId, agentId] of next) if (!exactlyHeld.has(participantId) && holder.has(agentId)) next.delete(participantId);
       const deleted = new Set(missing);
       const forgotten = new Set<string>();
+      const sessionOf = new Map(agents.map((agent) => [agent.agentId, agent.sessionId]));
+      const participantOf = new Map(sessions.map((session) => [session.id, session]));
+      const knownRefs = new Set(sessions.flatMap((session) => (session.ref ? [session.ref] : [])));
+      for (const [participantId, agentId] of next) {
+        const sessionId = sessionOf.get(agentId);
+        const participant = participantOf.get(participantId);
+        if (exactlyHeld.has(participantId) || sessionId === undefined || !participant?.ref) continue;
+        const dirs = participant.transcript ? [path.dirname(participant.transcript)] : [];
+        if (ancestorsOf({ agentId, sessionId, archived: false }, dirs, knownRefs).includes(participant.ref)) continue;
+        next.delete(participantId);
+        forgotten.add(participantId);
+      }
       for (const [participantId, agentId] of next) {
         if (exactlyHeld.has(participantId) || !deleted.has(agentId)) continue;
         next.delete(participantId);
