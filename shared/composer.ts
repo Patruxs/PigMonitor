@@ -157,10 +157,10 @@ export async function sendQueuedComposerMessageNow(input: { agentId: string; mes
 
 export type PrimaryActionKind = "send" | "active" | "none";
 
-export function resolvePrimaryActionKind(input: { hasSendableContent: boolean; isAgentRunning: boolean; isSubmitLoading: boolean }): PrimaryActionKind {
+export function resolvePrimaryActionKind(input: { hasSendableContent: boolean; isAgentRunning: boolean; isSubmitLoading: boolean; keepSendVisible: boolean }): PrimaryActionKind {
   if (input.hasSendableContent) return "send";
   if (input.isAgentRunning) return "active";
-  if (input.isSubmitLoading) return "send";
+  if (input.isSubmitLoading || input.keepSendVisible) return "send";
   return "none";
 }
 

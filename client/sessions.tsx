@@ -1,16 +1,16 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal, ScrollView, useToast } from "@getpaseo/plugin/client/react-native";
-import { useMemo, useRef, useState, type ReactNode } from "react";
-import { Animated, Pressable, Text, TextInput, View, type PressableStateCallbackType } from "react-native";
-import { useKeyboardShift } from "./keyboard.ts";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Dimensions, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, useWindowDimensions, View, type PressableStateCallbackType } from "react-native";
 import { basenameOf } from "../shared/events.ts";
 import type { MailMessage } from "../shared/mail.ts";
 import { mail, person, sendMail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { itemsOfThread, latestFrom, type Me } from "../shared/thread.ts";
 import { briefAgo, type Dir, type Row, type Status, type View as PigView } from "../shared/view.ts";
 import { Chip, statusColour } from "./kit/badge.tsx";
-import { AvatarStack, Pill, RoleAvatar, STATUS_WORD, StatusDot, StatusPill, StatusWord, paint, tint } from "./kit/chat.tsx";
+import { AVATAR, AvatarStack, Pill, RoleAvatar, STATUS_WORD, StatusDot, StatusPill, StatusWord, paint, tint } from "./kit/chat.tsx";
+import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
 import { Notice } from "./kit/notice.tsx";
 import { PressRow } from "./kit/press.tsx";
 import { taskWords } from "./kit/row.tsx";
@@ -434,15 +434,69 @@ export function HiddenProjects({ theme, count, onShow }: { theme: PluginTheme; c
 }
 
 const HEAD_STACK_BELOW = 560;
+const COMPACT_HEAD_BELOW = 720;
+const COMPACT_HEAD_HEIGHT = 44;
+const COMPACT_STATUS_DOT = 10;
+
+function SessionMenu({ theme, item, native, chat, writable, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; onInfo: () => void }) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const resume = async () => {
+    const failed = await chat.resume(item.row.id);
+    if (failed) toast.error(failed);
+  };
+  const muted = theme.colors.foregroundMuted;
+  const items: MenuItem[] = [{ id: "details", label: "Session details", icon: <Icon name="Info" size={ICON_SIZE.md} color={muted} />, onSelect: onInfo }];
+  if (native.kind === "open" && chat.canOpen) items.push({ id: "open", label: "Open in Paseo", icon: <Icon name="ExternalLink" size={ICON_SIZE.md} color={muted} />, onSelect: () => chat.open(native.agentId) });
+  if (native.kind === "resume" && writable) items.push({ id: "resume", label: "Resume in Paseo", icon: <Icon name="Import" size={ICON_SIZE.md} color={muted} />, onSelect: () => void resume() });
+  return (
+    <AnchoredMenu theme={theme} open={open} label={`${item.row.name} menu`} items={items} onClose={() => setOpen(false)}>
+      <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel="Session menu" hitSlop={SPACING[2]} style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" }}>
+        <Icon name="Ellipsis" size={ICON_SIZE.md} color={muted} />
+      </Pressable>
+    </AnchoredMenu>
+  );
+}
+
+function CompactChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; onBack?: () => void; onInfo: () => void }) {
+  const { row } = item;
+  const place = item.teamName ?? basenameOf(item.dir.path);
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: COMPACT_HEAD_HEIGHT, paddingLeft: onBack ? SPACING[1] : SPACING[3], paddingRight: SPACING[2], borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface0 }}>
+      {onBack ? (
+        <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back to sessions" hitSlop={SPACING[2]} style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" }}>
+          <Icon name="ChevronLeft" size={ICON_SIZE.md} color={theme.colors.foreground} />
+        </Pressable>
+      ) : null}
+      <View style={{ width: AVATAR, height: AVATAR }}>
+        <RoleAvatar theme={theme} name={row.name} role={row.role} id={row.id} size={AVATAR} dim={row.dim} />
+        <StatusDot theme={theme} status={row.status} dim={row.dim} size={COMPACT_STATUS_DOT} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: SPACING[1.5], overflow: "hidden" }} accessibilityLabel={`${row.name}, ${STATUS_WORD[row.status]}, in ${place}`}>
+        <Text style={[text(theme, "rowTitle"), { fontWeight: "600", flexShrink: 1 }]} numberOfLines={1}>
+          {row.name}
+        </Text>
+        {row.role ? <Pill theme={theme} label={row.role} colour={paint(theme, row.role, row.id)} filled /> : null}
+        <StatusWord theme={theme} status={row.status} dim={row.dim} />
+        <Text style={[text(theme, "label"), { flexShrink: 2, minWidth: 0 }]} numberOfLines={1}>
+          {place}
+        </Text>
+      </View>
+      <SessionMenu theme={theme} item={item} native={native} chat={chat} writable={writable} onInfo={onInfo} />
+    </View>
+  );
+}
 
 function ChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; onBack?: () => void; onInfo: () => void }) {
+  const compactFormFactor = useWindowDimensions().width < COMPACT_HEAD_BELOW;
+  const [width, setWidth] = useState(0);
+  if (compactFormFactor) return <CompactChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} onBack={onBack} onInfo={onInfo} />;
+  const stacked = width > 0 && width < HEAD_STACK_BELOW;
+  const link = <NativeLink theme={theme} id={item.row.id} native={native} chat={chat} writable={writable} />;
   const { row } = item;
   const colour = paint(theme, row.role, row.id);
   const sub = [row.harness, row.model && row.model !== "-" ? row.model : undefined, row.ctx ? `${row.ctx} ctx` : undefined, row.turns ? `${row.turns} turns` : undefined].filter(Boolean).join(" · ");
   const project = basenameOf(item.dir.path);
-  const [width, setWidth] = useState(0);
-  const compact = width > 0 && width < HEAD_STACK_BELOW;
-  const link = <NativeLink theme={theme} id={row.id} native={native} chat={chat} writable={writable} />;
   return (
     <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface0 }}>
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[3], paddingTop: SPACING[2], overflow: "hidden" }} accessibilityLabel={`In project ${project}${item.teamName ? `, team ${item.teamName}` : ""}`}>
@@ -480,7 +534,7 @@ function ChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { the
         <StatusDot theme={theme} status={row.status} dim={row.dim} />
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: SPACING[0.5] }}>
-        <View style={{ flexDirection: "row", flexWrap: compact ? "wrap" : "nowrap", alignItems: "center", columnGap: SPACING[2], rowGap: SPACING[0.5] }}>
+        <View style={{ flexDirection: "row", flexWrap: stacked ? "wrap" : "nowrap", alignItems: "center", columnGap: SPACING[2], rowGap: SPACING[0.5] }}>
           <Text style={[text(theme, "rowTitle"), { fontWeight: "600", flexShrink: 1 }]} numberOfLines={1}>
             {row.name}
           </Text>
@@ -491,9 +545,9 @@ function ChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { the
         <Text style={text(theme, "label")} numberOfLines={1}>
           {sub || item.preview}
         </Text>
-        {compact ? <View style={{ flexDirection: "row", marginTop: SPACING[0.5] }}>{link}</View> : null}
+        {stacked ? <View style={{ flexDirection: "row", marginTop: SPACING[0.5] }}>{link}</View> : null}
       </View>
-      {compact ? null : link}
+      {stacked ? null : link}
       <Pressable onPress={onInfo} accessibilityRole="button" accessibilityLabel="About this session" hitSlop={SPACING[2]} style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" }}>
         <Icon name="Info" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />
       </Pressable>
@@ -634,11 +688,9 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
     return null;
   };
   const ended = item.row.status === "gone" && native.kind !== "open";
-  const paneRef = useRef<View>(null);
-  const keyboardShift = useKeyboardShift(paneRef);
   return (
     <FileDropZone theme={theme} style={{ flex: 1, minWidth: 0 }}>
-    <Animated.View ref={paneRef} style={{ flex: 1, minWidth: 0, paddingBottom: keyboardShift }}>
+    <KeyboardAvoidingPane>
       <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} onBack={onBack} onInfo={onInfo} />
       {timeline ? <OpenStream theme={theme} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} extra={extra} hideFrom={me?.name} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} />}
       {writable ? (
@@ -646,8 +698,42 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
       ) : (
         <ThroughGate theme={theme} gate={gateOf(item, all)} onPick={onPick} />
       )}
-    </Animated.View>
+    </KeyboardAvoidingPane>
     </FileDropZone>
+  );
+}
+
+const IOS_HOME_INDICATOR_INSET = 34;
+const homeIndicatorInset = Platform.OS === "ios" ? IOS_HOME_INDICATOR_INSET : 0;
+
+function useIosKeyboardShown(): boolean {
+  const [shown, setShown] = useState(() => Platform.OS === "ios" && Keyboard.isVisible());
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    const subscriptions = [Keyboard.addListener("keyboardWillShow", () => setShown(true)), Keyboard.addListener("keyboardWillHide", () => setShown(false))];
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, []);
+  return shown;
+}
+
+function KeyboardAvoidingPane({ children }: { children: ReactNode }) {
+  const paneRef = useRef<View>(null);
+  const [paneTop, setPaneTop] = useState(0);
+  const keyboardShown = useIosKeyboardShown();
+  if (Platform.OS === "web") return <View style={{ flex: 1, minWidth: 0 }}>{children}</View>;
+  const measurePaneTop = () => {
+    paneRef.current?.measureInWindow((_x, y) => {
+      const windowHeight = Dimensions.get("window").height;
+      setPaneTop(Number.isFinite(y) ? Math.min(Math.max(0, y), windowHeight / 2) : 0);
+    });
+  };
+  return (
+    <View ref={paneRef} style={{ flex: 1, minWidth: 0 }} onLayout={measurePaneTop}>
+      <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={paneTop} style={{ flex: 1, minWidth: 0 }}>
+        {children}
+        {homeIndicatorInset > 0 && !keyboardShown ? <View style={{ height: homeIndicatorInset }} /> : null}
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -668,8 +754,7 @@ function Empty({ theme }: { theme: PluginTheme }) {
  * the most pressing first), the open one on the right with its transcript scrolled to the latest turn.
  * Narrower than CHAT_SPLIT_MIN, one at a time: the list, then the chat with a Back.
  */
-export function SessionsPane({ theme, view, dirs, width, selected, now, navigation, serverId, hidden, onSelect, onInfo, onHide, onShowHidden }: { theme: PluginTheme; view: PigView; dirs: Dir[]; width: number; selected: string; now: number; navigation?: Navigation; serverId?: string; hidden: number; onSelect: (id: string) => void; onInfo: (id: string) => void; onHide: (path: string) => void; onShowHidden: () => void }) {
-  const [opened, setOpened] = useState(false);
+export function SessionsPane({ theme, view, dirs, width, selected, opened, now, navigation, serverId, hidden, onSelect, onOpened, onInfo, onHide, onShowHidden }: { theme: PluginTheme; view: PigView; dirs: Dir[]; width: number; selected: string; opened: boolean; now: number; navigation?: Navigation; serverId?: string; hidden: number; onSelect: (id: string) => void; onOpened: (opened: boolean) => void; onInfo: (id: string) => void; onHide: (path: string) => void; onShowHidden: () => void }) {
   const actions = useProjectActions(navigation, serverId, onHide);
   const [sent, setSent] = useState(0);
   const me = usePerson(sent);
@@ -689,10 +774,10 @@ export function SessionsPane({ theme, view, dirs, width, selected, now, navigati
   }
   const pick = (id: string) => {
     onSelect(id);
-    setOpened(true);
+    onOpened(true);
   };
   if (!wide) {
-    if (opened && current) return <Chat key={current.row.id} theme={theme} item={current} all={items} me={me} chat={chat} onSent={() => setSent((n) => n + 1)} onPick={pick} onBack={() => setOpened(false)} onInfo={() => onInfo(current.row.id)} />;
+    if (opened && current) return <Chat key={current.row.id} theme={theme} item={current} all={items} me={me} chat={chat} onSent={() => setSent((n) => n + 1)} onPick={pick} onBack={() => onOpened(false)} onInfo={() => onInfo(current.row.id)} />;
     return <ConversationList theme={theme} items={items} selected={selected} now={now} actions={actions} hidden={hidden} onPick={pick} onShowHidden={onShowHidden} />;
   }
   const listMaxWidth = width / 2;

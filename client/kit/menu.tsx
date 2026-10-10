@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { ScrollView } from "@getpaseo/plugin/client/react-native";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Modal, Pressable, Text, useWindowDimensions, View, type PressableStateCallbackType, type TextProps } from "react-native";
+import { Modal, Platform, Pressable, Text, useWindowDimensions, View, type PressableStateCallbackType, type TextProps } from "react-native";
 import { RADIUS, SPACING, text } from "./theme.ts";
 
 export interface MenuItem {
@@ -21,6 +21,7 @@ const SHEET_MAX_HEIGHT_RATIO = 0.8;
 const SHEET_BACKDROP_OPACITY = 0.45;
 
 const dom = globalThis as { document?: Document; window?: Window };
+const selectsAfterSheetDismiss = Platform.OS === "ios";
 
 function hoveredOf(state: PressableStateCallbackType): boolean {
   return (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;
@@ -37,10 +38,10 @@ export function useSheetPresentation(): boolean {
   return useWindowDimensions().width < SHEET_BELOW_WIDTH;
 }
 
-function BottomSheet({ theme, open, title, fontFamily, onClose, children }: { theme: PluginTheme; open: boolean; title: string; fontFamily: string | undefined; onClose: () => void; children: ReactNode }) {
+function BottomSheet({ theme, open, title, fontFamily, onClose, onDismiss, children }: { theme: PluginTheme; open: boolean; title: string; fontFamily: string | undefined; onClose: () => void; onDismiss?: () => void; children: ReactNode }) {
   const { height } = useWindowDimensions();
   return (
-    <Modal transparent animationType="fade" statusBarTranslucent visible={open} onRequestClose={onClose}>
+    <Modal transparent animationType="fade" statusBarTranslucent visible={open} onRequestClose={onClose} onDismiss={onDismiss}>
       <SheetFont.Provider value={fontFamily}>
       <View style={{ flex: 1, justifyContent: "flex-end" }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `rgba(0,0,0,${SHEET_BACKDROP_OPACITY})` }} />
@@ -63,7 +64,7 @@ function BottomSheet({ theme, open, title, fontFamily, onClose, children }: { th
   );
 }
 
-export function AnchoredPopover({ theme, open, label, role, onClose, panel, minWidth, maxWidth, maxHeight, offset, children }: { theme: PluginTheme; open: boolean; label: string; role?: "menu"; onClose: () => void; panel: ReactNode; minWidth: number; maxWidth?: number; maxHeight?: number; offset: number; children: ReactNode }) {
+export function AnchoredPopover({ theme, open, label, role, onClose, onSheetDismiss, panel, minWidth, maxWidth, maxHeight, offset, children }: { theme: PluginTheme; open: boolean; label: string; role?: "menu"; onClose: () => void; onSheetDismiss?: () => void; panel: ReactNode; minWidth: number; maxWidth?: number; maxHeight?: number; offset: number; children: ReactNode }) {
   const anchor = useRef<View>(null);
   const sheet = useSheetPresentation();
   const [fontFamily, setFontFamily] = useState<string | undefined>(undefined);
@@ -97,7 +98,7 @@ export function AnchoredPopover({ theme, open, label, role, onClose, panel, minW
     return (
       <View ref={anchor} style={{ position: "relative" }}>
         {children}
-        <BottomSheet theme={theme} open={open} title={label} fontFamily={fontFamily} onClose={onClose}>
+        <BottomSheet theme={theme} open={open} title={label} fontFamily={fontFamily} onClose={onClose} onDismiss={onSheetDismiss}>
           {panel}
         </BottomSheet>
       </View>
@@ -116,7 +117,14 @@ export function AnchoredPopover({ theme, open, label, role, onClose, panel, minW
 }
 
 export function AnchoredMenu({ theme, open, label, items, onClose, children }: { theme: PluginTheme; open: boolean; label: string; items: MenuItem[]; onClose: () => void; children: ReactNode }) {
-  const itemHeight = useSheetPresentation() ? MENU_ITEM_HEIGHT.sheet : MENU_ITEM_HEIGHT.popover;
+  const sheet = useSheetPresentation();
+  const itemHeight = sheet ? MENU_ITEM_HEIGHT.sheet : MENU_ITEM_HEIGHT.popover;
+  const selectionAwaitingDismiss = useRef<(() => void) | null>(null);
+  const runSelectionAwaitingDismiss = () => {
+    const select = selectionAwaitingDismiss.current;
+    selectionAwaitingDismiss.current = null;
+    select?.();
+  };
   const panel = items.map((item) => (
     <Pressable
       key={item.id}
@@ -125,7 +133,8 @@ export function AnchoredMenu({ theme, open, label, items, onClose, children }: {
       disabled={item.disabled}
       onPress={() => {
         onClose();
-        item.onSelect();
+        if (sheet && selectsAfterSheetDismiss) selectionAwaitingDismiss.current = item.onSelect;
+        else item.onSelect();
       }}
       style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: itemHeight, marginHorizontal: SPACING[1], paddingHorizontal: SPACING[2], paddingVertical: SPACING[1], borderRadius: RADIUS.md, opacity: item.disabled ? 0.5 : 1, backgroundColor: !item.disabled && (state.pressed || hoveredOf(state)) ? theme.colors.surface2 : "transparent" })}
     >
@@ -136,7 +145,7 @@ export function AnchoredMenu({ theme, open, label, items, onClose, children }: {
     </Pressable>
   ));
   return (
-    <AnchoredPopover theme={theme} open={open} label={label} role="menu" onClose={onClose} panel={panel} minWidth={MENU_MIN_WIDTH} offset={MENU_OFFSET}>
+    <AnchoredPopover theme={theme} open={open} label={label} role="menu" onClose={onClose} onSheetDismiss={runSelectionAwaitingDismiss} panel={panel} minWidth={MENU_MIN_WIDTH} offset={MENU_OFFSET}>
       {children}
     </AnchoredPopover>
   );

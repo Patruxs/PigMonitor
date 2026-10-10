@@ -7,6 +7,7 @@ import type { MailPage } from "./mail.ts";
 import type { Transcript } from "./transcript.ts";
 import type { ToolCallDetail } from "./tool-call.ts";
 import { UsageReportEntry } from "./usage-schema.ts";
+import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./speech.ts";
 
 /**
  * Why piggery gave nothing: not installed at that path, daemon not running, a piggery older (no
@@ -297,7 +298,19 @@ export const checkoutRemote = defineRpc({
   output: z.union([z.object({ ok: z.literal(true), remoteUrl: z.string().nullable() }), Failure]),
 });
 
-export const RPC_NAMES = [snapshot.name, tail.name, mail.name, transcript.name, person.name, sendMail.name, sessions.name, resume.name, agentConfig.name, usageReports.name, stop.name, imageFile.name, upload.name, forgeSearch.name, timelinePrompts.name, rewind.name, timelineSearch.name, dirSuggest.name, checkoutRemote.name];
+export const dictationStatus = defineRpc({
+  name: "pigmonitor.dictation-status",
+  input: z.object({}),
+  output: z.union([z.object({ ok: z.literal(true), enabled: z.boolean(), reason: z.string() }), Failure]),
+});
+
+export const transcribe = defineRpc({
+  name: "pigmonitor.transcribe",
+  input: z.object({ format: z.literal(DICTATION_FORMAT), chunks: z.array(z.string()).max(MAX_DICTATION_CHUNKS) }),
+  output: z.union([z.object({ ok: z.literal(true), text: z.string() }), Failure]),
+});
+
+export const RPC_NAMES = [snapshot.name, tail.name, mail.name, transcript.name, person.name, sendMail.name, sessions.name, resume.name, agentConfig.name, usageReports.name, stop.name, imageFile.name, upload.name, forgeSearch.name, timelinePrompts.name, rewind.name, timelineSearch.name, dirSuggest.name, checkoutRemote.name, dictationStatus.name, transcribe.name];
 
 /** What the user folded, the tab they chose (shared/folds.ts) and the Sessions list width: kept per Paseo host, saved by the app after a change. */
 export const viewSettings = defineSettings({

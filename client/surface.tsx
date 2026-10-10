@@ -6,6 +6,7 @@ import { Animated, PanResponder, Pressable, ScrollView as NativeScrollView, Text
 import { basenameOf, countStatuses, countsText, sentenceOf } from "../shared/events.ts";
 import { foldsOf, goneOpen as goneIsOpen, isHidden, NO_FOLDS, prune, setGone, setHidden, setTab, setTeam, showAll, teamOpen, type Folds } from "../shared/folds.ts";
 import { snapshot, tail, viewSettings } from "../shared/rpc.ts";
+import { keptAxisSteps } from "../shared/axis.ts";
 import { agoText, clockText, readView, related, type Block, type Column, type Detail, type Dir, type EventRow, type Head, type Row, type Status, type TailKind, type Tone, type View as PigView } from "../shared/view.ts";
 import { DetailDialog, type Index } from "./dialog.tsx";
 import { Header } from "./header.tsx";
@@ -20,7 +21,7 @@ import { AgentCard, AgentRow, columnsFor, Tail, type Columns } from "./kit/row.t
 import { Rows } from "./kit/rows.tsx";
 import { MultiSelect, Select } from "./kit/select.tsx";
 import { TabBar } from "./kit/tab-bar.tsx";
-import { ASIDE, BAR, CARD_RADIUS, DOT, CHEVRON_SLOT, ICON_SIZE, ORG_CARD, INDENT, RADIUS, ROW_MIN, ROW_ONE, SPACING, text } from "./kit/theme.ts";
+import { ASIDE, BAR, CARD_RADIUS, CHAT_SPLIT_MIN, DOT, CHEVRON_SLOT, ICON_SIZE, ORG_CARD, INDENT, RADIUS, ROW_MIN, ROW_ONE, SPACING, text } from "./kit/theme.ts";
 import { BUSY_MS, QUIET_MS, pollEvery, useNow, usePoll } from "./poll.ts";
 
 /** ps --view, and with `dir` that directory as piggery writes paths (resolved on the daemon side). */
@@ -265,24 +266,22 @@ function ticksOf(scale: Scale, tick: number, margin: number): number[] {
   return out;
 }
 
-const LABEL_PX = 48;
-
-function labelTickOf(scale: Scale, tick: number): number {
-  const px = (tick / (scale.now - scale.start)) * scale.width;
-  return px > 0 ? tick * Math.max(1, Math.ceil(LABEL_PX / px)) : tick;
-}
-
-function labelTicksOf(scale: Scale, tick: number): number[] {
-  return ticksOf(scale, labelTickOf(scale, tick), 0).filter((t) => xOf(scale, t) <= scale.width - LABEL_PX);
-}
+const LABEL_GAP = SPACING[2];
+const LABEL_BOX_W = 160;
+const NOW_PILL_HALF = 20;
 
 function Axis({ theme, scale, tick }: { theme: PluginTheme; scale: Scale; tick: number }) {
+  const [labelWidths, setLabelWidths] = useState<Record<string, number>>({});
+  const ticks = ticksOf(scale, tick, 0).map((t) => ({ t, step: Math.round(t / tick), x: xOf(scale, t), label: clockText(t, scale.now) }));
+  const measured = ticks.flatMap((m) => (labelWidths[m.label] === undefined ? [] : [{ step: m.step, x: m.x, width: labelWidths[m.label] }]));
+  const kept = new Set(keptAxisSteps(measured, scale.width - NOW_PILL_HALF - LABEL_GAP, LABEL_GAP));
+  const measure = (label: string, width: number) => setLabelWidths((widths) => (widths[label] === width ? widths : { ...widths, [label]: width }));
   return (
     <View style={{ height: AXIS_H, position: "relative" }}>
-      {labelTicksOf(scale, tick).map((t) => (
-        <View key={t} style={{ position: "absolute", left: xOf(scale, t), top: 0, bottom: 0, justifyContent: "flex-end" }}>
-          <Text style={[text(theme, "label"), { color: theme.colors.foreground, fontVariant: ["tabular-nums"], marginLeft: SPACING[1.5], marginBottom: SPACING[2] }]}>{clockText(t, scale.now)}</Text>
-          <View style={{ position: "absolute", left: 0, bottom: 0, width: 2, height: SPACING[2], borderRadius: 1, backgroundColor: theme.colors.accent, opacity: 0.8 }} />
+      {ticks.map((m) => (
+        <View key={m.t} style={{ position: "absolute", left: m.x, top: 0, bottom: 0, width: LABEL_BOX_W, alignItems: "flex-start", justifyContent: "flex-end" }}>
+          <Text onLayout={(e) => measure(m.label, e.nativeEvent.layout.width)} numberOfLines={1} aria-hidden={!kept.has(m.step)} style={[text(theme, "label"), { color: theme.colors.foreground, fontVariant: ["tabular-nums"], marginBottom: SPACING[2], opacity: kept.has(m.step) ? 1 : 0 }]}>{m.label}</Text>
+          <View style={{ position: "absolute", left: 0, bottom: 0, width: 2, height: SPACING[2], borderRadius: 1, backgroundColor: theme.colors.accent, opacity: kept.has(m.step) ? 0.8 : 0.4 }} />
         </View>
       ))}
       <View style={{ position: "absolute", left: scale.width, top: 0, bottom: 0, alignItems: "center", width: 0 }}>
@@ -590,7 +589,7 @@ function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { t
             onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: false })}
             onContentSizeChange={() => scrollable && scroller.current?.scrollToEnd({ animated: false })}
           >
-          <View style={{ width: cardW > 0 ? contentW : undefined }}>
+          <View style={{ width: cardW > 0 ? contentW : undefined, overflow: "hidden" }}>
           <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: tint(theme.colors.accent, "55"), backgroundColor: tint(theme.colors.accent, "0d") }}>
             <Animated.View style={[{ width: labelW, justifyContent: "flex-end", paddingLeft: SPACING[3], paddingBottom: SPACING[2], borderRightWidth: 1, borderRightColor: divider }, sticky, { backgroundColor: theme.colors.surface0 }]}>
               <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: tint(theme.colors.accent, "0d") }} />
@@ -1370,14 +1369,16 @@ function Shell({ theme, compact, dir, empty, navigation, serverId }: { theme: Pl
   const [session, setSession] = useState("");
   const sessions = view ? conversationsOf(view, dirs) : [];
   const sessionId = sessions.some((c) => c.row.id === session) ? session : "";
+  const [chatOpened, setChatOpened] = useState(false);
+  const chatFillsPane = sessionsTab && chatOpened && sessionId !== "" && width < CHAT_SPLIT_MIN;
   const graphCount = whole ? view?.tabs.find((t) => t.key === "")?.count : view ? itemsIn(view, dirs).length : undefined;
   const tabs = [{ id: "overview" as const, label: "Overview" }, { id: "graph" as const, label: "Graph", count: graphCount }, { id: "sessions" as const, label: "Sessions", count: sessions.length }];
   const tabBar = view ? <TabBar theme={theme} tabs={tabs} active={sessionsTab ? "sessions" : graph ? "graph" : "overview"} onPick={(t) => change(setTab(folds, t))} /> : null;
-  const topBar = view ? (
+  const topBar = view && !(chatFillsPane && !error) ? (
     <View style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.border }}>
       <View style={{ gap: SPACING[2], paddingHorizontal: SPACING[4], paddingTop: SPACING[4], paddingBottom: SPACING[2] }}>
         {error ? <Text style={text(theme, "label", "statusWarning")}>{`Showing the last read: ${error.message}`}</Text> : null}
-        {tabBar}
+        {chatFillsPane ? null : tabBar}
       </View>
     </View>
   ) : null;
@@ -1385,7 +1386,7 @@ function Shell({ theme, compact, dir, empty, navigation, serverId }: { theme: Pl
     <View style={{ flex: 1, backgroundColor: theme.colors.surface0 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {topBar}
       {view && sessionsTab ? (
-        <SessionsPane theme={theme} view={view} dirs={dirs} width={width} selected={sessionId} now={now} navigation={navigation} serverId={serverId} hidden={hidden} onSelect={setSession} onInfo={setOpened} onHide={hide} onShowHidden={unhide} />
+        <SessionsPane theme={theme} view={view} dirs={dirs} width={width} selected={sessionId} opened={chatOpened} now={now} navigation={navigation} serverId={serverId} hidden={hidden} onSelect={setSession} onOpened={setChatOpened} onInfo={setOpened} onHide={hide} onShowHidden={unhide} />
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: SPACING[6] }}>
           <View>

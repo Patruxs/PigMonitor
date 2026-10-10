@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer.ts";
+import { resolvePrimaryActionKind, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer.ts";
 
 function memoryQueue(initial: QueuedComposerMessage[]): QueueWriter & { items: () => QueuedComposerMessage[] } {
   let state = new Map([["a", initial]]);
@@ -52,4 +52,11 @@ test("a queued message that fails to send goes back to the front of the queue", 
   const result = await sendQueuedComposerMessageNow({ agentId: "a", messageId: "1", queue, submitMessage: async () => { throw new Error("busy"); } });
   assert.deepEqual(result, { status: "failed", errorMessage: "busy" });
   assert.deepEqual(queue.items().map((m) => m.id), ["1", "2"]);
+});
+
+test("compact layouts keep the send button with an empty input, but a running agent still shows stop", () => {
+  const empty = { hasSendableContent: false, isSubmitLoading: false };
+  assert.equal(resolvePrimaryActionKind({ ...empty, isAgentRunning: false, keepSendVisible: true }), "send");
+  assert.equal(resolvePrimaryActionKind({ ...empty, isAgentRunning: false, keepSendVisible: false }), "none");
+  assert.equal(resolvePrimaryActionKind({ ...empty, isAgentRunning: true, keepSendVisible: true }), "active");
 });

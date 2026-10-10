@@ -6,8 +6,9 @@ import { Person } from "./server/person.ts";
 import { checkoutRemoteUrl, configureAgent, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
 import { ATTACH_ROOT, bodyWithAttachments, bodyWithImages, saveImages, uploadTooLarge } from "./server/attach.ts";
 import { TranscriptReader } from "./server/transcript.ts";
+import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
-import { agentConfig, usageReports, checkoutRemote, dirSuggest, forgeSearch, imageFile, mail, person, resume, sendMail, sessions, settings, snapshot, stop, tail, timelinePrompts, rewind, timelineSearch, transcript, upload, viewSettings } from "./shared/rpc.ts";
+import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, person, resume, sendMail, sessions, settings, snapshot, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
 import { TAIL_VERSION } from "./shared/view.ts";
 
 export default function contribute(server: PluginServerContext) {
@@ -92,6 +93,8 @@ export default function contribute(server: PluginServerContext) {
   server.handle(forgeSearch, async ({ cwd, query }) => searchForge(cwd, query));
   server.handle(dirSuggest, async ({ cwd, query }) => suggestEntries(cwd, query));
   server.handle(checkoutRemote, async ({ cwd }) => checkoutRemoteUrl(cwd));
+  server.handle(dictationStatus, async () => dictationReadiness());
+  server.handle(transcribe, async ({ format, chunks }) => transcribeRecording(format, chunks));
   server.handle(timelinePrompts, async ({ agentId }) => listTimelinePrompts(agentId));
   server.handle(rewind, async ({ agentId, messageId, mode }) => rewindAgent(agentId, messageId, mode));
   server.handle(timelineSearch, async ({ agentId, query, cursor }) => searchTimeline(agentId, query, cursor));

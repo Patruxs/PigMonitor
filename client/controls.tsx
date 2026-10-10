@@ -586,7 +586,7 @@ export function AgentContextMeter({ theme, agentId, isCompactLayout }: { theme: 
   if (!agent) return null;
   return (
     <View style={{ width: 28, height: 28, flexShrink: 0, alignItems: "center", justifyContent: "center" }}>
-      <ContextWindowMeter theme={theme} agentId={agentId} usage={(agent.lastUsage ?? null) as Usage | null} glyphSize={isCompactLayout || !isNative ? 16 : 20} />
+      <ContextWindowMeter theme={theme} agentId={agentId} usage={(agent.lastUsage ?? null) as Usage | null} status={agent.status} glyphSize={isCompactLayout || !isNative ? 16 : 20} />
     </View>
   );
 }

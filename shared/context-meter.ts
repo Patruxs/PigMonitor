@@ -56,3 +56,40 @@ export function ringSvg({ size, radius, strokeWidth, percentage, trackColor, pro
       : `<circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="${progressColor}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference - (clampPercentage(percentage) / 100) * circumference}" transform="rotate(-90 ${center} ${center})"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${track}${progress}</svg>`;
 }
+
+export type MeterState = { kind: "hidden" } | { kind: "pending" } | { kind: "ready"; percentage: number; usedTokens: number; maxTokens: number };
+
+export function meterState(usage: Usage | null, status: string | null): MeterState {
+  const maxTokens = usage?.contextWindowMaxTokens ?? null;
+  const usedTokens = usage?.contextWindowUsedTokens ?? null;
+  const percentage = usagePercentage(maxTokens, usedTokens);
+  if (percentage !== null && maxTokens !== null && usedTokens !== null) return { kind: "ready", percentage, usedTokens, maxTokens };
+  return status === "initializing" || status === "running" ? { kind: "pending" } : { kind: "hidden" };
+}
+
+export interface ArcCap {
+  left: number;
+  top: number;
+}
+
+export interface HalfRingArc {
+  rightRotation: number;
+  leftRotation: number | null;
+  caps: [ArcCap, ArcCap];
+}
+
+function capAt(degrees: number, size: number, strokeWidth: number): ArcCap {
+  const radians = (degrees * Math.PI) / 180;
+  const radius = (size - strokeWidth) / 2;
+  return { left: size / 2 + radius * Math.sin(radians) - strokeWidth / 2, top: size / 2 - radius * Math.cos(radians) - strokeWidth / 2 };
+}
+
+export function halfRingArc(percentage: number, size: number, strokeWidth: number): HalfRingArc | null {
+  const sweep = (clampPercentage(percentage) / 100) * 360;
+  if (sweep === 0) return null;
+  return {
+    rightRotation: Math.min(sweep, 180) - 180,
+    leftRotation: sweep > 180 ? sweep - 180 : null,
+    caps: [capAt(0, size, strokeWidth), capAt(sweep, size, strokeWidth)],
+  };
+}

@@ -19,6 +19,7 @@ import {
   type QueuedComposerMessage,
 } from "../shared/composer.ts";
 import { MAX_IMAGES, upload, type AttachmentData, type ForgeItemData, type ImageData } from "../shared/rpc.ts";
+import { withTranscript } from "../shared/speech.ts";
 import { generateMessageId } from "../shared/stream.ts";
 import { AttachmentTray, canAttach, chooseFiles, clipboardImageFiles, readBase64, readImageFiles, type PendingFile } from "./attachments.tsx";
 import { useFileDrop } from "./attachments-drop.tsx";
@@ -32,6 +33,7 @@ import { queueWriter, useQueuedMessages } from "./queue.ts";
 import { registerComposerRestore, restoreComposerTextIfEmpty } from "./rewind.tsx";
 import type { AgentTimeline } from "./timeline.ts";
 import { ComposerTracks } from "./tracks.tsx";
+import { DictationButton } from "./dictation.tsx";
 
 export { canAttach };
 
@@ -157,10 +159,13 @@ function QueuedMessageRow({ theme, item, onEdit, onSendNow }: { theme: PluginThe
   );
 }
 
-export function Composer({ theme, placeholder, disabled = false, hint, controls, trailing, draftKey, cwd, stop, agent, onSend }: { theme: PluginTheme; placeholder: string; disabled?: boolean; hint?: string; controls?: ReactNode | ((layout: { isCompactLayout: boolean }) => ReactNode); trailing?: ReactNode | ((layout: { isCompactLayout: boolean }) => ReactNode); draftKey?: string; cwd?: string; stop?: { running: boolean; onStop: () => Promise<string | null> }; agent?: ComposerAgent; onSend: (body: string, images: ImageData[], attachments: AttachmentData[]) => Promise<string | null> }) {
+type ToolbarSlot = ReactNode | ((layout: { isCompactLayout: boolean }) => ReactNode);
+
+export function Composer({ theme, placeholder, disabled = false, hint, controls, trailing, draftKey, cwd, stop, agent, onSend }: { theme: PluginTheme; placeholder: string; disabled?: boolean; hint?: string; controls?: ToolbarSlot; trailing?: ToolbarSlot; draftKey?: string; cwd?: string; stop?: { running: boolean; onStop: () => Promise<string | null> }; agent?: ComposerAgent; onSend: (body: string, images: ImageData[], attachments: AttachmentData[]) => Promise<string | null> }) {
   const initial = useMemo(() => (draftKey === undefined ? { text: "", attachments: [] } : readDraft(draftKey)), []);
   const [value, setValue] = useState(initial.text);
   const [cursor, setCursor] = useState(initial.text.length);
+  const [isDictating, setIsDictating] = useState(false);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>(initial.attachments);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -326,6 +331,18 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
     composerHeight.reset();
   };
 
+  const insertTranscript = (transcript: string) => {
+    replaceText(withTranscript(value, transcript));
+    focusInput();
+  };
+
+  const sendTranscript = (transcript: string) => {
+    const message = withTranscript(value, transcript).trim();
+    replaceText(message);
+    void sendMessageWithContent(message, attachments, isAgentRunning || undefined);
+    composerHeight.reset();
+  };
+
   const handleQueueMessage = () => {
     if (!agentId) return;
     const trimmed = value.trim();
@@ -426,11 +443,10 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
   };
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const closeLightbox = useCallback(() => setLightboxUri(undefined), []);
-  const menuItems: MenuItem[] = [
-    { id: "image", label: "Add image", icon: <Icon name="Image" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => void pickImage() },
-    { id: "github", label: "Add issue or PR", icon: <ForgeGlyph size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => setPickerOpen(true) },
-    { id: "file", label: "Upload file", icon: <Icon name="Paperclip" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => void pickFile() },
-  ];
+  const imageMenuItem: MenuItem = { id: "image", label: "Add image", icon: <Icon name="Image" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => void pickImage() };
+  const forgeMenuItem: MenuItem = { id: "github", label: "Add issue or PR", icon: <ForgeGlyph size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => setPickerOpen(true) };
+  const fileMenuItem: MenuItem = { id: "file", label: "Upload file", icon: <Icon name="Paperclip" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => void pickFile() };
+  const menuItems: MenuItem[] = canAttach ? [imageMenuItem, forgeMenuItem, fileMenuItem] : [forgeMenuItem];
 
   const onKeyPress = (event: KeyPressEvent) => {
     if (!isWeb) return;
@@ -440,6 +456,7 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
     if (native.key !== "Enter" || isCompactFormFactor || native.shiftKey) return;
     if (disabled || isSubmitLoading) return;
     event.preventDefault();
+    if (isDictating) return;
     if ((native.metaKey || native.ctrlKey) && isAgentRunning && onQueue) return handleQueueMessage();
     handleSendMessage();
   };
@@ -453,9 +470,9 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
     setIsCompactLayout((was) => (was === below ? was : below));
   };
 
-  const primaryAction = resolvePrimaryActionKind({ hasSendableContent, isAgentRunning, isSubmitLoading });
+  const primaryAction = resolvePrimaryActionKind({ hasSendableContent, isAgentRunning, isSubmitLoading, keepSendVisible: !isWeb || isCompactFormFactor });
   const canPressLoadingButton = isSubmitLoading && isAgentRunning;
-  const isSendButtonDisabled = disabled || (!canPressLoadingButton && isSubmitLoading);
+  const isSendButtonDisabled = disabled || (!canPressLoadingButton && isSubmitLoading) || (!hasSendableContent && !isSubmitLoading);
   const sendLabel = canPressLoadingButton ? "Interrupt agent" : isAgentRunning ? "Send and steer" : "Send message";
   const wide = !isCompactFormFactor;
   const controlsContent = typeof controls === "function" ? controls({ isCompactLayout }) : controls;
@@ -509,23 +526,22 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
             </View>
             <View style={{ flexShrink: 0, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginHorizontal: -6 }}>
               <View style={{ minWidth: 0, flexShrink: 1, flexGrow: 1, flexDirection: "row", alignItems: "flex-end" }}>
-                {canAttach ? (
-                  <AnchoredMenu theme={theme} open={menuOpen} label="Add attachment" items={menuItems} onClose={closeMenu}>
-                    <Pressable onPress={() => setMenuOpen((was) => !was)} disabled={disabled} accessibilityRole="button" accessibilityLabel="Add attachment" style={(state) => ({ width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, alignItems: "center", justifyContent: "center", backgroundColor: hoveredOf(state) ? theme.colors.surface2 : "transparent", opacity: disabled ? 0.5 : 1 })}>
-                      {(state) => <Icon name="Plus" size={ICON_SIZE.md} color={hoveredOf(state) ? theme.colors.foreground : theme.colors.foregroundMuted} />}
-                    </Pressable>
-                  </AnchoredMenu>
-                ) : null}
-                {controlsContent}
+                <AnchoredMenu theme={theme} open={menuOpen} label="Add attachment" items={menuItems} onClose={closeMenu}>
+                  <Pressable onPress={() => setMenuOpen((was) => !was)} disabled={disabled} accessibilityRole="button" accessibilityLabel="Add attachment" style={(state) => ({ width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, alignItems: "center", justifyContent: "center", backgroundColor: hoveredOf(state) ? theme.colors.surface2 : "transparent", opacity: disabled ? 0.5 : 1 })}>
+                    {(state) => <Icon name="Plus" size={ICON_SIZE.md} color={hoveredOf(state) ? theme.colors.foreground : theme.colors.foregroundMuted} />}
+                  </Pressable>
+                </AnchoredMenu>
+                {isDictating ? null : controlsContent}
               </View>
               <View style={{ flexShrink: 0, flexDirection: "row", alignItems: "center", gap: SPACING[1] }}>
                 {trailingContent}
-                {primaryAction === "active" ? (
+                <DictationButton theme={theme} disabled={disabled} onInsert={insertTranscript} onInsertAndSend={sendTranscript} onActiveChange={setIsDictating} />
+                {primaryAction === "active" && !isDictating ? (
                   <Pressable onPress={handleCancelAgent} disabled={isCancellingAgent} accessibilityRole="button" accessibilityLabel={isCancellingAgent ? "Canceling agent" : "Stop agent"} style={{ width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, backgroundColor: CANCEL_RED, alignItems: "center", justifyContent: "center", marginLeft: SPACING[1], opacity: isCancellingAgent ? 0.5 : 1 }}>
                     {isCancellingAgent ? <ActivityIndicator size="small" color="white" /> : <View style={{ width: 11, height: 11, borderRadius: 2, backgroundColor: "white" }} />}
                   </Pressable>
                 ) : null}
-                {primaryAction === "send" ? (
+                {primaryAction === "send" && !isDictating ? (
                   <Pressable onPress={canPressLoadingButton ? handleCancelAgent : handleSendMessage} disabled={isSendButtonDisabled} accessibilityRole="button" accessibilityLabel={sendLabel} style={{ width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, backgroundColor: theme.colors.accent, alignItems: "center", justifyContent: "center", marginLeft: SPACING[1], opacity: isSendButtonDisabled ? 0.5 : 1 }}>
                     {isSubmitLoading ? <ActivityIndicator size="small" color={theme.colors.accentForeground} /> : <Icon name="ArrowUp" size={ICON_SIZE.md} color={theme.colors.accentForeground} />}
                   </Pressable>

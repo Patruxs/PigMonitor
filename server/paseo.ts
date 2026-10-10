@@ -87,14 +87,14 @@ function cliUtils(): string | null {
   return null;
 }
 
-function runDaemonScript(script: string, args: string[], input?: string): Promise<{ ok: true; out: string } | { ok: false; error: string }> {
+export function runDaemonScript(script: string, args: string[], input?: string, timeoutMs: number = TIMEOUT_MS): Promise<{ ok: true; out: string } | { ok: false; error: string }> {
   const utils = cliUtils();
   if (!utils) return Promise.resolve({ ok: false, error: "The paseo CLI was not found on the daemon's PATH." });
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ["--input-type=module", "-e", script, pathToFileURL(utils).href, ...args], { env: { ...process.env, NO_COLOR: "1" }, stdio: ["pipe", "pipe", "pipe"] });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
-    const timer = setTimeout(() => child.kill(), TIMEOUT_MS);
+    const timer = setTimeout(() => child.kill(), timeoutMs);
     child.stdout.on("data", (chunk: Buffer) => out.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => err.push(chunk));
     child.on("error", (error) => {
