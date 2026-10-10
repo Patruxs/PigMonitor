@@ -58,6 +58,8 @@ npm install
 npm run check
 ```
 
+Developer notes: [docs/piggery-view.md](docs/piggery-view.md) covers piggery's view document and the setting the plugin saves; [docs/ui.md](docs/ui.md) covers how the UI is built.
+
 ## License
 
 MIT
