@@ -2,11 +2,11 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ToolResultBlock } from "../shared/claude-log.ts";
 import type { ToolCall } from "../shared/transcript.ts";
-import type { ToolCallDetail } from "../shared/tool-call.ts";
+import { isRecord } from "../shared/guards.ts";
+import { isSpeakToolName, type ToolCallDetail } from "../shared/tool-call.ts";
 
 type Rec = Record<string, unknown>;
 
-const isRec = (v: unknown): v is Rec => typeof v === "object" && v !== null && !Array.isArray(v);
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const isCount = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
 const isStr = (v: unknown): v is string => typeof v === "string";
@@ -108,7 +108,7 @@ export function truncateDiffText(text: string | undefined, maxChars = 12_000): s
 const isCommandValue = (v: unknown): v is string | string[] => isStr(v) || (Array.isArray(v) && v.every(isStr));
 
 function shellInput(v: unknown): { command?: string; cwd?: string } | undefined {
-  if (!isRec(v) || !optStr(v, "cwd", "directory") || !(isCommandValue(v.command) || isCommandValue(v.cmd))) return undefined;
+  if (!isRecord(v) || !optStr(v, "cwd", "directory") || !(isCommandValue(v.command) || isCommandValue(v.cmd))) return undefined;
   const raw = "command" in v ? v.command : v.cmd;
   let command: string | undefined;
   if (isStr(raw)) command = nonEmptyString(raw);
@@ -116,14 +116,14 @@ function shellInput(v: unknown): { command?: string; cwd?: string } | undefined 
   return { command, cwd: nonEmptyString(v.cwd) ?? nonEmptyString(v.directory) };
 }
 
-const isTextFields = (v: unknown): v is Rec => isRec(v) && optStr(v, "output", "text", "content");
+const isTextFields = (v: unknown): v is Rec => isRecord(v) && optStr(v, "output", "text", "content");
 const isExitCode = (v: unknown) => v === null || isNum(v);
 
 function shellOutput(v: unknown): { command?: string; output?: string; exitCode?: number | null } | undefined {
   if (isStr(v)) return { output: extractCodexShellOutput(v) };
-  if (!isRec(v) || !optStr(v, "command", "output", "text", "content", "aggregated_output", "aggregatedOutput") || !optOf(v, ["exitCode", "exit_code"], isExitCode)) return undefined;
+  if (!isRecord(v) || !optStr(v, "command", "output", "text", "content", "aggregated_output", "aggregatedOutput") || !optOf(v, ["exitCode", "exit_code"], isExitCode)) return undefined;
   const metadata = v.metadata as Rec | undefined;
-  if (metadata !== undefined && !(isRec(metadata) && optOf(metadata, ["exitCode", "exit_code"], isExitCode))) return undefined;
+  if (metadata !== undefined && !(isRecord(metadata) && optOf(metadata, ["exitCode", "exit_code"], isExitCode))) return undefined;
   if (!optOf(v, ["structuredContent", "structured_content"], isTextFields)) return undefined;
   const result = v.result as Rec | undefined;
   if (result !== undefined && !(isTextFields(result) && optStr(result, "command"))) return undefined;
@@ -141,7 +141,7 @@ function pathOf(v: Rec): string | undefined {
 }
 
 function readInput(v: unknown): { filePath: string; offset?: number; limit?: number } | undefined {
-  if (!isRec(v) || !optOf(v, ["offset", "limit"], isNum)) return undefined;
+  if (!isRecord(v) || !optOf(v, ["offset", "limit"], isNum)) return undefined;
   const filePath = pathOf(v);
   return filePath === undefined ? undefined : { filePath, offset: v.offset as number | undefined, limit: v.limit as number | undefined };
 }
@@ -149,7 +149,7 @@ function readInput(v: unknown): { filePath: string; offset?: number; limit?: num
 const isChunk = (v: unknown): v is Chunk => isTextFields(v) && (isStr(v.text) || isStr(v.content) || isStr(v.output));
 const isReadContent = (v: unknown): v is ReadContent => isStr(v) || isChunk(v) || (Array.isArray(v) && v.every(isChunk));
 const isReadPayload = (v: unknown): v is { content?: ReadContent; text?: ReadContent; output?: ReadContent } =>
-  isRec(v) && optOf(v, ["content", "text", "output"], isReadContent) && (v.content !== undefined || v.text !== undefined || v.output !== undefined);
+  isRecord(v) && optOf(v, ["content", "text", "output"], isReadContent) && (v.content !== undefined || v.text !== undefined || v.output !== undefined);
 
 function decodeXmlText(value: string): string {
   return value.replace(/&(?:#(\d+)|#x([0-9a-fA-F]+)|amp|lt|gt|quot|apos);/g, (entity, decimal, hex) => {
@@ -171,13 +171,13 @@ function parseXmlReadOutput(value: string): { filePath?: string; content?: strin
 function readOutput(v: unknown): { filePath?: string; content?: string } | undefined {
   if (isStr(v)) return parseXmlReadOutput(v) ?? { content: nonEmptyString(v) };
   if (isChunk(v) || (Array.isArray(v) && v.every(isChunk))) return { content: flattenReadContent(v) };
-  const payload = isReadPayload(v) ? v : isRec(v) ? [v.data, v.structuredContent, v.structured_content].find(isReadPayload) : undefined;
+  const payload = isReadPayload(v) ? v : isRecord(v) ? [v.data, v.structuredContent, v.structured_content].find(isReadPayload) : undefined;
   if (!payload) return undefined;
   return { content: flattenReadContent(payload.content) ?? flattenReadContent(payload.text) ?? flattenReadContent(payload.output) };
 }
 
 function withPath(v: unknown, fields: (o: Rec) => boolean): { filePath: string; fields: Rec } | undefined {
-  if (!isRec(v) || !fields(v)) return undefined;
+  if (!isRecord(v) || !fields(v)) return undefined;
   const filePath = pathOf(v);
   if (filePath === undefined || (v.filePath !== undefined && v.filePath !== filePath)) return undefined;
   return { filePath, fields: v };
@@ -195,7 +195,7 @@ function writeOutput(v: unknown): { filePath?: string; content?: string } | unde
   if (isStr(v)) return {};
   const p = withPath(v, isWriteFields);
   if (p) return { filePath: p.filePath, content: writeContent(p.fields) };
-  return isRec(v) && isWriteFields(v) ? { content: writeContent(v) } : undefined;
+  return isRecord(v) && isWriteFields(v) ? { content: writeContent(v) } : undefined;
 }
 
 const EDIT_TEXT_KEYS = ["old_string", "old_str", "oldContent", "old_content", "new_string", "new_str", "newContent", "new_content", "content", "patch", "diff", "unified_diff", "unifiedDiff"];
@@ -212,26 +212,26 @@ function editInput(v: unknown): { filePath: string; oldString?: string; newStrin
 function editOutput(v: unknown): { filePath?: string; newString?: string; unifiedDiff?: string } | undefined {
   const p = withPath(v, isEditFields);
   if (p) return { filePath: p.filePath, newString: firstNonEmpty(p.fields.newContent, p.fields.new_content, p.fields.content), unifiedDiff: diffOf(p.fields) };
-  if (isRec(v) && Array.isArray(v.files) && v.files.length > 0) {
-    const files = v.files.map((f) => (isRec(f) && optStr(f, "patch", "diff", "unified_diff", "unifiedDiff") ? pathOf(f) : undefined));
+  if (isRecord(v) && Array.isArray(v.files) && v.files.length > 0) {
+    const files = v.files.map((f) => (isRecord(f) && optStr(f, "patch", "diff", "unified_diff", "unifiedDiff") ? pathOf(f) : undefined));
     if (files.every((f) => f !== undefined)) return { filePath: files[0], unifiedDiff: diffOf(v.files[0] as Rec) };
   }
-  return isRec(v) && isEditFields(v) ? { newString: firstNonEmpty(v.newContent, v.new_content, v.content), unifiedDiff: diffOf(v) } : undefined;
+  return isRecord(v) && isEditFields(v) ? { newString: firstNonEmpty(v.newContent, v.new_content, v.content), unifiedDiff: diffOf(v) } : undefined;
 }
 
 function searchInput(v: unknown): { query: string } | undefined {
-  if (!isRec(v)) return undefined;
+  if (!isRecord(v)) return undefined;
   const query = str(v, "query") ?? str(v, "q") ?? str(v, "pattern");
   return query === undefined ? undefined : { query };
 }
 
 const isGlobOutput = (v: unknown): v is Rec & { durationMs: number; numFiles: number; filenames: string[]; truncated: boolean } =>
-  isRec(v) && isNum(v.durationMs) && isCount(v.numFiles) && Array.isArray(v.filenames) && v.filenames.every(isStr) && typeof v.truncated === "boolean";
+  isRecord(v) && isNum(v.durationMs) && isCount(v.numFiles) && Array.isArray(v.filenames) && v.filenames.every(isStr) && typeof v.truncated === "boolean";
 
 const GREP_MODES = ["content", "files_with_matches", "count"];
 
 const isGrepOutput = (v: unknown): v is Rec & { numFiles: number; filenames: string[] } =>
-  isRec(v) &&
+  isRecord(v) &&
   (v.mode === undefined || GREP_MODES.includes(v.mode as string)) &&
   isCount(v.numFiles) &&
   Array.isArray(v.filenames) &&
@@ -241,20 +241,20 @@ const isGrepOutput = (v: unknown): v is Rec & { numFiles: number; filenames: str
 
 function claudeGrepOutput(v: unknown): Rec | undefined {
   if (isGrepOutput(v)) return v;
-  return isRec(v) && isStr(v.output) ? { numFiles: 0, filenames: [], content: v.output } : undefined;
+  return isRecord(v) && isStr(v.output) ? { numFiles: 0, filenames: [], content: v.output } : undefined;
 }
 
-const isWebHit = (v: unknown) => isRec(v) && isStr(v.title) && isStr(v.url);
+const isWebHit = (v: unknown) => isRecord(v) && isStr(v.title) && isStr(v.url);
 
 const isWebSearchOutput = (v: unknown): v is Rec =>
-  isRec(v) && isStr(v.query) && isNum(v.durationSeconds) && Array.isArray(v.results) && v.results.every((e) => isStr(e) || (isRec(e) && isStr(e.tool_use_id) && Array.isArray(e.content) && e.content.every(isWebHit)));
+  isRecord(v) && isStr(v.query) && isNum(v.durationSeconds) && Array.isArray(v.results) && v.results.every((e) => isStr(e) || (isRecord(e) && isStr(e.tool_use_id) && Array.isArray(e.content) && e.content.every(isWebHit)));
 
 function webFetchInput(v: unknown): { url: string; prompt: string } | undefined {
-  return isRec(v) && isStr(v.url) && isStr(v.prompt) ? { url: v.url, prompt: v.prompt } : undefined;
+  return isRecord(v) && isStr(v.url) && isStr(v.prompt) ? { url: v.url, prompt: v.prompt } : undefined;
 }
 
 const isWebFetchOutput = (v: unknown): v is Rec & { bytes: number; code: number; codeText: string; result: string; durationMs: number; url: string } =>
-  isRec(v) && isCount(v.bytes) && Number.isSafeInteger(v.code) && isStr(v.codeText) && isStr(v.result) && isNum(v.durationMs) && isStr(v.url);
+  isRecord(v) && isCount(v.bytes) && Number.isSafeInteger(v.code) && isStr(v.codeText) && isStr(v.result) && isNum(v.durationMs) && isStr(v.url);
 
 function searchOutputFields(output: Rec | null | undefined): Rec {
   if (output && "filenames" in output && !("truncated" in output)) {
@@ -355,8 +355,8 @@ function fetchDetail(input: unknown, output: unknown) {
 }
 
 function skillDetail(input: unknown, output: unknown) {
-  const skillOutput = (v: unknown) => (isStr(v) ? v : isRec(v) && isStr(v.output) ? v.output : undefined);
-  return branch(input, output, (v) => (isRec(v) && isStr(v.skill) ? v : undefined), skillOutput, (i, o) => {
+  const skillOutput = (v: unknown) => (isStr(v) ? v : isRecord(v) && isStr(v.output) ? v.output : undefined);
+  return branch(input, output, (v) => (isRecord(v) && isStr(v.skill) ? v : undefined), skillOutput, (i, o) => {
     const label = i?.skill as string | undefined;
     if (!label) return undefined;
     return { type: "plain_text", label, icon: "sparkles", ...(o ? { text: o } : {}) };
@@ -364,7 +364,7 @@ function skillDetail(input: unknown, output: unknown) {
 }
 
 function speakDetail(input: unknown, output: unknown) {
-  const speakInput = (v: unknown) => (isStr(v) ? { text: v } : isRec(v) && isStr(v.text) ? { text: v.text } : undefined);
+  const speakInput = (v: unknown) => (isStr(v) ? { text: v } : isRecord(v) && isStr(v.text) ? { text: v.text } : undefined);
   return branch(input, output, speakInput, anything, (i) => {
     const text = i?.text.trim() ?? "";
     return text ? { type: "unknown", input: text, output: null } : undefined;
@@ -377,11 +377,6 @@ const WRITE_NAMES = new Set(["Write", "write", "write_file", "create_file"]);
 const EDIT_NAMES = new Set(["Edit", "MultiEdit", "multi_edit", "edit", "apply_patch", "apply_diff", "str_replace_editor"]);
 const FETCH_NAMES = new Set(["WebFetch", "web_fetch", "WebFetchTool", "web_fetch_tool", "webfetch"]);
 const SEARCH_TOOL: Record<string, SearchToolName> = { WebSearch: "web_search", web_search: "web_search", search: "search", Grep: "grep", grep: "grep", Glob: "glob", glob: "glob" };
-
-export function isSpeakToolName(name: string): boolean {
-  const tokens = name.trim().toLowerCase().match(/[a-z0-9]+/g) ?? [];
-  return tokens[tokens.length - 1] === "speak";
-}
 
 function searchDetail(toolName: SearchToolName, input: unknown, output: unknown) {
   if (toolName === "search") return branch(input, output, searchInput, anything, (i) => toSearchDetail(i, "search"));
@@ -417,13 +412,13 @@ function detailName(name: string): string {
 
 function sortedJson(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortedJson);
-  if (isRec(value)) return Object.fromEntries(Object.keys(value).sort().map((k) => [k, sortedJson(value[k])]));
+  if (isRecord(value)) return Object.fromEntries(Object.keys(value).sort().map((k) => [k, sortedJson(value[k])]));
   return value;
 }
 
 function resultText(content: unknown): string {
   if (typeof content === "string") return content;
-  if (Array.isArray(content) && content.every((b) => isRec(b) && b.type === "text" && isStr(b.text))) return content.map((b) => (b as { text: string }).text).join("");
+  if (Array.isArray(content) && content.every((b) => isRecord(b) && b.type === "text" && isStr(b.text))) return content.map((b) => (b as { text: string }).text).join("");
   if (content === undefined) return "";
   const normalized = sortedJson(content);
   return typeof normalized === "string" ? normalized : JSON.stringify(normalized);
@@ -431,7 +426,7 @@ function resultText(content: unknown): string {
 
 function withoutImages(content: unknown): unknown {
   if (!Array.isArray(content)) return content;
-  return content.map((b) => (isRec(b) && b.type === "image" && isRec(b.source) && b.source.type === "base64" && isStr(b.source.data) ? { type: "text", text: "[image]" } : b));
+  return content.map((b) => (isRecord(b) && b.type === "image" && isRecord(b.source) && b.source.type === "base64" && isStr(b.source.data) ? { type: "text", text: "[image]" } : b));
 }
 
 const isCommandName = (lower: string, words: string[]) => words.some((w) => lower.includes(w));
@@ -527,7 +522,7 @@ export function claudeToolCall(rawName: string, rawInput: unknown, result: ToolR
   const failed = result?.is_error === true;
   const status = !result ? "running" : failed ? "failed" : "completed";
   const name = rawName.trim();
-  if (name === "ExitPlanMode" && isRec(input) && isStr(input.plan)) return { detail: { type: "plan", text: input.plan }, status: failed ? "completed" : status };
+  if (name === "ExitPlanMode" && isRecord(input) && isStr(input.plan)) return { detail: { type: "plan", text: input.plan }, status: failed ? "completed" : status };
   const output = result && !failed ? toolOutput(rawName, input, content, cwd) : undefined;
   const detail = rawName === "Task" || rawName === "Agent" ? subAgentDetail(input, result && !failed ? resultText(content) : "") : deriveClaudeToolDetail(detailName(isSpeakToolName(name) ? "speak" : name), input, output ?? null);
   return failed ? { detail, status, toolError: { ...result, content } } : { detail, status };
