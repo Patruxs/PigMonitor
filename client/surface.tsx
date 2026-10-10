@@ -263,10 +263,21 @@ function ticksOf(scale: Scale, tick: number, margin: number): number[] {
   return out;
 }
 
+const LABEL_PX = 48;
+
+function labelTickOf(scale: Scale, tick: number): number {
+  const px = (tick / (scale.now - scale.start)) * scale.width;
+  return px > 0 ? tick * Math.max(1, Math.ceil(LABEL_PX / px)) : tick;
+}
+
+function labelTicksOf(scale: Scale, tick: number): number[] {
+  return ticksOf(scale, labelTickOf(scale, tick), 0).filter((t) => xOf(scale, t) <= scale.width - LABEL_PX);
+}
+
 function Axis({ theme, scale, tick }: { theme: PluginTheme; scale: Scale; tick: number }) {
   return (
     <View style={{ height: AXIS_H, position: "relative" }}>
-      {ticksOf(scale, tick, 0.5).map((t) => (
+      {labelTicksOf(scale, tick).map((t) => (
         <View key={t} style={{ position: "absolute", left: xOf(scale, t), top: 0, bottom: 0, justifyContent: "flex-end" }}>
           <Text style={[text(theme, "label"), { color: theme.colors.foreground, fontVariant: ["tabular-nums"], marginLeft: SPACING[1.5], marginBottom: SPACING[2] }]}>{clockText(t, scale.now)}</Text>
           <View style={{ position: "absolute", left: 0, bottom: 0, width: 2, height: SPACING[2], borderRadius: 1, backgroundColor: theme.colors.accent, opacity: 0.8 }} />
