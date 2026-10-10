@@ -3,8 +3,9 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useState } from "react";
 import { Image, Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
+import { clampPercent, percent } from "../shared/format.ts";
 import { usageReports } from "../shared/rpc.ts";
-import { clampPct, formatPct, formatResetLabel, formatUsageFreshness, replaceReport, reportContent, reportMessages, resolveAgentUsageView, resolveBalance, statusText, USAGE_COPY, usedPercent, windowTone, windowTrailing, type UsageBalanceData, type UsageReportEntryData, type UsageTone, type UsageWindowData } from "../shared/usage.ts";
+import { formatResetLabel, formatUsageFreshness, replaceReport, reportContent, reportMessages, resolveAgentUsageView, resolveBalance, statusText, USAGE_COPY, usedPercent, windowTone, windowTrailing, type UsageBalanceData, type UsageReportEntryData, type UsageTone, type UsageWindowData } from "../shared/usage.ts";
 import { Anchored, FONT_BASE, FONT_SM, hoveredOf } from "./controls-kit.tsx";
 import { COMPACT_BELOW, hostColours, RADIUS, SPACING } from "./kit/theme.ts";
 
@@ -66,7 +67,7 @@ function toneColour(theme: PluginTheme, tone: UsageTone): string {
 function Meter({ theme, percent, tone }: { theme: PluginTheme; percent: number; tone: UsageTone }) {
   return (
     <View style={{ height: 4, borderRadius: 2, backgroundColor: hostColours(theme).surface3, overflow: "hidden" }}>
-      <View style={{ height: "100%", width: `${clampPct(percent)}%`, borderRadius: 9999, backgroundColor: toneColour(theme, tone) }} />
+      <View style={{ height: "100%", width: `${clampPercent(percent)}%`, borderRadius: 9999, backgroundColor: toneColour(theme, tone) }} />
     </View>
   );
 }
@@ -83,7 +84,7 @@ function WindowBar({ theme, window }: { theme: PluginTheme; window: UsageWindowD
             {window.label}
           </Text>
           <Text style={{ color: theme.colors.foreground, fontSize: FONT_SM, fontWeight: "500" }}>
-            {shown != null ? formatPct(shown) : "—"}
+            {shown != null ? percent(shown) : "—"}
             {trailing ? <Text style={{ color: isAtRisk ? theme.colors.statusDanger : theme.colors.foregroundMuted, fontWeight: "400" }}>{` · ${trailing}`}</Text> : null}
           </Text>
         </View>
@@ -110,7 +111,7 @@ function BalanceBar({ theme, balance }: { theme: PluginTheme; balance: UsageBala
       </View>
       {usedPct != null ? (
         <View style={{ height: 4, borderRadius: 2, backgroundColor: hostColours(theme).surface3, overflow: "hidden" }}>
-          <View style={{ height: 4, borderRadius: 2, width: `${clampPct(usedPct)}%`, backgroundColor: toneColour(theme, balance.tone ?? "default") }} />
+          <View style={{ height: 4, borderRadius: 2, width: `${clampPercent(usedPct)}%`, backgroundColor: toneColour(theme, balance.tone ?? "default") }} />
         </View>
       ) : null}
     </View>

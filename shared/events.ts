@@ -1,3 +1,4 @@
+import { readAge } from "./format.ts";
 
 export type EventTone = "muted" | "warning" | "danger";
 
@@ -91,8 +92,4 @@ export function basenameOf(path: string): string {
   const parts = path.split("/").filter(Boolean);
   return parts[parts.length - 1] ?? path;
 }
-export function readAgo(seconds: number): string {
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  return `${Math.round(seconds / 60)} min ago`;
-}
+export const readAgo = readAge;

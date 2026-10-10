@@ -1,4 +1,5 @@
 import type { Usage } from "./context-meter.ts";
+import { usd } from "./format.ts";
 import { isWake, mailsIn, stripMails } from "./mail-tags.ts";
 import type { Item, ToolCall } from "./transcript.ts";
 import { isRecord } from "./guards.ts";
@@ -173,7 +174,7 @@ export class Parser {
       const bits: string[] = [];
       if (typeof e.num_turns === "number") bits.push(`${e.num_turns} turns`);
       if (typeof e.duration_ms === "number") bits.push(`${Math.round(e.duration_ms / 1000)}s`);
-      if (cost !== undefined) bits.push(`$${cost.toFixed(2)}`);
+      if (cost !== undefined) bits.push(usd(cost));
       this.push({ kind: "turn-end", at, text: bits.join(" · "), error: e.is_error === true, ...(typeof e.duration_ms === "number" ? { durationMs: e.duration_ms } : {}), ...(cost !== undefined ? { costUsd: cost } : {}) });
       return;
     }

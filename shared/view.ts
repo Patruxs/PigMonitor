@@ -4,6 +4,8 @@
 // for drawing (a path match for a workspace, `piggery tail` text, clock times). No imports, so the app,
 // the daemon and `node --test` all load it as is.
 
+import { ageLong, clock24 } from "./format.ts";
+
 export const VIEW_VERSION = 1;
 
 export type Status = "working" | "idle" | "waiting" | "gone";
@@ -205,57 +207,12 @@ export const TAIL_VERSION = 1;
 export const TAIL_KINDS = ["text", "tool", "result", "error", "warning", "rule", "user"] as const;
 export type TailKind = (typeof TAIL_KINDS)[number];
 
-/** "just now", "21 min ago", "3 h ago", "2 d ago": the age of `ms` at `now`. */
-export function agoText(ms: number, now: number): string {
-  const s = Math.max(0, Math.round((now - ms) / 1000));
-  if (s < 45) return "just now";
-  const min = Math.round(s / 60);
-  if (min < 60) return `${min} min ago`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h} h ago`;
-  return `${Math.floor(h / 24)} d ago`;
-}
+export const agoText = ageLong;
 
-/** "14:02" today, "Sep 29 14:02" on an earlier day; local time. */
-export function clockText(ms: number, now: number): string {
-  const t = new Date(ms);
-  const two = (n: number) => String(n).padStart(2, "0");
-  const hm = `${two(t.getHours())}:${two(t.getMinutes())}`;
-  if (t.toDateString() === new Date(now).toDateString()) return hm;
-  return `${t.toLocaleString("en-US", { month: "short" })} ${t.getDate()} ${hm}`;
-}
-
-/** "now", "8m", "3h", "2d": the age of `ms` at `now`, as a chat list's time column. */
-export function briefAgo(ms: number, now: number): string {
-  const s = Math.max(0, Math.round((now - ms) / 1000));
-  if (s < 60) return "now";
-  const min = Math.floor(s / 60);
-  if (min < 60) return `${min}m`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-}
+export const clockText = clock24;
 
 export const URGENCY: Record<Status, number> = { waiting: 0, working: 1, idle: 2, gone: 3 };
 
 export function taskWords(title: string): string {
   return title.replace(/^#\d+\s*/, "").trim();
-}
-
-let timeFormatter: Intl.DateTimeFormat | null = null;
-
-function formatTime(date: Date): string {
-  if (!timeFormatter) {
-    const resolved = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).resolvedOptions();
-    timeFormatter = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", hourCycle: resolved.hourCycle });
-  }
-  return timeFormatter.format(date);
-}
-
-export function formatMessageTimestamp(date: Date, now: Date = new Date()): string {
-  const time = formatTime(date);
-  if (date.toDateString() === now.toDateString()) return time;
-  const days = Math.floor((now.getTime() - date.getTime()) / 86400000);
-  if (days >= 0 && days < 7) return `${date.toLocaleDateString(undefined, { weekday: "long" })} ${time}`;
-  return `${date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}, ${time}`;
 }

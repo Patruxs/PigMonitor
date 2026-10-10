@@ -3,7 +3,8 @@ import { Icon, Modal, ScrollView, useToast } from "@getpaseo/plugin/client/react
 import { useState } from "react";
 import { Pressable, Text, TextInput, View, type PressableStateCallbackType } from "react-native";
 import { matches, passes, projectsOf, SOLO_KEY, type Conversation, type Filter, type Group, type Project } from "../shared/conversations.ts";
-import { briefAgo, type Status } from "../shared/view.ts";
+import { ageShort } from "../shared/format.ts";
+import type { Status } from "../shared/view.ts";
 import { Chip } from "./kit/badge.tsx";
 import { AvatarStack, paint, RoleAvatar } from "./piggery/role.tsx";
 import { STATUS_WORD, statusColour, StatusDot, StatusWord } from "./piggery/status.tsx";
@@ -96,7 +97,7 @@ function ConversationRow({ theme, item, spot, selected, now, onPress }: { theme:
           <View style={{ flex: 1 }} />
           <StatusWord theme={theme} status={row.status} dim={dim} />
           {item.at !== undefined ? (
-            <Text style={[text(theme, "label"), { fontVariant: ["tabular-nums"], flexShrink: 0, color: row.unacked > 0 ? theme.colors.accent : theme.colors.foregroundMuted }]}>{briefAgo(item.at, now)}</Text>
+            <Text style={[text(theme, "label"), { fontVariant: ["tabular-nums"], flexShrink: 0, color: row.unacked > 0 ? theme.colors.accent : theme.colors.foregroundMuted }]}>{ageShort(item.at, now)}</Text>
           ) : null}
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>

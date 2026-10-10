@@ -4,7 +4,8 @@ import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Platform, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { dictationStatus, transcribe } from "../shared/rpc.ts";
-import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, PcmChunker, formatDuration, resampleToPcm16, volumeOf, type DictationStatus } from "../shared/speech.ts";
+import { stopwatch } from "../shared/format.ts";
+import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, PcmChunker, resampleToPcm16, volumeOf, type DictationStatus } from "../shared/speech.ts";
 import { ICON_SIZE, SPACING } from "./kit/theme.ts";
 
 const BUTTON = 28;
@@ -254,7 +255,7 @@ export function DictationButton({ theme, disabled = false, dictation }: { theme:
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
       {failed ? <Text style={{ color: theme.colors.statusDanger, fontSize: 12 }}>Dictation failed</Text> : <VolumeMeter volume={dictation.volume} colour={theme.colors.foreground} />}
-      <Text style={{ color: theme.colors.foreground, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] }}>{formatDuration(dictation.duration)}</Text>
+      <Text style={{ color: theme.colors.foreground, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] }}>{stopwatch(dictation.duration)}</Text>
       <RoundButton theme={theme} label={failed ? "Discard dictation" : "Cancel dictation"} onPress={() => void dictation.cancel()} disabled={uploading}>
         <Icon name="X" size={ICON_SIZE.sm} color={theme.colors.foreground} />
       </RoundButton>

@@ -1,4 +1,5 @@
 import { formatTokenCount } from "./context-meter.ts";
+import { ageProse, levelOf } from "./format.ts";
 import type { FailedData, UnavailableData, UsageBalanceData, UsageProblemData, UsageReportData, UsageReportEntryData, UsageTone, UsageWindowData } from "./usage-schema.ts";
 
 export type { UsageReportEntryData, UsageWindowData, UsageBalanceData, UsageTone };
@@ -11,35 +12,15 @@ export const USAGE_COPY = {
   agentError: (reason: string) => `Unable to load usage: ${reason}`,
 } as const;
 
-const MINUTE_MS = 60_000;
-const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * HOUR_MS;
-const ABSOLUTE_AFTER_MS = 7 * DAY_MS;
-
-export function formatCompactTimeAgo(date: Date, now: Date = new Date()): string {
-  const elapsedMs = now.getTime() - date.getTime();
-  if (elapsedMs < MINUTE_MS) return "now";
-  if (elapsedMs < HOUR_MS) return `${Math.floor(elapsedMs / MINUTE_MS)}m`;
-  if (elapsedMs < DAY_MS) return `${Math.floor(elapsedMs / HOUR_MS)}h`;
-  if (elapsedMs < ABSOLUTE_AFTER_MS) return `${Math.floor(elapsedMs / DAY_MS)}d`;
-  return `${date.toLocaleDateString("en-US", { month: "short" })} ${date.getDate()}`;
-}
-
-export function formatCompactTimeAgoAsProse(label: string): string {
-  if (label === "now") return "just now";
-  if (/^\d/.test(label)) return `${label} ago`;
-  return label;
-}
-
 export function formatUsageFreshness(fetchedAt: string, now: Date = new Date()): string {
-  return `${USAGE_COPY.updated} ${formatCompactTimeAgoAsProse(formatCompactTimeAgo(new Date(fetchedAt), now))}`;
+  return `${USAGE_COPY.updated} ${ageProse(new Date(fetchedAt).getTime(), now.getTime())}`;
 }
 
 export function problemText(problem: UsageProblemData, now: Date = new Date()): string {
   if (problem.kind === "no_quota") return problem.detail;
   const remedy = problem.refreshedBy ? `Run ${problem.refreshedBy} to refresh it.` : "Sign in again.";
   if (problem.kind === "rejected") return `Login rejected (HTTP ${problem.status}). ${remedy}`;
-  return `Login expired ${formatCompactTimeAgoAsProse(formatCompactTimeAgo(new Date(problem.expiresAt), now))}. ${remedy}`;
+  return `Login expired ${ageProse(new Date(problem.expiresAt).getTime(), now.getTime())}. ${remedy}`;
 }
 
 export function usedPercent(window: UsageWindowData): number | null {
@@ -52,17 +33,8 @@ export function windowTone(window: UsageWindowData): UsageTone {
   if (window.tone) return window.tone;
   const used = usedPercent(window);
   if (used == null) return "default";
-  if (used > 90) return "danger";
-  if (used >= 70) return "warning";
-  return "default";
-}
-
-export function clampPct(value: number): number {
-  return Math.max(0, Math.min(100, value));
-}
-
-export function formatPct(value: number): string {
-  return `${Math.round(clampPct(value))}%`;
+  const level = levelOf(used);
+  return level === "normal" ? "default" : level;
 }
 
 export function formatResetLabel(iso: string | null | undefined, now: Date = new Date()): string | null {

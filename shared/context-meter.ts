@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { clampPercent, levelOf, type Level } from "./format.ts";
 
 export const Usage = z.object({ totalCostUsd: z.number().optional(), contextWindowMaxTokens: z.number().optional(), contextWindowUsedTokens: z.number().optional() });
 
@@ -16,21 +17,12 @@ export function usagePercentage(maxTokens: number | null, usedTokens: number | n
   return (usedTokens / maxTokens) * 100;
 }
 
-export function clampPercentage(value: number): number {
-  return Math.max(0, Math.min(100, value));
-}
-
-export function formatSessionCost(value: number | null | undefined): string | null {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
-  return value < 0.01 ? `$${value.toFixed(4)}` : `$${value.toFixed(2)}`;
-}
-
 export type ProgressTone = "destructive" | "warning" | "muted";
 
+const PROGRESS_TONES: Record<Level, ProgressTone> = { normal: "muted", warning: "warning", danger: "destructive" };
+
 export function progressTone(percentage: number): ProgressTone {
-  if (percentage > 90) return "destructive";
-  if (percentage >= 70) return "warning";
-  return "muted";
+  return PROGRESS_TONES[levelOf(percentage)];
 }
 
 const SVG_SIZE = 14;
@@ -53,7 +45,7 @@ export function ringSvg({ size, radius, strokeWidth, percentage, trackColor, pro
   const progress =
     percentage === null
       ? ""
-      : `<circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="${progressColor}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference - (clampPercentage(percentage) / 100) * circumference}" transform="rotate(-90 ${center} ${center})"/>`;
+      : `<circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="${progressColor}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference - (clampPercent(percentage) / 100) * circumference}" transform="rotate(-90 ${center} ${center})"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${track}${progress}</svg>`;
 }
 
@@ -86,7 +78,7 @@ function capAt(degrees: number, size: number, strokeWidth: number): ArcCap {
 }
 
 export function halfRingArc(percentage: number, size: number, strokeWidth: number): HalfRingArc | null {
-  const sweep = (clampPercentage(percentage) / 100) * 360;
+  const sweep = (clampPercent(percentage) / 100) * 360;
   if (sweep === 0) return null;
   return {
     rightRotation: Math.min(sweep, 180) - 180,

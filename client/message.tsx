@@ -16,7 +16,7 @@ import { AttachmentFrame, AttachmentLabel, AttachmentThumbnail } from "./attachm
 import { useCompact } from "./kit/platform.ts";
 import { CONTENT_FONT, CONTENT_LINE, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, RADIUS, SPACING, STREAM_METADATA_FONT } from "./kit/theme.ts";
 import { ToolCallDetailsContent } from "./tool-details.tsx";
-import { formatMessageTimestamp } from "../shared/view.ts";
+import { duration, messageClock, usd } from "../shared/format.ts";
 import { messageTextProps } from "./find-anchors.ts";
 
 const isWeb = Platform.OS === "web";
@@ -28,21 +28,6 @@ const COPIED_MS = 1500;
 export function useIsCompact(): boolean {
   return useCompact();
 }
-
-export function formatDuration(durationMs: number): string {
-  if (!Number.isFinite(durationMs) || durationMs < 0) return "0s";
-  const totalSeconds = durationMs / 1000;
-  if (totalSeconds < 60) return `${Math.floor(totalSeconds)}s`;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  if (totalMinutes < 60) {
-    const seconds = Math.floor(totalSeconds) % 60;
-    return seconds === 0 ? `${totalMinutes}m` : `${totalMinutes}m ${seconds}s`;
-  }
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
-}
-
 
 function TurnCopyButton({ theme, getContent, label = "Copy turn", style }: { theme: PluginTheme; getContent: () => string; label?: string; style?: ViewStyle }) {
   const [copied, setCopied] = useState(false);
@@ -76,7 +61,7 @@ function LiveElapsed({ theme, startedAt, style }: { theme: PluginTheme; startedA
     const handle = setInterval(() => setElapsed(Math.max(0, Date.now() - start)), 1000);
     return () => clearInterval(handle);
   }, [start]);
-  return <Text style={[{ color: theme.colors.foregroundMuted, fontSize: STREAM_METADATA_FONT, fontVariant: ["tabular-nums"] }, style]}>{formatDuration(elapsed)}</Text>;
+  return <Text style={[{ color: theme.colors.foregroundMuted, fontSize: STREAM_METADATA_FONT, fontVariant: ["tabular-nums"] }, style]}>{duration(elapsed)}</Text>;
 }
 
 function AssistantTurnFooter({ theme, getContent, timing }: { theme: PluginTheme; getContent: () => string; timing?: TurnTiming }) {
@@ -86,11 +71,11 @@ function AssistantTurnFooter({ theme, getContent, timing }: { theme: PluginTheme
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
-  const cost = timing?.costUsd !== undefined ? ` · $${timing.costUsd.toFixed(2)}` : "";
-  const duration = timing && timing.durationMs !== null ? `Worked for ${formatDuration(timing.durationMs)}${cost}` : "";
-  const stamp = timing ? formatMessageTimestamp(timing.completedAt) : "";
-  const shown = duration || stamp;
-  const canSwap = Boolean(duration && stamp);
+  const cost = timing?.costUsd !== undefined ? ` · ${usd(timing.costUsd)}` : "";
+  const worked = timing && timing.durationMs !== null ? `Worked for ${duration(timing.durationMs)}${cost}` : "";
+  const stamp = timing ? messageClock(timing.completedAt) : "";
+  const shown = worked || stamp;
+  const canSwap = Boolean(worked && stamp);
   const showStamp = canSwap && (isWeb ? hovered : revealed);
   const press = () => {
     if (isWeb || !canSwap) return;
@@ -106,7 +91,7 @@ function AssistantTurnFooter({ theme, getContent, timing }: { theme: PluginTheme
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
       <TurnCopyButton theme={theme} getContent={getContent} style={{ alignSelf: "center", marginLeft: -SPACING[1] }} />
       {shown ? (
-        <Pressable onPress={press} onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)} accessibilityRole={canSwap ? "button" : undefined} accessibilityLabel={canSwap ? `${duration}, ended ${stamp}` : shown}>
+        <Pressable onPress={press} onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)} accessibilityRole={canSwap ? "button" : undefined} accessibilityLabel={canSwap ? `${worked}, ended ${stamp}` : shown}>
           <View style={{ position: "relative" }}>
             <Text style={[label, { opacity: 0 }]} aria-hidden>
               {shown.length >= stamp.length ? shown : stamp}
@@ -212,7 +197,7 @@ export function UserMessage({ theme, text, images = [], attachments = [], timest
         {hasText ? (
           <View style={{ alignSelf: "flex-end", flexDirection: "row", alignItems: "center", height: 24, gap: SPACING[2], marginTop: SPACING[2], opacity: showTrailing ? 1 : 0 }} pointerEvents={showTrailing ? "auto" : "none"}>
             {note ? <Text style={{ color: note === "Held" ? theme.colors.statusWarning : theme.colors.foregroundMuted, fontSize: STREAM_METADATA_FONT }}>{note}</Text> : null}
-            <Text style={{ color: theme.colors.foregroundMuted, fontSize: STREAM_METADATA_FONT }}>{formatMessageTimestamp(timestamp)}</Text>
+            <Text style={{ color: theme.colors.foregroundMuted, fontSize: STREAM_METADATA_FONT }}>{messageClock(timestamp)}</Text>
             {actions}
             <TurnCopyButton theme={theme} getContent={() => text} label="Copy message" style={{ alignSelf: "center", marginRight: -SPACING[1] }} />
           </View>
@@ -295,7 +280,7 @@ function ensureShimmerKeyframes() {
 
 function shimmerStyle(label: string, secondary: string | undefined, foreground: string): TextStyle {
   const chars = label.trim().length + (secondary?.trim().length ?? 0);
-  const duration = Math.max(1, Math.min(2.3, 1.25 + chars * 0.008 - (chars <= 12 ? 0.25 : 0)));
+  const seconds = Math.max(1, Math.min(2.3, 1.25 + chars * 0.008 - (chars <= 12 ? 0.25 : 0)));
   return {
     color: "transparent",
     backgroundImage: `linear-gradient(90deg, ${foreground} 0%, ${foreground} 40%, rgba(255,255,255,0.95) 50%, ${foreground} 60%, ${foreground} 100%)`,
@@ -303,7 +288,7 @@ function shimmerStyle(label: string, secondary: string | undefined, foreground: 
     backgroundClip: "text",
     WebkitBackgroundClip: "text",
     WebkitTextFillColor: "transparent",
-    animation: `${SHIMMER_NAME} ${duration}s linear infinite`,
+    animation: `${SHIMMER_NAME} ${seconds}s linear infinite`,
     "--pig-shimmer-start": "100%",
     "--pig-shimmer-end": "-100%",
   } as unknown as TextStyle;

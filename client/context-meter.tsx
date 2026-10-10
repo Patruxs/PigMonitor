@@ -2,7 +2,8 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Modal } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
 import { Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
-import { clampPercentage, formatSessionCost, formatTokenCount, meterGeometry, meterState, progressTone, type Usage } from "../shared/context-meter.ts";
+import { clampPercent, sessionCostText } from "../shared/format.ts";
+import { formatTokenCount, meterGeometry, meterState, progressTone, type Usage } from "../shared/context-meter.ts";
 import { Anchored, FONT_BASE, FONT_SM, PALETTE } from "./controls-kit.tsx";
 import { ProgressRing } from "./kit/progress-ring.tsx";
 import { COMPACT_BELOW, hostColours, SPACING } from "./kit/theme.ts";
@@ -62,9 +63,9 @@ export function ContextWindowMeter({ theme, agentId, usage, status, glyphSize }:
   }
   const popoverStyle = showsUsage ? { padding: SPACING[3], gap: SPACING[3], width: Math.min(USAGE_POPOVER_WIDTH, width - 24) } : { paddingVertical: SPACING[1], paddingHorizontal: SPACING[2] };
   const context = state.kind === "ready" ? { percentage: Math.round(state.percentage), maxTokens: state.maxTokens, usedTokens: state.usedTokens } : { percentage: null, maxTokens: null, usedTokens: state.usedTokens };
-  const sessionCost = formatSessionCost(usage?.totalCostUsd);
+  const sessionCost = sessionCostText(usage?.totalCostUsd);
   const accessibilityLabel = context.percentage !== null ? `Context window ${context.percentage}% used` : `Context window ${formatTokenCount(context.usedTokens)} tokens used`;
-  const ring = state.kind === "ready" ? <ProgressRing size={geometry.size} radius={geometry.radius} strokeWidth={geometry.strokeWidth} percentage={state.percentage} trackColour={trackColour} progressColour={progressColour(theme, clampPercentage(state.percentage))} /> : <Text style={{ color: theme.colors.foregroundMuted, fontSize: FONT_SM, fontVariant: ["tabular-nums"] }}>{formatTokenCount(state.usedTokens)}</Text>;
+  const ring = state.kind === "ready" ? <ProgressRing size={geometry.size} radius={geometry.radius} strokeWidth={geometry.strokeWidth} percentage={state.percentage} trackColour={trackColour} progressColour={progressColour(theme, clampPercent(state.percentage))} /> : <Text style={{ color: theme.colors.foregroundMuted, fontSize: FONT_SM, fontVariant: ["tabular-nums"] }}>{formatTokenCount(state.usedTokens)}</Text>;
   const percentageLabel = SHOW_PERCENTAGE && context.percentage !== null ? <Text style={{ color: theme.colors.foregroundMuted, fontSize: FONT_BASE }}>{`${context.percentage}%`}</Text> : null;
   if (isCompact) {
     return (

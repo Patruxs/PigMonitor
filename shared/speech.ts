@@ -66,11 +66,6 @@ export class PcmChunker {
   }
 }
 
-export function formatDuration(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
 export function withTranscript(draft: string, transcript: string): string {
   if (!transcript) return draft;
   return draft.length > 0 && !/\s$/.test(draft) ? `${draft} ${transcript}` : `${draft}${transcript}`;
