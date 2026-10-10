@@ -514,10 +514,10 @@ function toolOutput(name: string, input: Rec | null, content: unknown, cwd: stri
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-function subAgentDetail(input: Rec | null): ToolCallDetail {
+function subAgentDetail(input: Rec | null, answer: string): ToolCallDetail {
   const subAgentType = nonEmptyString(input?.name) ?? nonEmptyString(input?.subagent_type);
   const description = nonEmptyString(input?.description);
-  return { type: "sub_agent", ...(subAgentType ? { subAgentType } : {}), ...(description ? { description } : {}), log: "", actions: [] };
+  return { type: "sub_agent", ...(subAgentType ? { subAgentType } : {}), ...(description ? { description } : {}), log: answer, actions: [] };
 }
 
 export function claudeToolCall(rawName: string, rawInput: unknown, result: ToolResultBlock | undefined, cwd: string | undefined): ToolCall {
@@ -528,6 +528,6 @@ export function claudeToolCall(rawName: string, rawInput: unknown, result: ToolR
   const name = rawName.trim();
   if (name === "ExitPlanMode" && isRec(input) && isStr(input.plan)) return { detail: { type: "plan", text: input.plan }, status: failed ? "completed" : status };
   const output = result && !failed ? toolOutput(rawName, input, content, cwd) : undefined;
-  const detail = rawName === "Task" || rawName === "Agent" ? subAgentDetail(input) : deriveClaudeToolDetail(detailName(isSpeakToolName(name) ? "speak" : name), input, output ?? null);
+  const detail = rawName === "Task" || rawName === "Agent" ? subAgentDetail(input, result && !failed ? resultText(content) : "") : deriveClaudeToolDetail(detailName(isSpeakToolName(name) ? "speak" : name), input, output ?? null);
   return failed ? { detail, status, toolError: { ...result, content } } : { detail, status };
 }

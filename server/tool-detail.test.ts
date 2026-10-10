@@ -24,8 +24,8 @@ test("searches and fetches come out as Paseo gives them from a text result: Grep
   assert.equal(claudeToolCall("WebFetch", { url: "https://x.dev", prompt: "sum" }, done("A page"), "/p").detail.type, "unknown");
 });
 
-test("an Agent call is a sub-agent card, ExitPlanMode a plan, and an MCP tool unknown with its JSON result parsed", () => {
-  assert.deepEqual(claudeToolCall("Agent", { description: "Explore", subagent_type: "Explore", prompt: "look" }, done("ok"), "/p"), { detail: { type: "sub_agent", subAgentType: "Explore", description: "Explore", log: "", actions: [] }, status: "completed" });
+test("an Agent call is a sub-agent card with its answer, ExitPlanMode a plan, and an MCP tool unknown with its JSON result parsed", () => {
+  assert.deepEqual(claudeToolCall("Agent", { description: "Explore", subagent_type: "Explore", prompt: "look" }, done([{ type: "text", text: "Found it in a.ts" }]), "/p"), { detail: { type: "sub_agent", subAgentType: "Explore", description: "Explore", log: "Found it in a.ts", actions: [] }, status: "completed" });
   assert.deepEqual(claudeToolCall("ExitPlanMode", { plan: "1. do" }, done("rejected", true), "/p"), { detail: { type: "plan", text: "1. do" }, status: "completed" });
   assert.deepEqual(claudeToolCall("mcp__piggery__send", { to: "squid", body: "hi" }, done([{ type: "text", text: '{"id":"m1","seq":3}' }]), "/p").detail, { type: "unknown", input: { to: "squid", body: "hi" }, output: { output: { id: "m1", seq: 3 } } });
 });
