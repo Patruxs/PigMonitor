@@ -5,7 +5,7 @@ import { Pressable, Text, View, type PressableStateCallbackType } from "react-na
 import { NAME_MIN, SHARE, STATE_MIN, tailWidth, type Columns } from "../../shared/row-layout.ts";
 import { taskWords, type Row } from "../../shared/view.ts";
 import { Pill } from "../kit/pill.tsx";
-import { PressRow } from "../kit/press.tsx";
+import { hovered, PressRow } from "../kit/press.tsx";
 import { CARD_RADIUS, DOT, ROW_ONE, SPACING, text, tint } from "../kit/theme.ts";
 import { paint, RoleAvatar } from "./role.tsx";
 import { statusColour, StatusPill } from "./status.tsx";
@@ -60,11 +60,10 @@ export function AgentCard({ theme, row, task, onPress }: { theme: PluginTheme; r
   const status = statusColour(theme, row.status, dim);
   const busy = row.status === "working" || row.status === "waiting";
   const style = (state: PressableStateCallbackType) => {
-    const hovered = (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;
     return {
       borderRadius: CARD_RADIUS,
       borderWidth: 1,
-      borderColor: hovered || state.pressed ? tint(colour, "99") : busy ? tint(status, "66") : theme.colors.border,
+      borderColor: hovered(state) || state.pressed ? tint(colour, "99") : busy ? tint(status, "66") : theme.colors.border,
       backgroundColor: state.pressed ? theme.colors.surface1 : theme.colors.surface2,
       overflow: "hidden" as const,
       opacity: dim ? 0.7 : 1,

@@ -10,7 +10,7 @@ export function hovered(state: PressableStateCallbackType): boolean {
 }
 
 export function PressRow({ theme, onPress, expanded, label, style, children }: { theme: PluginTheme; onPress?: () => void; expanded?: boolean; label?: string; style?: ViewStyle; children: ReactNode }) {
-  const tint = (state: PressableStateCallbackType) => {
+  const instantTint = (state: PressableStateCallbackType) => {
     if (onPress === undefined) return "transparent";
     return state.pressed ? theme.colors.surface2 : hovered(state) ? theme.colors.surface1 : "transparent";
   };
@@ -21,7 +21,7 @@ export function PressRow({ theme, onPress, expanded, label, style, children }: {
       accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={label}
       accessibilityState={expanded === undefined ? undefined : { expanded }}
-      style={(state) => [style, { backgroundColor: tint(state) }]}
+      style={(state) => [style, { backgroundColor: instantTint(state) }]}
     >
       {children}
     </Pressable>

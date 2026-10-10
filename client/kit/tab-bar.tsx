@@ -1,5 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
+import { hovered } from "./press.tsx";
 import { RADIUS, SEGMENT, SPACING, text } from "./theme.ts";
 
 /**
@@ -13,13 +14,12 @@ export function TabBar<T extends string>({ theme, tabs, active, onPick }: { them
       {tabs.map((tab) => {
         const on = tab.id === active;
         const style = (state: PressableStateCallbackType) => {
-          const hovered = (state as PressableStateCallbackType & { hovered?: boolean }).hovered;
           return {
             minHeight: SEGMENT.height - SEGMENT.inset * 2,
             justifyContent: "center" as const,
             paddingHorizontal: SEGMENT.paddingX,
             borderRadius: RADIUS.md,
-            backgroundColor: on || state.pressed ? theme.colors.surface2 : hovered ? theme.colors.surface1 : "transparent",
+            backgroundColor: on || state.pressed ? theme.colors.surface2 : hovered(state) ? theme.colors.surface1 : "transparent",
           };
         };
         return (

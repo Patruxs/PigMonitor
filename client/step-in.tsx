@@ -1,12 +1,14 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal } from "@getpaseo/plugin/client/react-native";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import type { MailMessage } from "../shared/mail.ts";
 import { releasable, type StepIns } from "../shared/native.ts";
 import { mail, models, stepIn, THINKING_LEVELS } from "../shared/rpc.ts";
 import type { MenuItem } from "./kit/menu.tsx";
+import { Actions, Button } from "./kit/button.tsx";
+import { ConfirmDialog } from "./kit/confirm.tsx";
 import { ICON_SIZE, RADIUS, SPACING, text, tint } from "./kit/theme.ts";
 import { QUIET_MS, usePoll } from "./poll.ts";
 
@@ -72,49 +74,21 @@ export function stepInItems(theme: PluginTheme, steps: StepIns, held: number, bu
   return items;
 }
 
-function Button({ theme, label, icon, tone, busy, disabled, onPress }: { theme: PluginTheme; label: string; icon?: string; tone?: "primary" | "danger"; busy?: boolean; disabled?: boolean; onPress: () => void }) {
-  const colour = tone === "danger" ? theme.colors.statusDanger : tone === "primary" ? theme.colors.accentForeground : theme.colors.foreground;
-  const fill = tone === "danger" ? tint(theme.colors.statusDanger, "22") : tone === "primary" ? theme.colors.accent : theme.colors.surface2;
-  const off = disabled || busy;
-  return (
-    <Pressable onPress={onPress} disabled={off} accessibilityRole="button" accessibilityLabel={label} style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[3], paddingVertical: SPACING[2], borderRadius: RADIUS.md, borderWidth: 1, borderColor: tone === "danger" ? theme.colors.statusDanger : tone === "primary" ? theme.colors.accent : theme.colors.border, backgroundColor: fill, opacity: off ? 0.5 : state.pressed ? 0.85 : 1 })}>
-      {busy ? <ActivityIndicator size="small" color={colour} /> : icon ? <Icon name={icon} size={ICON_SIZE.sm} color={colour} /> : null}
-      <Text style={[text(theme, "label"), { color: colour }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function Actions({ children }: { children: ReactNode }) {
-  return <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: SPACING[2], marginTop: SPACING[2] }}>{children}</View>;
-}
-
 export function KillDialog({ theme, name, open, step, onClose }: { theme: PluginTheme; name: string; open: boolean; step: StepIn & { id: string }; onClose: () => void }) {
   return (
-    <Modal title={`Kill ${name}?`} icon={<Icon name="OctagonX" size={ICON_SIZE.md} color={theme.colors.statusDanger} />} open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
-      <Modal.Content>
-        <Text style={text(theme, "rowTitle")}>piggery ends its process group now (SIGKILL). The turn it is on is lost and its mail stays unacked.</Text>
-        <Text style={text(theme, "meta")}>Resume in its team starts it again in the same session.</Text>
-        <Actions>
-          <Button theme={theme} label="Cancel" disabled={step.busy} onPress={onClose} />
-          <Button theme={theme} label={`Kill ${name}`} icon="OctagonX" tone="danger" busy={step.busy} onPress={() => void step.run({ verb: "kill", id: step.id }).then(onClose)} />
-        </Actions>
-      </Modal.Content>
-    </Modal>
+    <ConfirmDialog theme={theme} title={`Kill ${name}?`} icon="OctagonX" tone="danger" confirmLabel={`Kill ${name}`} busy={step.busy} open={open} onConfirm={() => void step.run({ verb: "kill", id: step.id }).then(onClose)} onClose={onClose}>
+      <Text style={text(theme, "rowTitle")}>piggery ends its process group now (SIGKILL). The turn it is on is lost and its mail stays unacked.</Text>
+      <Text style={text(theme, "meta")}>Resume in its team starts it again in the same session.</Text>
+    </ConfirmDialog>
   );
 }
 
 export function ResumeDialog({ theme, name, open, step, onClose }: { theme: PluginTheme; name: string; open: boolean; step: StepIn & { id: string }; onClose: () => void }) {
   return (
-    <Modal title={`Resume ${name}?`} icon={<Icon name="RotateCcw" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />} open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
-      <Modal.Content>
-        <Text style={text(theme, "rowTitle")}>piggery starts it again in its session, with its stored model and thinking level. That is a new paid run.</Text>
-        <Text style={text(theme, "meta")}>It reads its pending mail first; it gets no new task.</Text>
-        <Actions>
-          <Button theme={theme} label="Cancel" disabled={step.busy} onPress={onClose} />
-          <Button theme={theme} label={`Resume ${name}`} icon="RotateCcw" tone="primary" busy={step.busy} onPress={() => void step.run({ verb: "resume", id: step.id }).then(onClose)} />
-        </Actions>
-      </Modal.Content>
-    </Modal>
+    <ConfirmDialog theme={theme} title={`Resume ${name}?`} icon="RotateCcw" tone="primary" confirmLabel={`Resume ${name}`} busy={step.busy} open={open} onConfirm={() => void step.run({ verb: "resume", id: step.id }).then(onClose)} onClose={onClose}>
+      <Text style={text(theme, "rowTitle")}>piggery starts it again in its session, with its stored model and thinking level. That is a new paid run.</Text>
+      <Text style={text(theme, "meta")}>It reads its pending mail first; it gets no new task.</Text>
+    </ConfirmDialog>
   );
 }
 

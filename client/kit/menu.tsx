@@ -1,8 +1,9 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { ScrollView } from "@getpaseo/plugin/client/react-native";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Modal, Platform, Pressable, Text, useWindowDimensions, View, type PressableStateCallbackType, type TextProps } from "react-native";
-import { useCompact } from "./platform.ts";
+import { Modal, Pressable, Text, useWindowDimensions, View, type TextProps } from "react-native";
+import { dom, isIos, useCompact } from "./platform.ts";
+import { hovered } from "./press.tsx";
 import { RADIUS, SPACING, text } from "./theme.ts";
 
 export interface MenuItem {
@@ -20,12 +21,7 @@ const SHEET_RADIUS = 12;
 const SHEET_MAX_HEIGHT_RATIO = 0.8;
 const SHEET_BACKDROP_OPACITY = 0.45;
 
-const dom = globalThis as { document?: Document; window?: Window };
-const selectsAfterSheetDismiss = Platform.OS === "ios";
-
-function hoveredOf(state: PressableStateCallbackType): boolean {
-  return (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;
-}
+const selectsAfterSheetDismiss = isIos;
 
 const SheetFont = createContext<string | undefined>(undefined);
 
@@ -138,7 +134,7 @@ export function AnchoredMenu({ theme, open, label, items, drop, onClose, childre
         if (sheet && selectsAfterSheetDismiss) selectionAwaitingDismiss.current = item.onSelect;
         else item.onSelect();
       }}
-      style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: itemHeight, marginHorizontal: SPACING[1], paddingHorizontal: SPACING[2], paddingVertical: SPACING[1], borderRadius: RADIUS.md, opacity: item.disabled ? 0.5 : 1, backgroundColor: !item.disabled && (state.pressed || hoveredOf(state)) ? theme.colors.surface2 : "transparent" })}
+      style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: itemHeight, marginHorizontal: SPACING[1], paddingHorizontal: SPACING[2], paddingVertical: SPACING[1], borderRadius: RADIUS.md, opacity: item.disabled ? 0.5 : 1, backgroundColor: !item.disabled && (state.pressed || hovered(state)) ? theme.colors.surface2 : "transparent" })}
     >
       {item.icon}
       <SheetText style={text(theme, "rowTitle")} numberOfLines={1}>

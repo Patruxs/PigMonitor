@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { dom } from "./kit/platform.ts";
 
 /** ps --view reads the workers' logs for ctx and turns: ask this often while something works or waits ... */
 export const BUSY_MS = 5000;
@@ -11,9 +12,7 @@ export const GRACE_MS = 3000;
 /** How often ps --view is asked for: soon while something works or waits, else rarely. */
 export const pollEvery = (busy: boolean) => (busy ? BUSY_MS : QUIET_MS);
 
-/** The web app's page; a native app has none. */
-type Page = { visibilityState: string; addEventListener(type: string, fn: () => void): void; removeEventListener(type: string, fn: () => void): void };
-const page = (globalThis as { document?: Page }).document;
+const page = dom.document;
 
 /** The app page is in the background. */
 function hidden(): boolean {

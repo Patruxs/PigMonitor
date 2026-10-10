@@ -2,9 +2,9 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useState } from "react";
 import { Image, Modal, Pressable, Text, View } from "react-native";
+import { dom } from "./platform.ts";
 import { SPACING } from "./theme.ts";
 
-const dom = globalThis as { window?: Window };
 
 export function AttachmentLightbox({ theme, uri, onClose }: { theme: PluginTheme; uri: string | null | undefined; onClose: () => void }) {
   const [errored, setErrored] = useState(false);
