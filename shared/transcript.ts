@@ -1,35 +1,43 @@
-import type { Usage } from "./context-meter.ts";
-import type { ToolCallDetail } from "./tool-call.ts";
+import { z } from "zod";
+import { Usage } from "./context-meter.ts";
+import { ToolCallDetail, ToolError } from "./tool-call.ts";
 
-export type ItemKind = "session" | "user" | "wake" | "assistant" | "thinking" | "tool" | "mail" | "turn" | "compaction" | "delivery";
+const SHOWN_KINDS = ["session", "user", "wake", "assistant", "thinking", "tool", "mail", "turn", "compaction"] as const;
 
-export type ShownKind = Exclude<ItemKind, "delivery">;
+const TOOL_CALL_STATUSES = ["running", "completed", "failed", "canceled"] as const;
 
-export interface Item {
-  i: number;
-  key?: string;
-  kind: ItemKind;
-  at?: number;
-  text: string;
-  tool?: string;
-  error?: boolean;
-  from?: string;
-  to?: string;
-  ref?: string;
-  reply?: string;
-  redelivered?: boolean;
-  run?: string;
-  note?: string;
-  detail?: ToolCallDetail;
-  status?: ToolCallStatus;
-  toolError?: unknown;
-  durationMs?: number;
-  costUsd?: number;
-  trigger?: "auto" | "manual";
-  preTokens?: number;
-}
+export type ToolCallStatus = (typeof TOOL_CALL_STATUSES)[number];
 
-export type ToolCallStatus = "running" | "completed" | "failed" | "canceled";
+export const ShownItem = z.object({
+  i: z.number().int(),
+  key: z.string().optional(),
+  kind: z.enum(SHOWN_KINDS),
+  at: z.number().optional(),
+  text: z.string(),
+  tool: z.string().optional(),
+  error: z.boolean().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  ref: z.string().optional(),
+  reply: z.string().optional(),
+  run: z.string().optional(),
+  note: z.string().optional(),
+  detail: ToolCallDetail.optional(),
+  status: z.enum(TOOL_CALL_STATUSES).optional(),
+  toolError: ToolError.optional(),
+  durationMs: z.number().optional(),
+  costUsd: z.number().optional(),
+  trigger: z.enum(["auto", "manual"]).optional(),
+  preTokens: z.number().optional(),
+});
+
+export type ShownItem = z.infer<typeof ShownItem>;
+
+export type ShownKind = ShownItem["kind"];
+
+export type ItemKind = ShownKind | "delivery";
+
+export type Item = Omit<ShownItem, "kind"> & { kind: ItemKind; redelivered?: boolean };
 
 export interface ToolCall {
   detail: ToolCallDetail;
@@ -37,21 +45,20 @@ export interface ToolCall {
   toolError?: unknown;
 }
 
-export type ShownItem = Item & { kind: ShownKind };
+export const Transcript = z.object({
+  items: z.array(ShownItem),
+  total: z.number().int(),
+  name: z.string(),
+  role: z.string().optional(),
+  files: z.number().int(),
+  roles: z.record(z.string(), z.string()).optional(),
+  usage: Usage.optional(),
+  epoch: z.string().optional(),
+  rev: z.number().int().optional(),
+  from: z.number().int().optional(),
+});
 
-export interface Transcript {
-  items: ShownItem[];
-  total: number;
-  name: string;
-  role?: string;
-  files: number;
-  roles?: Record<string, string>;
-  usage?: Usage;
-  epoch?: string;
-  rev?: number;
-  from?: number;
-}
-
+export type Transcript = z.infer<typeof Transcript>;
 
 interface Block {
   type: string;

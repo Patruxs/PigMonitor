@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { resumable, type Session } from "../shared/native.ts";
 import { UsageReportEntry, type UsageReportEntryData } from "../shared/usage-schema.ts";
 import { directoryEntriesOf, type DirectoryEntry } from "../shared/autocomplete.ts";
+import type { AgentTimelineSearchPayload } from "../shared/chat-find.ts";
 import { ForgeItem, type ForgeItemData, type UploadedFileData } from "../shared/rpc.ts";
 
 export type Resumed = { ok: true; agentId: string } | { ok: false; code: "failed" | "denied"; error: string };
@@ -266,7 +267,7 @@ try {
 }
 `;
 
-export type TimelineSearchResult = { ok: true; epoch: string; locations: { seq: number; role: "user" | "assistant"; count?: number }[]; nextCursor: number | null } | { ok: false; code: "failed"; error: string };
+export type TimelineSearchResult = ({ ok: true } & AgentTimelineSearchPayload) | { ok: false; code: "failed"; error: string };
 
 export async function searchTimeline(agentId: string, query: string, cursor: number | undefined): Promise<TimelineSearchResult> {
   const r = await runDaemonScript(TIMELINE_SEARCH, [agentId, query, cursor === undefined ? "" : String(cursor)]);

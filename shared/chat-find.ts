@@ -1,10 +1,13 @@
+import { z } from "zod";
 import type { StreamItem } from "./stream.ts";
 
-export interface AgentTimelineSearchPayload {
-  epoch: string;
-  locations: { seq: number; role: "user" | "assistant"; count?: number; id?: string }[];
-  nextCursor: number | null;
-}
+export const AgentTimelineSearchPayload = z.object({
+  epoch: z.string(),
+  locations: z.array(z.object({ seq: z.number().int().nonnegative(), role: z.enum(["user", "assistant"]), count: z.number().int().positive().optional(), id: z.string().optional() })),
+  nextCursor: z.number().int().nonnegative().nullable(),
+});
+
+export type AgentTimelineSearchPayload = z.infer<typeof AgentTimelineSearchPayload>;
 
 export const LOADED_HISTORY_EPOCH = "loaded";
 

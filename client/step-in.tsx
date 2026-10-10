@@ -55,7 +55,7 @@ export function useHeld(id: string, bump: number): MailMessage[] {
   const { value } = usePoll(
     async () => {
       const r = await call({ participant: id, held: true, limit: 50 });
-      return r.ok ? { ok: true as const, value: r.messages.filter((m) => releasable(m, r.teams)) as MailMessage[] } : r;
+      return r.ok ? { ok: true as const, value: r.messages.filter((m) => releasable(m, r.teams)) } : r;
     },
     `held:${id}:${bump}`,
     () => QUIET_MS,

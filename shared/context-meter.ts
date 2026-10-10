@@ -1,8 +1,8 @@
-export interface Usage {
-  totalCostUsd?: number;
-  contextWindowMaxTokens?: number;
-  contextWindowUsedTokens?: number;
-}
+import { z } from "zod";
+
+export const Usage = z.object({ totalCostUsd: z.number().optional(), contextWindowMaxTokens: z.number().optional(), contextWindowUsedTokens: z.number().optional() });
+
+export type Usage = z.infer<typeof Usage>;
 
 export function formatTokenCount(value: number): string {
   if (value >= 1_000_000) return `${Math.round(value / 1_000_000)}m`;

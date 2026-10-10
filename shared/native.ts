@@ -1,15 +1,9 @@
+import { z } from "zod";
 import type { Row } from "./view.ts";
 
-export interface Session {
-  id: string;
-  ref: string | null;
-  harness: string | null;
-  mode: string | null;
-  cwd: string;
-  gone: boolean;
-  state: string;
-  teamClosed: boolean;
-}
+export const Session = z.object({ id: z.string(), ref: z.string().nullable(), harness: z.string().nullable(), mode: z.string().nullable(), cwd: z.string(), gone: z.boolean(), state: z.string(), teamClosed: z.boolean() });
+
+export type Session = z.infer<typeof Session>;
 
 export type Native = { kind: "open"; agentId: string } | { kind: "resume" } | { kind: "mail"; why: string };
 

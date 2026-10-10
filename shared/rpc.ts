@@ -3,9 +3,10 @@
 import { defineRpc, defineSettings } from "@getpaseo/plugin";
 import { z } from "zod";
 import { TAIL_KINDS } from "./view.ts";
-import type { MailPage } from "./mail.ts";
-import type { Transcript } from "./transcript.ts";
-import type { ToolCallDetail } from "./tool-call.ts";
+import { AgentTimelineSearchPayload } from "./chat-find.ts";
+import { MailFilter, MailPage } from "./mail.ts";
+import { Session } from "./native.ts";
+import { Transcript } from "./transcript.ts";
 import { UsageReportEntry } from "./usage-schema.ts";
 import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./speech.ts";
 
@@ -33,119 +34,17 @@ export const tail = defineRpc({
   output: z.union([z.object({ ok: z.literal(true), lines: z.array(z.object({ kind: z.enum(TAIL_KINDS), text: z.string(), rest: z.string().optional() })) }), Failure]),
 });
 
-const MailMessage = z.object({
-  id: z.string(),
-  seq: z.number().int(),
-  team: z.string().optional(),
-  from: z.string(),
-  from_name: z.string(),
-  from_role: z.string().optional(),
-  to: z.string(),
-  to_name: z.string(),
-  to_role: z.string().optional(),
-  kind: z.string().optional(),
-  op: z.string().optional(),
-  reply_to: z.string().optional(),
-  reply_seq: z.number().int().optional(),
-  body: z.string(),
-  created_at: z.number(),
-  acked_at: z.number().optional(),
-  held: z.string().optional(),
-});
-
-const MailTeam = z.object({ id: z.string(), name: z.string(), dir: z.string(), closed: z.number().optional() });
-
 export const mail = defineRpc({
   name: "pigmonitor.mail",
-  input: z.object({
-    teams: z.array(z.string()).optional(),
-    participants: z.array(z.string()).optional(),
-    participant: z.string().optional(),
-    before: z.number().int().optional(),
-    held: z.boolean().optional(),
-    limit: z.number().int().min(1).max(1000).default(100),
-  }),
-  output: z.union([z.object({ ok: z.literal(true), messages: z.array(MailMessage), teams: z.record(z.string(), MailTeam), total: z.number().int() }), Failure]),
-});
-
-export type MailResult = { ok: true } & MailPage;
-
-const UnknownValue = z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(z.unknown()), z.object({}).passthrough()]);
-
-const NonNullUnknown: z.ZodType<unknown> = z.union([z.boolean(), z.number(), z.string(), z.array(z.unknown()), z.object({}).passthrough()]);
-
-const ToolCallDetailSchema: z.ZodType<ToolCallDetail, unknown> = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("worktree_setup"),
-    worktreePath: z.string(),
-    branchName: z.string(),
-    log: z.string(),
-    commands: z.array(z.object({ index: z.number().int().positive(), command: z.string(), cwd: z.string(), log: z.string().optional().default(""), status: z.enum(["running", "completed", "failed"]), exitCode: z.number().nullable(), durationMs: z.number().nonnegative().optional() })),
-    truncated: z.boolean().optional(),
-  }),
-  z.object({ type: z.literal("shell"), command: z.string(), cwd: z.string().optional(), output: z.string().optional(), exitCode: z.number().nullable().optional() }),
-  z.object({ type: z.literal("read"), filePath: z.string(), content: z.string().optional(), offset: z.number().optional(), limit: z.number().optional() }),
-  z.object({ type: z.literal("edit"), filePath: z.string(), oldString: z.string().optional(), newString: z.string().optional(), unifiedDiff: z.string().optional() }),
-  z.object({ type: z.literal("write"), filePath: z.string(), content: z.string().optional() }),
-  z.object({
-    type: z.literal("search"),
-    query: z.string(),
-    toolName: z.enum(["search", "grep", "glob", "web_search"]).optional(),
-    content: z.string().optional(),
-    filePaths: z.array(z.string()).optional(),
-    webResults: z.array(z.object({ title: z.string(), url: z.string() })).optional(),
-    annotations: z.array(z.string()).optional(),
-    numFiles: z.number().optional(),
-    numMatches: z.number().optional(),
-    durationMs: z.number().optional(),
-    durationSeconds: z.number().optional(),
-    truncated: z.boolean().optional(),
-    mode: z.enum(["content", "files_with_matches", "count"]).optional(),
-  }),
-  z.object({ type: z.literal("fetch"), url: z.string(), prompt: z.string().optional(), result: z.string().optional(), code: z.number().optional(), codeText: z.string().optional(), bytes: z.number().optional(), durationMs: z.number().optional() }),
-  z.object({
-    type: z.literal("sub_agent"),
-    subAgentType: z.string().optional(),
-    description: z.string().optional(),
-    childSessionId: z.string().optional(),
-    log: z.string(),
-    actions: z.array(z.object({ index: z.number().int().positive(), toolName: z.string(), summary: z.string().optional() })).optional(),
-  }),
-  z.object({ type: z.literal("plain_text"), label: z.string().optional(), text: z.string().optional(), icon: z.enum(["wrench", "square_terminal", "eye", "pencil", "search", "bot", "sparkles", "brain", "mic_vocal"]).optional() }),
-  z.object({ type: z.literal("plan"), text: z.string() }),
-  z.object({ type: z.literal("unknown"), input: UnknownValue, output: UnknownValue }),
-]);
-
-const Item = z.object({
-  i: z.number().int(),
-  key: z.string().optional(),
-  kind: z.enum(["session", "user", "wake", "assistant", "thinking", "tool", "mail", "turn", "compaction"]),
-  at: z.number().optional(),
-  text: z.string(),
-  tool: z.string().optional(),
-  error: z.boolean().optional(),
-  from: z.string().optional(),
-  to: z.string().optional(),
-  ref: z.string().optional(),
-  reply: z.string().optional(),
-  run: z.string().optional(),
-  note: z.string().optional(),
-  detail: ToolCallDetailSchema.optional(),
-  status: z.enum(["running", "completed", "failed", "canceled"]).optional(),
-  toolError: NonNullUnknown.optional(),
-  durationMs: z.number().optional(),
-  costUsd: z.number().optional(),
-  trigger: z.enum(["auto", "manual"]).optional(),
-  preTokens: z.number().optional(),
+  input: MailFilter,
+  output: z.union([MailPage.extend({ ok: z.literal(true) }), Failure]),
 });
 
 export const transcript = defineRpc({
   name: "pigmonitor.transcript",
   input: z.object({ id: z.string().min(1), before: z.number().int().optional(), limit: z.number().int().min(1).max(200000).default(20000), since: z.object({ epoch: z.string(), rev: z.number().int() }).optional() }),
-  output: z.union([z.object({ ok: z.literal(true), items: z.array(Item), total: z.number().int(), name: z.string(), role: z.string().optional(), files: z.number().int(), roles: z.record(z.string(), z.string()).optional(), usage: z.object({ contextWindowUsedTokens: z.number().optional(), contextWindowMaxTokens: z.number().optional() }).optional(), epoch: z.string().optional(), rev: z.number().int().optional(), from: z.number().int().optional() }), Failure]),
+  output: z.union([Transcript.extend({ ok: z.literal(true) }), Failure]),
 });
-
-export type TranscriptResult = { ok: true } & Transcript;
 
 /** The person behind Paseo as a piggery participant (server/person.ts): who it is, once it has joined; null before the first send. */
 export const person = defineRpc({
@@ -222,12 +121,10 @@ export const sendMail = defineRpc({
   ]),
 });
 
-const SessionRef = z.object({ id: z.string(), ref: z.string().nullable(), harness: z.string().nullable(), mode: z.string().nullable(), cwd: z.string(), gone: z.boolean(), state: z.string(), teamClosed: z.boolean() });
-
 export const sessions = defineRpc({
   name: "pigmonitor.sessions",
   input: z.object({ ids: z.array(z.string()).max(1000) }),
-  output: z.union([z.object({ ok: z.literal(true), sessions: z.array(SessionRef) }), Failure]),
+  output: z.union([z.object({ ok: z.literal(true), sessions: z.array(Session) }), Failure]),
 });
 
 export const resume = defineRpc({
@@ -295,7 +192,7 @@ export const rewind = defineRpc({
 export const timelineSearch = defineRpc({
   name: "pigmonitor.timeline-search",
   input: z.object({ agentId: z.string().min(1), query: z.string().min(1), cursor: z.number().int().nonnegative().optional() }),
-  output: z.union([z.object({ ok: z.literal(true), epoch: z.string(), locations: z.array(z.object({ seq: z.number().int().nonnegative(), role: z.enum(["user", "assistant"]), count: z.number().int().positive().optional() })), nextCursor: z.number().int().nonnegative().nullable() }), Failure]),
+  output: z.union([AgentTimelineSearchPayload.extend({ ok: z.literal(true) }), Failure]),
 });
 
 export const dirSuggest = defineRpc({
