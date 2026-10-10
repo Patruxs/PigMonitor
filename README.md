@@ -51,10 +51,11 @@ No build step: Paseo loads the TypeScript sources directly. After changing the c
 paseo plugin reload pigmonitor
 ```
 
-Tests:
+Type check and tests (the dev dependencies are only for the type check; Paseo does not install or read them):
 
 ```
-node --test --experimental-strip-types shared/*.test.ts server/*.test.ts
+npm install
+npm run check
 ```
 
 ## License
