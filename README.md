@@ -20,10 +20,10 @@ paseo plugin update pigmonitor
 
 - **Overview**: a timeline of every team and agent, coloured by state (working, waiting, idle, exited), with counts of who needs you and unread mail.
 - **Graph**: each team as an org chart.
-- **Sessions**: read an agent's transcript and mail, and write to it. Pasted images are attached.
-- Open any agent or team for its details and resume its session in Paseo.
+- **Sessions**: read an agent's transcript and mail, and write to it. Pasted images are attached. Stop a session's current turn, or resume an ended Claude session in Paseo.
+- Open any agent or team for its details.
 
-The plugin only reads: it runs `piggery ps --view` and `piggery tail --view` with `--no-start`, and reads piggery's SQLite database read-only. Sending mail registers the plugin as its own piggery person.
+Looking only reads: it runs `piggery ps --view` and `piggery tail --view` with `--no-start`, and reads piggery's SQLite database read-only. Stop runs `piggery abort` on that session. Sending mail registers the plugin as its own piggery person.
 
 ## Requirements
 
