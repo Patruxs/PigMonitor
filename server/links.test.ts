@@ -78,3 +78,15 @@ test("a link learned while the session ids match holds after a conversation rewi
   const tern = { id: "tern", ref: "c0af857a", transcript: null };
   assert.deepEqual(createLinker({ store, readParent: () => null }).links([{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra, tern]), { links: [{ participantId: "tern", agentId: "fe6455cd" }], formerly: ["tundra"] });
 });
+
+test("the fork parent is found past a first line of any size, and quoted text that mentions forkedFrom is not mistaken for it", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "claude-project-"));
+  try {
+    const file = path.join(dir, "big.jsonl");
+    const quoted = JSON.stringify({ text: 'a note: "forkedFrom":{"sessionId":"not-this"}' });
+    writeFileSync(file, `${JSON.stringify({ type: "user", sessionId: "big", note: quoted, message: { content: [{ type: "image", data: "A".repeat(5 << 20) }] }, forkedFrom: { sessionId: "ac2c96a6", messageUuid: "m1" } })}\n`);
+    assert.equal(forkParentOf(file), "ac2c96a6");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

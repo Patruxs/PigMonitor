@@ -30,42 +30,31 @@ export interface LinkStoreIo {
 
 const isLink = (value: unknown): value is Link => typeof (value as Link)?.participantId === "string" && typeof (value as Link)?.agentId === "string";
 
-const HEAD_LIMIT_BYTES = 4 << 20;
-const HEAD_CHUNK_BYTES = 64 << 10;
+const SCAN_CHUNK_BYTES = 64 << 10;
+const SCAN_OVERLAP_CHARS = 512;
 const MAX_FORK_HOPS = 8;
+const FORKED_FROM = /(?<!\\)"forkedFrom"\s*:\s*\{[^{}]*?"sessionId"\s*:\s*"([^"\\]+)"/;
 
-export function firstLine(file: string, limit = HEAD_LIMIT_BYTES): string | null {
+export function forkParentOf(file: string): string | null {
   if (!existsSync(file)) return null;
   const fd = openSync(file, "r");
   try {
-    const chunks: Buffer[] = [];
-    let total = 0;
-    while (total < limit) {
-      const chunk = Buffer.alloc(Math.min(HEAD_CHUNK_BYTES, limit - total));
-      const read = readSync(fd, chunk, 0, chunk.length, total);
-      if (read === 0) break;
-      const newline = chunk.subarray(0, read).indexOf(10);
-      if (newline >= 0) {
-        chunks.push(chunk.subarray(0, newline));
-        return Buffer.concat(chunks).toString("utf8");
-      }
-      chunks.push(chunk.subarray(0, read));
-      total += read;
+    const chunk = Buffer.alloc(SCAN_CHUNK_BYTES);
+    let carry = "";
+    let offset = 0;
+    for (;;) {
+      const read = readSync(fd, chunk, 0, chunk.length, offset);
+      if (read === 0) return null;
+      offset += read;
+      const text = carry + chunk.toString("latin1", 0, read);
+      const newline = text.indexOf("\n");
+      const match = FORKED_FROM.exec(newline >= 0 ? text.slice(0, newline) : text);
+      if (match) return match[1] ?? null;
+      if (newline >= 0) return null;
+      carry = text.slice(-SCAN_OVERLAP_CHARS);
     }
-    return total < limit ? Buffer.concat(chunks).toString("utf8") : null;
   } finally {
     closeSync(fd);
-  }
-}
-
-export function forkParentOf(file: string): string | null {
-  const line = firstLine(file);
-  if (!line) return null;
-  try {
-    const parent = (JSON.parse(line) as { forkedFrom?: { sessionId?: unknown } }).forkedFrom?.sessionId;
-    return typeof parent === "string" ? parent : null;
-  } catch {
-    return null;
   }
 }
 
