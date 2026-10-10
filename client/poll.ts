@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** ps --view reads the workers' logs for ctx and turns: ask this often while something works or waits ... */
 export const BUSY_MS = 5000;
@@ -27,19 +27,21 @@ export type Loaded<T> = { value: T | null; error: Failed | null; /** When the va
  * Calls `load` now and again after `every(value)` ms while mounted and the page is shown (a hidden
  * page skips, and asks at once when shown again); keeps the last good value across a failure.
  */
-export function usePoll<T>(load: () => Promise<{ ok: true; value: T } | { ok: false; code: string; error: string }>, key: string, every: (value: T | null) => number): Loaded<T> {
+export function usePoll<T>(load: () => Promise<{ ok: true; value: T } | { ok: false; code: string; error: string }>, reloadKey: string, every: (value: T | null) => number): Loaded<T> {
   const [state, setState] = useState<Loaded<T>>({ value: null, error: null, at: null });
+  const latest = useRef({ load, every });
+  latest.current = { load, every };
   useEffect(() => {
     let live = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let last: T | null = null;
     const again = () => {
-      if (live) timer = setTimeout(tick, hidden() ? QUIET_MS : every(last));
+      if (live) timer = setTimeout(tick, hidden() ? QUIET_MS : latest.current.every(last));
     };
     const tick = async () => {
       if (hidden()) return again();
       try {
-        const r = await load();
+        const r = await latest.current.load();
         if (r.ok) last = r.value;
         if (live) setState((s) => (r.ok ? { value: r.value, error: null, at: Date.now() } : { ...s, error: { code: r.code, message: r.error } }));
       } catch (error) {
@@ -60,9 +62,7 @@ export function usePoll<T>(load: () => Promise<{ ok: true; value: T } | { ok: fa
       clearTimeout(timer);
       page?.removeEventListener("visibilitychange", shown);
     };
-    // `load` is a fresh closure each render; `key` says when it asks for something else.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [reloadKey]);
   return state;
 }
 
