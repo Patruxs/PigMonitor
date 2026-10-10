@@ -10,7 +10,7 @@ export function nodeOf(ref: { current: unknown }): HTMLElement | null {
   return node && typeof node.addEventListener === "function" ? node : null;
 }
 
-export function useComposerHeight(textareaRef: { current: unknown }, value: string, maxHeight: number): { height: number; scrollEnabled: boolean; reset: () => void } {
+export function useComposerHeight(textareaRef: { current: unknown }, value: string, maxHeight: number): { height: number | undefined; scrollEnabled: boolean; reset: () => void } {
   const [height, setHeight] = useState(MIN_INPUT_HEIGHT);
   const mirrorRef = useRef<HTMLTextAreaElement | null>(null);
   const valueRef = useRef(value);
@@ -60,5 +60,6 @@ export function useComposerHeight(textareaRef: { current: unknown }, value: stri
     observer.observe(source);
     return () => observer.disconnect();
   }, [measure, textareaRef]);
-  return { height: isWeb ? height : MIN_INPUT_HEIGHT, scrollEnabled: height >= maxHeight, reset: () => setHeight(MIN_INPUT_HEIGHT) };
+  if (!isWeb) return { height: undefined, scrollEnabled: true, reset: () => undefined };
+  return { height, scrollEnabled: height >= maxHeight, reset: () => setHeight(MIN_INPUT_HEIGHT) };
 }

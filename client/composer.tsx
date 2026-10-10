@@ -358,7 +358,7 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
                 placeholder={messagePlaceholder}
                 placeholderTextColor={theme.colors.foregroundMuted}
                 accessibilityLabel="Message agent..."
-                style={[{ flexShrink: 1, width: "100%", color: theme.colors.foreground, fontSize: CONTENT_FONT, fontWeight: "400", lineHeight: CONTENT_FONT * 1.4, height: composerHeight.height, minHeight: MIN_INPUT_HEIGHT, maxHeight: maxInputHeight, padding: 0, borderWidth: 0 }, NO_OUTLINE]}
+                style={[{ flexShrink: 1, width: "100%", color: theme.colors.foreground, fontSize: CONTENT_FONT, fontWeight: "400", ...(isWeb ? { lineHeight: CONTENT_FONT * 1.4 } : {}), ...(composerHeight.height !== undefined ? { height: composerHeight.height } : {}), minHeight: MIN_INPUT_HEIGHT, maxHeight: maxInputHeight, padding: 0, borderWidth: 0 }, NO_OUTLINE]}
               />
               {showFocusHint ? (
                 <Text style={{ position: "absolute", top: 0, right: 0, fontSize: 12, color: theme.colors.foregroundMuted, opacity: 0.5, pointerEvents: "none" }}>{FOCUS_HINT}</Text>
