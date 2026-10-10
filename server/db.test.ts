@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { MailReader, pickDatabase, whereOf } from "./mail.ts";
+import { PiggeryDb, pickDatabase, whereOf } from "./db.ts";
 
 test("the database is the setting, else the one in piggery's home", () => {
   assert.equal(pickDatabase(" /x/piggery.db "), "/x/piggery.db");
@@ -38,9 +38,9 @@ function farm(): { dir: string; file: string } {
   return { dir, file };
 }
 
-test("MailReader reads mail newest first with names, reply seqs and the teams it mentions", () => {
+test("PiggeryDb reads mail newest first with names, reply seqs and the teams it mentions", () => {
   const { dir, file } = farm();
-  const reader = new MailReader();
+  const reader = new PiggeryDb();
   try {
     const r = reader.read(file, { limit: 10 });
     assert.ok(r.ok);
@@ -60,9 +60,9 @@ test("MailReader reads mail newest first with names, reply seqs and the teams it
   }
 });
 
-test("MailReader scopes by the person's mail with one participant, and takes the newest up to the limit", () => {
+test("PiggeryDb scopes by the person's mail with one participant, and takes the newest up to the limit", () => {
   const { dir, file } = farm();
-  const reader = new MailReader();
+  const reader = new PiggeryDb();
   try {
     const between = reader.read(file, { limit: 10, participants: ["solo"], participant: "lead" });
     assert.ok(between.ok);
@@ -77,7 +77,7 @@ test("MailReader scopes by the person's mail with one participant, and takes the
 });
 
 test("a missing database is said, not thrown", () => {
-  const reader = new MailReader();
+  const reader = new PiggeryDb();
   const r = reader.read("/nowhere/piggery.db", { limit: 10 });
   assert.equal(r.ok, false);
   if (!r.ok) assert.equal(r.code, "nodb");
@@ -94,7 +94,7 @@ test("a row in a shape this plugin does not read is said, not passed on", () => 
     INSERT INTO messages VALUES ('m1', 1, NULL, 'a', 'b', NULL, NULL, NULL, NULL, 100, NULL, NULL);
   `);
   db.close();
-  const reader = new MailReader();
+  const reader = new PiggeryDb();
   try {
     const r = reader.read(file, { limit: 10 });
     assert.equal(r.ok ? "ok" : r.code, "failed");

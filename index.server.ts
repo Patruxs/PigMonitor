@@ -2,7 +2,7 @@ import type { PluginRpcContract } from "@getpaseo/plugin";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
 import type { input as ZodInput, output as ZodOutput, ZodType } from "zod";
 import { piggeryPath } from "./server/installed.ts";
-import { MailReader, pickDatabase } from "./server/mail.ts";
+import { PiggeryDb, pickDatabase } from "./server/db.ts";
 import { abort, listModels, piggeryHome, pickBin, runStepIn, snapshotView, tailView } from "./server/piggery.ts";
 import { Person } from "./server/person.ts";
 import { checkoutRemoteUrl, configureAgent, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
@@ -30,10 +30,10 @@ export default function contribute(server: PluginServerContext) {
   server.handle(snapshot, async ({ dir }) => snapshotView(await bin(), dir));
   server.handle(tail, async ({ id, lines }) => tailView(await bin(), id, lines));
 
-  const reader = new MailReader();
+  const db = new PiggeryDb();
   server.handle(mail, async (filter) => {
     const state = await stored.read();
-    return reader.read(pickDatabase(state.status === "ready" ? state.values.database : ""), filter);
+    return db.read(pickDatabase(state.status === "ready" ? state.values.database : ""), filter);
   });
 
   const me = new Person((line) => console.log(line));
@@ -43,15 +43,15 @@ export default function contribute(server: PluginServerContext) {
   };
 
   const savePasted = pastedImageSaver(`${ATTACH_ROOT}/pasted`);
-  const transcripts = new TranscriptReader(reader, savePasted);
+  const transcripts = new TranscriptReader(db, savePasted);
   server.handle(transcript, async ({ id, limit, since }) => {
-    return transcripts.read(await database(), id, limit, me.current(piggeryHome())?.id, since);
+    return transcripts.read(await database(), id, { limit, person: me.current(piggeryHome())?.id, since });
   });
 
   server.handle(imageFile, async ({ path }) => readImage(path));
 
   const prompts = new PromptImageReader(savePasted);
-  server.handle(promptImages, async ({ id }) => prompts.read(reader, await database(), id));
+  server.handle(promptImages, async ({ id }) => prompts.read(db, await database(), id));
   if (!observeOnly) me.warm(piggeryHome());
   server.handle(person, async () => {
     const who = me.current(piggeryHome());
@@ -63,7 +63,7 @@ export default function contribute(server: PluginServerContext) {
   });
   server.handle(sessions, async ({ ids }) => {
     try {
-      return { ok: true as const, sessions: reader.sessions(await database(), ids) };
+      return { ok: true as const, sessions: db.sessions(await database(), ids) };
     } catch (error) {
       return { ok: false as const, code: "failed" as const, error: `Could not read piggery's database: ${String((error as Error).message ?? error)}` };
     }
@@ -89,7 +89,7 @@ export default function contribute(server: PluginServerContext) {
   server.handle(models, async ({ id }) => listModels(piggeryHome(), id));
   changes(resume, async ({ id }) => {
     try {
-      return await resumeInPaseo(reader.sessions(await database(), [id])[0]);
+      return await resumeInPaseo(db.sessions(await database(), [id])[0]);
     } catch (error) {
       return { ok: false as const, code: "failed" as const, error: String((error as Error).message ?? error) };
     }
@@ -97,6 +97,6 @@ export default function contribute(server: PluginServerContext) {
 
   return () => {
     me.stop();
-    reader.close();
+    db.close();
   };
 }

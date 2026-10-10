@@ -84,7 +84,7 @@ function toMessage(r: Raw): MailMessage {
 
 export type Participant = z.infer<typeof ParticipantRow>;
 
-export class MailReader {
+export class PiggeryDb {
   private db: DatabaseSync | null = null;
   private openedPath = "";
 

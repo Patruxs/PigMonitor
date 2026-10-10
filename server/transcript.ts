@@ -5,7 +5,7 @@ import type { MailMessage } from "../shared/mail.ts";
 import { Parser, usageOf, type ContextReading, type SaveImage } from "../shared/claude-log.ts";
 import { mergeMail } from "../shared/transcript-mail.ts";
 import type { Item, Transcript } from "../shared/transcript.ts";
-import type { MailReader, Participant } from "./mail.ts";
+import type { PiggeryDb, Participant } from "./db.ts";
 import { JsonlTail } from "./jsonl-tail.ts";
 import { claudeToolCall } from "./tool-detail.ts";
 
@@ -44,11 +44,11 @@ export class TranscriptReader {
   private logs = new Map<string, Logs>();
   private rev = 0;
   private stamps = new WeakMap<Item, number>();
-  private readonly mail: MailReader;
+  private readonly db: PiggeryDb;
   private readonly saveImage: SaveImage | undefined;
 
-  constructor(mail: MailReader, saveImage?: SaveImage) {
-    this.mail = mail;
+  constructor(db: PiggeryDb, saveImage?: SaveImage) {
+    this.db = db;
     this.saveImage = saveImage;
   }
 
@@ -84,10 +84,10 @@ export class TranscriptReader {
     return stamp === undefined ? JSON.stringify(item) : `${this.keyOf(item)}:${stamp}`;
   }
 
-  read(dbFile: string, id: string, limit: number, person?: string, since?: Cursor): TranscriptResult {
+  read(dbFile: string, id: string, { limit, person, since }: { limit: number; person?: string; since?: Cursor }): TranscriptResult {
     let who: Participant | null = null;
     try {
-      who = this.mail.participant(dbFile, id);
+      who = this.db.participant(dbFile, id);
     } catch {}
     const files = runLogs(logsDirOf(dbFile, id));
     if (who?.transcript && existsSync(who.transcript) && !files.includes(who.transcript)) files.unshift(who.transcript);
@@ -107,7 +107,7 @@ export class TranscriptReader {
       const usage = usageOf(context);
       let messages: MailMessage[] = [];
       try {
-        messages = this.mail.involving(dbFile, id);
+        messages = this.db.involving(dbFile, id);
       } catch {}
       const merged = mergeMail(logged, messages, id, person);
       const shown = merged.map((item) => this.shownAs(item));
@@ -116,7 +116,7 @@ export class TranscriptReader {
       let roles: Record<string, string> | undefined;
       if (who?.team_id) {
         try {
-          roles = this.mail.teammates(dbFile, who.team_id);
+          roles = this.db.teammates(dbFile, who.team_id);
         } catch {}
       }
       const changed = since?.epoch === logs.epoch ? logs.revs.findIndex((at) => at > since.rev) : undefined;

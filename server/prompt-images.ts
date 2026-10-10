@@ -2,7 +2,7 @@ import { existsSync, statSync } from "node:fs";
 import { promptKeys, type Prompt, type PromptImage } from "../shared/prompt-images.ts";
 import type { SaveImage } from "../shared/claude-log.ts";
 import { JsonlTail } from "./jsonl-tail.ts";
-import type { MailReader } from "./mail.ts";
+import type { PiggeryDb } from "./db.ts";
 
 export type PromptImagesResult = { ok: true; prompts: Prompt[] } | { ok: false; code: "failed"; error: string };
 
@@ -55,9 +55,9 @@ export class PromptImageReader {
     return read.prompts.some((prompt) => prompt.images.length > 0) ? read.prompts : [];
   }
 
-  read(mail: MailReader, dbFile: string, id: string): PromptImagesResult {
+  read(db: PiggeryDb, dbFile: string, id: string): PromptImagesResult {
     try {
-      const file = mail.participant(dbFile, id)?.transcript;
+      const file = db.participant(dbFile, id)?.transcript;
       return { ok: true, prompts: file && existsSync(file) ? this.prompts(file) : [] };
     } catch (error) {
       return { ok: false, code: "failed", error: `Could not read the session's images: ${String((error as Error).message ?? error)}` };
