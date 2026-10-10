@@ -1,3 +1,4 @@
+import { FORGES, type Forge } from "./forge-refs.ts";
 import type { AttachmentData, ForgeItemData } from "./rpc.ts";
 
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -25,16 +26,8 @@ export function splitImageMarks(text: string): { text: string; paths: string[] }
   return { text: lines.join("\n").trim(), paths };
 }
 
-const FORGES: Record<string, { displayName: string; changeRequestAbbrev: string; changeRequestNumberPrefix: string }> = {
-  github: { displayName: "GitHub", changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#" },
-  gitlab: { displayName: "GitLab", changeRequestAbbrev: "MR", changeRequestNumberPrefix: "!" },
-  gitea: { displayName: "Gitea", changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#" },
-  forgejo: { displayName: "Forgejo", changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#" },
-  codeberg: { displayName: "Codeberg", changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#" },
-};
-
-export function forgeOf(id: string) {
-  return FORGES[id] ?? { displayName: id, changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#" };
+export function forgeOf(id: string): Pick<Forge, "displayName" | "changeRequestAbbrev" | "changeRequestNumberPrefix"> {
+  return FORGES.find((forge) => forge.id === id) ?? { displayName: id, changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#" };
 }
 
 export function forgeAttachment(item: ForgeItemData): AttachmentData {

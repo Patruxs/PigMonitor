@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isRecord } from "./guards.ts";
 
 export type ToolCallIconName = "wrench" | "square_terminal" | "eye" | "pencil" | "search" | "bot" | "sparkles" | "brain" | "mic_vocal";
 
@@ -82,13 +83,13 @@ export const ToolCallDetail: z.ZodType<ToolCallDetail, unknown> = z.discriminate
   z.object({ type: z.literal("unknown"), input: UnknownValue, output: UnknownValue }),
 ]);
 
-export type ToolCallStatus = "executing" | "running" | "completed" | "failed" | "canceled";
+export const TOOL_CALL_STATUSES = ["running", "completed", "failed", "canceled"] as const;
+
+export type ToolCallStatus = (typeof TOOL_CALL_STATUSES)[number];
+
+export type ToolCallDisplayStatus = ToolCallStatus | "executing";
 
 export type ToolCallIcon = ToolCallIconName | "paseo";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -98,7 +99,7 @@ function normalizeToolName(name: string): string {
   return name.trim().toLowerCase();
 }
 
-function isSpeakToolName(name: string): boolean {
+export function isSpeakToolName(name: string): boolean {
   const tokens = normalizeToolName(name).match(/[a-z0-9]+/g) ?? [];
   return tokens[tokens.length - 1] === "speak";
 }
@@ -276,7 +277,7 @@ export function hasMeaningfulToolCallDetail(detail: ToolCallDetail | undefined):
   }
 }
 
-export function isPendingToolCallDetail(params: { detail: ToolCallDetail | undefined; status: ToolCallStatus; error: unknown }): boolean {
+export function isPendingToolCallDetail(params: { detail: ToolCallDetail | undefined; status: ToolCallDisplayStatus; error: unknown }): boolean {
   const isRunning = params.status === "running" || params.status === "executing";
   return isRunning && params.error == null && !hasMeaningfulToolCallDetail(params.detail);
 }
@@ -329,7 +330,7 @@ export interface ToolCallPresentation {
 
 export type PlanOutcome = "pending" | "approved" | "rejected" | "canceled";
 
-function resolvePlanOutcome(status: ToolCallStatus, metadata: Record<string, unknown> | undefined): PlanOutcome | undefined {
+function resolvePlanOutcome(status: ToolCallDisplayStatus, metadata: Record<string, unknown> | undefined): PlanOutcome | undefined {
   if (status === "canceled") return "canceled";
   if (metadata?.approved === false) return "rejected";
   if (metadata?.approved === true) return "approved";
@@ -337,7 +338,7 @@ function resolvePlanOutcome(status: ToolCallStatus, metadata: Record<string, unk
   return undefined;
 }
 
-export function buildToolCallPresentation(input: { toolName: string; status: ToolCallStatus; error: unknown; detail?: ToolCallDetail; cwd?: string; metadata?: Record<string, unknown> }): ToolCallPresentation {
+export function buildToolCallPresentation(input: { toolName: string; status: ToolCallDisplayStatus; error: unknown; detail?: ToolCallDetail; cwd?: string; metadata?: Record<string, unknown> }): ToolCallPresentation {
   const model = buildToolCallDisplayModel({
     name: input.toolName,
     status: input.status === "executing" ? "running" : input.status,
@@ -663,21 +664,23 @@ export function parseUnifiedDiff(diffText?: string): DiffLine[] {
   return diff;
 }
 
-export interface TaskEntry {
+export interface TodoEntry {
   text: string;
-  status: "pending" | "in_progress" | "completed";
   completed: boolean;
+  id?: string;
+  status?: "pending" | "in_progress" | "completed";
+  activeForm?: string;
 }
 
 const TASK_STATUSES = new Set(["pending", "in_progress", "completed"]);
 
-function taskStatusOf(value: unknown): TaskEntry["status"] | null {
-  return typeof value === "string" && TASK_STATUSES.has(value) ? (value as TaskEntry["status"]) : null;
+function taskStatusOf(value: unknown): TodoEntry["status"] | null {
+  return typeof value === "string" && TASK_STATUSES.has(value) ? (value as TodoEntry["status"]) : null;
 }
 
-function claudeTodos(input: unknown): TaskEntry[] | null {
+function claudeTodos(input: unknown): TodoEntry[] | null {
   if (!isRecord(input) || !Array.isArray(input.todos)) return null;
-  const out: TaskEntry[] = [];
+  const out: TodoEntry[] = [];
   for (const todo of input.todos) {
     if (!isRecord(todo) || typeof todo.content !== "string") return null;
     const status = taskStatusOf(todo.status);
@@ -689,9 +692,9 @@ function claudeTodos(input: unknown): TaskEntry[] | null {
   return out;
 }
 
-function planSteps(input: unknown): TaskEntry[] | null {
+function planSteps(input: unknown): TodoEntry[] | null {
   if (!isRecord(input) || !Array.isArray(input.plan)) return null;
-  const out: TaskEntry[] = [];
+  const out: TodoEntry[] = [];
   for (const entry of input.plan) {
     if (!isRecord(entry) || typeof entry.step !== "string") return null;
     const status = taskStatusOf(entry.status) ?? "pending";
@@ -704,7 +707,7 @@ export function normalizeTaskToolName(toolName: string): string {
   return toolName.trim().replace(/[.\s-]+/g, "_").toLowerCase();
 }
 
-export function extractTaskEntriesFromToolCall(toolName: string, input: unknown): TaskEntry[] | null {
+export function extractTaskEntriesFromToolCall(toolName: string, input: unknown): TodoEntry[] | null {
   const normalized = normalizeTaskToolName(toolName);
   if (normalized === "exitplanmode") return null;
   if (normalized === "todowrite" || normalized === "todo_write") return claudeTodos(input);

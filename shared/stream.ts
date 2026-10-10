@@ -1,29 +1,14 @@
 import type { AttachmentData } from "./rpc.ts";
-import { extractTaskEntriesFromToolCall, normalizeTaskToolName, type ToolCallDetail } from "./tool-call.ts";
-
-export interface AgentUsage {
-  inputTokens?: number;
-  cachedInputTokens?: number;
-  outputTokens?: number;
-  totalCostUsd?: number;
-  contextWindowMaxTokens?: number;
-  contextWindowUsedTokens?: number;
-}
-
-export interface AgentTaskEntry {
-  text: string;
-  completed: boolean;
-  id?: string;
-  status?: "pending" | "in_progress" | "completed";
-  activeForm?: string;
-}
+import type { Usage } from "./context-meter.ts";
+import { extractTaskEntriesFromToolCall, normalizeTaskToolName, type TodoEntry, type ToolCallDetail, type ToolCallStatus } from "./tool-call.ts";
+import { isRecord } from "./guards.ts";
 
 export type TimelineItem =
   | { type: "user_message"; text: string; messageId?: string; clientMessageId?: string }
   | { type: "assistant_message"; text: string; messageId?: string }
   | { type: "reasoning"; text: string }
-  | { type: "tool_call"; callId: string; name: string; status: "running" | "completed" | "failed" | "canceled"; error: unknown; detail: ToolCallDetail; metadata?: Record<string, unknown> }
-  | { type: "todo"; items: AgentTaskEntry[] }
+  | { type: "tool_call"; callId: string; name: string; status: ToolCallStatus; error: unknown; detail: ToolCallDetail; metadata?: Record<string, unknown> }
+  | { type: "todo"; items: TodoEntry[] }
   | { type: "error"; message: string }
   | { type: "notification"; level: "info" | "warning" | "error"; message: string }
   | { type: "compaction"; status: "loading" | "completed"; trigger?: "auto" | "manual"; preTokens?: number }
@@ -33,10 +18,10 @@ export type AgentStreamEvent =
   | { type: "timeline"; provider: string; item: TimelineItem; turnId?: string }
   | { type: "thread_started"; provider: string; sessionId?: string }
   | { type: "turn_started"; provider: string; turnId?: string }
-  | { type: "turn_completed"; provider: string; turnId?: string; usage?: AgentUsage }
+  | { type: "turn_completed"; provider: string; turnId?: string; usage?: Usage }
   | { type: "turn_failed"; provider: string; turnId?: string; error?: string }
   | { type: "turn_canceled"; provider: string; turnId?: string; reason?: string }
-  | { type: "usage_updated"; provider: string; usage: AgentUsage; turnId?: string }
+  | { type: "usage_updated"; provider: string; usage: Usage; turnId?: string }
   | { type: "permission_requested"; provider: string; request: unknown; turnId?: string }
   | { type: "permission_resolved"; provider: string; requestId: string; turnId?: string }
   | { type: "attention_required"; provider: string; reason?: string; turnId?: string }
@@ -122,13 +107,11 @@ export interface ThoughtItem {
   status: "loading" | "ready";
 }
 
-export type AgentToolCallStatus = "running" | "completed" | "failed" | "canceled";
-
 export interface AgentToolCallData {
   provider: string;
   callId: string;
   name: string;
-  status: AgentToolCallStatus;
+  status: ToolCallStatus;
   error: unknown;
   detail: ToolCallDetail;
   metadata?: Record<string, unknown>;
@@ -177,8 +160,6 @@ export interface CompactionItem {
   trigger?: "auto" | "manual";
   preTokens?: number;
 }
-
-export type TodoEntry = AgentTaskEntry;
 
 export type TaskActivity = { type: "created"; count: number } | { type: "added" | "started" | "completed"; task: string };
 
@@ -543,10 +524,6 @@ function findExistingTimelineIdentityIndex(state: StreamItem[], identity: string
   return state.findIndex((entry) => streamTimelineItemIdentity(entry) === identity);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function hasNonEmptyObject(value: unknown): boolean {
   return isRecord(value) && Object.keys(value).length > 0;
 }
@@ -584,7 +561,7 @@ export function mergeToolCallDetail(existing: ToolCallDetail, incoming: ToolCall
   return incoming;
 }
 
-function mergeAgentToolCallStatus(existing: AgentToolCallStatus, incoming: AgentToolCallStatus): AgentToolCallStatus {
+function mergeToolCallStatus(existing: ToolCallStatus, incoming: ToolCallStatus): ToolCallStatus {
   if (existing === "failed" || incoming === "failed") return "failed";
   if (existing === "canceled") return "canceled";
   if (incoming === "canceled") return existing === "completed" ? "completed" : "canceled";
@@ -593,7 +570,7 @@ function mergeAgentToolCallStatus(existing: AgentToolCallStatus, incoming: Agent
 }
 
 export function mergeAgentToolCallItem(existing: ToolCallItem, data: AgentToolCallData, timestamp: Date, timelineCursor?: TimelinePosition): ToolCallItem {
-  const status = mergeAgentToolCallStatus(existing.payload.data.status, data.status);
+  const status = mergeToolCallStatus(existing.payload.data.status, data.status);
   const error = status === "failed" ? (data.error ?? existing.payload.data.error ?? { message: "Tool call failed" }) : null;
   return {
     ...existing,

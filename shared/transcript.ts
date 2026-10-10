@@ -1,12 +1,8 @@
 import { z } from "zod";
 import { Usage } from "./context-meter.ts";
-import { ToolCallDetail, ToolError } from "./tool-call.ts";
+import { TOOL_CALL_STATUSES, ToolCallDetail, ToolError, type ToolCallStatus } from "./tool-call.ts";
 
 const SHOWN_KINDS = ["run-start", "user", "wake", "assistant", "thinking", "tool", "mail", "turn-end", "compaction"] as const;
-
-const TOOL_CALL_STATUSES = ["running", "completed", "failed", "canceled"] as const;
-
-export type ToolCallStatus = (typeof TOOL_CALL_STATUSES)[number];
 
 export const ShownItem = z.object({
   i: z.number().int(),

@@ -6,8 +6,8 @@ import { forgeOf } from "../shared/attach.ts";
 import { splitMarkdownBlocks } from "../shared/markdown.ts";
 import type { AttachmentData } from "../shared/rpc.ts";
 import type { AssistantSpacing, TurnTiming } from "../shared/stream-layout.ts";
-import type { TaskActivity, TodoEntry, UserMessageImage } from "../shared/stream.ts";
-import { buildToolCallPresentation, type PlanOutcome, type ToolCallDetail, type ToolCallIcon, type ToolCallStatus } from "../shared/tool-call.ts";
+import type { TaskActivity, UserMessageImage } from "../shared/stream.ts";
+import { buildToolCallPresentation, type PlanOutcome, type ToolCallDetail, type ToolCallIcon, type TodoEntry, type ToolCallDisplayStatus } from "../shared/tool-call.ts";
 import { AttachmentLightbox } from "./kit/lightbox.tsx";
 import { Markdown, usePicture } from "./markdown.tsx";
 import { AttachmentFrame, AttachmentLabel, AttachmentThumbnail } from "./attachment-pill.tsx";
@@ -389,7 +389,7 @@ function ToolCallSheet({ theme, open, title, summary, icon, onClose, children }:
   );
 }
 
-export function ToolCall({ theme, toolName, args, status, error, detail, cwd, metadata, isLastInSequence = false, defaultExpanded = false, forceInline = false, maxDetailHeight = 400 }: { theme: PluginTheme; toolName: string; args?: unknown; status: ToolCallStatus; error?: unknown; detail?: ToolCallDetail; cwd?: string; metadata?: Record<string, unknown>; isLastInSequence?: boolean; defaultExpanded?: boolean; forceInline?: boolean; maxDetailHeight?: number }) {
+export function ToolCall({ theme, toolName, args, status, error, detail, cwd, metadata, isLastInSequence = false, defaultExpanded = false, forceInline = false, maxDetailHeight = 400 }: { theme: PluginTheme; toolName: string; args?: unknown; status: ToolCallDisplayStatus; error?: unknown; detail?: ToolCallDetail; cwd?: string; metadata?: Record<string, unknown>; isLastInSequence?: boolean; defaultExpanded?: boolean; forceInline?: boolean; maxDetailHeight?: number }) {
   const compact = useIsCompact();
   const inline = !compact || forceInline;
   const [expanded, setExpanded] = useState(defaultExpanded);

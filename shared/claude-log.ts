@@ -1,6 +1,7 @@
 import type { Usage } from "./context-meter.ts";
 import { isWake, mailsIn, stripMails } from "./mail-tags.ts";
 import type { Item, ToolCall } from "./transcript.ts";
+import { isRecord } from "./guards.ts";
 
 interface Block {
   type: string;
@@ -68,10 +69,8 @@ export function usageOf(reading: ContextReading): Usage | undefined {
   return { contextWindowUsedTokens: reading.used.tokens, ...(max ? { contextWindowMaxTokens: max } : {}) };
 }
 
-const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
-
 function blocksOf(content: unknown[]): Block[] {
-  return content.filter((block): block is Block => isObject(block));
+  return content.filter((block): block is Block => isRecord(block));
 }
 
 export function contentText(content: unknown): string {
@@ -141,7 +140,7 @@ export class Parser {
     } catch {
       return;
     }
-    if (isObject(parsed)) this.entry(parsed as Entry);
+    if (isRecord(parsed)) this.entry(parsed as Entry);
   }
 
   entry(e: Entry): void {

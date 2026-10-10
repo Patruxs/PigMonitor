@@ -18,12 +18,21 @@ const GITEA_PATHS: ReferencePath[] = [
   { kind: "issue", infix: "/issues/" },
 ];
 
-const FORGES: { id: string; cloudHosts: string[]; referencePaths: ReferencePath[] }[] = [
-  { id: "github", cloudHosts: ["github.com", "ssh.github.com"], referencePaths: GITHUB_PATHS },
-  { id: "gitlab", cloudHosts: ["gitlab.com"], referencePaths: GITLAB_PATHS },
-  { id: "gitea", cloudHosts: ["gitea.com"], referencePaths: GITEA_PATHS },
-  { id: "forgejo", cloudHosts: [], referencePaths: GITEA_PATHS },
-  { id: "codeberg", cloudHosts: ["codeberg.org"], referencePaths: GITEA_PATHS },
+export interface Forge {
+  id: string;
+  displayName: string;
+  changeRequestAbbrev: string;
+  changeRequestNumberPrefix: string;
+  cloudHosts: string[];
+  referencePaths: ReferencePath[];
+}
+
+export const FORGES: Forge[] = [
+  { id: "github", displayName: "GitHub", changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#", cloudHosts: ["github.com", "ssh.github.com"], referencePaths: GITHUB_PATHS },
+  { id: "gitlab", displayName: "GitLab", changeRequestAbbrev: "MR", changeRequestNumberPrefix: "!", cloudHosts: ["gitlab.com"], referencePaths: GITLAB_PATHS },
+  { id: "gitea", displayName: "Gitea", changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#", cloudHosts: ["gitea.com"], referencePaths: GITEA_PATHS },
+  { id: "forgejo", displayName: "Forgejo", changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#", cloudHosts: [], referencePaths: GITEA_PATHS },
+  { id: "codeberg", displayName: "Codeberg", changeRequestAbbrev: "PR", changeRequestNumberPrefix: "#", cloudHosts: ["codeberg.org"], referencePaths: GITEA_PATHS },
 ];
 
 const WEB_URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/giu;

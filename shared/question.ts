@@ -1,3 +1,5 @@
+import { isRecord } from "./guards.ts";
+
 export interface QuestionOption {
   label: string;
   description?: string;
@@ -16,10 +18,6 @@ export interface QuestionFormQuestion {
 
 export type QuestionSelections = Record<number, ReadonlySet<number>>;
 export type QuestionOtherTexts = Record<number, string>;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 export function parseQuestionFormQuestions(input: unknown): QuestionFormQuestion[] | null {
   if (!isRecord(input) || !Array.isArray(input.questions)) return null;
