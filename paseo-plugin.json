@@ -1,5 +1,5 @@
 {
   "id": "pigmonitor",
-  "description": "PigMonitor in Paseo: teams, workers and sessions, as piggery top shows them (read-only)",
+  "description": "PigMonitor in Paseo: teams, workers and sessions, as piggery top shows them",
   "requirements": { "paseo": ">=0.9.1" }
 }
