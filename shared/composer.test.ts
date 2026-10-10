@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveComposerKey, resolvePrimaryActionKind, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer.ts";
+import { createQueueDrainer, resolveComposerKey, resolvePrimaryActionKind, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer.ts";
 
 function memoryQueue(initial: QueuedComposerMessage[]): QueueWriter & { items: () => QueuedComposerMessage[] } {
   let state = new Map([["a", initial]]);
@@ -79,4 +79,17 @@ test("Shift+Tab in the message box cycles the agent's mode when it has modes to 
   assert.equal(key({ key: "Tab", shift: true, canCycleMode: true }), "mode-cycle");
   assert.equal(key({ key: "Tab", shift: true, canCycleMode: true, focus: "pane" }), null);
   assert.equal(key({ key: "Tab", shift: true }), null);
+});
+
+test("a queued message is sent when its agent stops running, with no composer on screen", async () => {
+  const queue = memoryQueue([{ id: "q1", text: "next task", attachments: [] }]);
+  const listeners = new Set<(status: string | null) => void>();
+  const sent: string[] = [];
+  createQueueDrainer(queue).watch("a", { status: () => "running", subscribe: (listener) => (listeners.add(listener), () => listeners.delete(listener)) }, async (message) => {
+    sent.push(message.text);
+  });
+  assert.deepEqual(sent, []);
+  for (const listener of [...listeners]) listener("idle");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual({ sent, left: queue.items().length, watching: listeners.size }, { sent: ["next task"], left: 0, watching: 0 });
 });

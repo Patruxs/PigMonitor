@@ -1,5 +1,5 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { openExternalUrl, useRpc } from "@getpaseo/plugin/client";
+import { openExternalUrl, usePaseo, useRpc } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, useWindowDimensions, View, type LayoutChangeEvent, type NativeSyntheticEvent, type PressableStateCallbackType, type TextInputSelectionChangeEventData, type TextStyle } from "react-native";
@@ -32,7 +32,7 @@ import { clearDraft, readDraft, saveDraft } from "./drafts.ts";
 import { AttachmentLightbox } from "./kit/lightbox.tsx";
 import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
 import { CONTENT_FONT, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, SPACING, text } from "./kit/theme.ts";
-import { queueWriter, useQueuedMessages } from "./queue.ts";
+import { drainWhenIdle, queueWriter, useQueuedMessages } from "./queue.ts";
 import { registerComposerRestore, restoreComposerTextIfEmpty } from "./rewind.tsx";
 import type { AgentTimeline } from "./timeline.ts";
 import { ComposerTracks } from "./tracks.tsx";
@@ -201,9 +201,9 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
   const input = useRef<TextInput>(null);
   const root = useRef<View>(null);
   const nextPendingFileId = useRef(0);
-  const drainInFlight = useRef(false);
   const modeCycle = useRef<(() => void) | null>(null);
   const toast = useToast();
+  const paseo = usePaseo();
   const callUpload = useRpc(upload);
   const maxInputHeight = resolveMaxInputHeight(windowHeight);
   const composerHeight = useComposerHeight(input, value, maxInputHeight);
@@ -333,7 +333,10 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
         forceSend,
         isAgentRunning,
         canSubmit: true,
-        queueMessage: ({ message: queuedText, attachments: queuedAttachments }) => agentId && queueComposerMessage({ agentId, id: generateMessageId(), text: queuedText, attachments: queuedAttachments, queue: queueWriter }),
+        queueMessage: ({ message: queuedText, attachments: queuedAttachments }) => {
+          if (!agentId || !queueComposerMessage({ agentId, id: generateMessageId(), text: queuedText, attachments: queuedAttachments, queue: queueWriter })) return;
+          drainWhenIdle(paseo, agentId);
+        },
         submitMessage: ({ message: submitText, attachments: submitAttachments }) => submitMessage(submitText, submitAttachments),
         clearDraft: (lifecycle) => draftKey !== undefined && clearDraft(draftKey, lifecycle),
         setUserInput: replaceText,
@@ -342,7 +345,7 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
         setIsProcessing,
       });
     },
-    [isAgentRunning, agentId, submitMessage, draftKey, replaceText],
+    [isAgentRunning, agentId, paseo, submitMessage, draftKey, replaceText],
   );
 
   const handleSendMessage = () => {
@@ -373,6 +376,7 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
     if (!trimmed && attachments.length === 0) return;
     const queued = queueComposerMessage({ agentId, id: generateMessageId(), text: trimmed, attachments, queue: queueWriter });
     if (!queued) return;
+    drainWhenIdle(paseo, agentId);
     replaceText("");
     setAttachments([]);
     composerHeight.reset();
@@ -391,21 +395,6 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
     const result = await sendQueuedComposerMessageNow({ agentId, messageId: id, queue: queueWriter, submitMessage: ({ text: queuedText, attachments: queuedAttachments }) => submitMessage(queuedText, queuedAttachments) });
     if (result.status === "failed") setSendError(result.errorMessage);
   };
-
-  const drainable = timeline ? timeline.agent !== null && timeline.agent.status !== "running" && !timeline.turn.isActive : false;
-  useEffect(() => {
-    if (!agentId || !drainable || drainInFlight.current) return;
-    const next = queueWriter.read(agentId)[0];
-    if (!next) return;
-    drainInFlight.current = true;
-    void sendQueuedComposerMessageNow({ agentId, messageId: next.id, queue: queueWriter, submitMessage: ({ text: queuedText, attachments: queuedAttachments }) => submitMessage(queuedText, queuedAttachments) })
-      .then((result) => {
-        if (result.status === "failed") console.error("[PigMonitor] failed to drain queued agent message", { agentId, error: result.errorMessage });
-      })
-      .finally(() => {
-        drainInFlight.current = false;
-      });
-  }, [agentId, drainable, queuedMessages, submitMessage]);
 
   const handleCancelAgent = useCallback(() => {
     if (!stop || !isAgentRunning || isCancellingAgent) return;

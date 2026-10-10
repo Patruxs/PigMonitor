@@ -13,7 +13,7 @@ export type Navigation = PluginSurfaceProps["navigation"];
 const PAGE_SIZE = 200;
 const MAX_PAGES = 5;
 
-type PaseoApi = ReturnType<typeof usePaseo>;
+export type PaseoApi = ReturnType<typeof usePaseo>;
 
 async function agentsFor(paseo: PaseoApi, wanted: string[]): Promise<Map<string, string>> {
   const found = new Map<string, string>();
@@ -29,6 +29,16 @@ async function agentsFor(paseo: PaseoApi, wanted: string[]): Promise<Map<string,
 
 function messageOf(error: unknown): string {
   return String((error as Error)?.message ?? error);
+}
+
+export async function sendToAgent(paseo: PaseoApi, agentId: string, body: string, images: ImageData[], attachments: AttachmentData[], messageId?: string): Promise<string | null> {
+  try {
+    const options = { ...(messageId ? { messageId } : {}), activeTurnBehavior: "steer", images, attachments };
+    await paseo.agents.ref(agentId).send(body, options as Parameters<ReturnType<typeof paseo.agents.ref>["send"]>[1]);
+    return null;
+  } catch (error) {
+    return `Paseo did not take the message: ${messageOf(error)}`;
+  }
 }
 
 export interface NativeChat {
@@ -88,15 +98,7 @@ export function useNative(ids: string[], selected: string, navigation: Navigatio
       setBump((n) => n + 1);
       return null;
     },
-    send: async (agentId, body, images, attachments, messageId) => {
-      try {
-        const options = { ...(messageId ? { messageId } : {}), activeTurnBehavior: "steer", images, attachments };
-        await paseo.agents.ref(agentId).send(body, options as Parameters<ReturnType<typeof paseo.agents.ref>["send"]>[1]);
-        return null;
-      } catch (error) {
-        return `Paseo did not take the message: ${messageOf(error)}`;
-      }
-    },
+    send: (agentId, body, images, attachments, messageId) => sendToAgent(paseo, agentId, body, images, attachments, messageId),
   };
 }
 

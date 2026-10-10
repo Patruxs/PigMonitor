@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
-import type { QueuedComposerMessage, QueueWriter } from "../shared/composer.ts";
+import { createQueueDrainer, splitAttachmentsForSubmit, type QueuedComposerMessage, type QueueWriter } from "../shared/composer.ts";
+import { sendToAgent, type PaseoApi } from "./native.tsx";
+import { BUSY_MS } from "./poll.ts";
 
 const EMPTY: QueuedComposerMessage[] = [];
 
@@ -24,5 +26,37 @@ export function useQueuedMessages(agentId: string | undefined): QueuedComposerMe
     subscribe,
     () => (agentId ? queueWriter.read(agentId) : EMPTY),
     () => EMPTY,
+  );
+}
+
+const drainer = createQueueDrainer(queueWriter);
+
+export function drainWhenIdle(paseo: PaseoApi, agentId: string): void {
+  const handle = paseo.agents.ref(agentId);
+  drainer.watch(
+    agentId,
+    {
+      status: () => handle.current()?.status ?? null,
+      subscribe: (listener) => {
+        const unsubscribe = handle.subscribe((update) => {
+          if (update.kind === "upsert") listener(update.agent.status);
+        });
+        const timer = setInterval(() => {
+          void handle.refresh().then(
+            (result) => result && listener(result.agent.status),
+            () => undefined,
+          );
+        }, BUSY_MS);
+        return () => {
+          clearInterval(timer);
+          unsubscribe();
+        };
+      },
+    },
+    async (message) => {
+      const wire = splitAttachmentsForSubmit(message.attachments);
+      const failed = await sendToAgent(paseo, agentId, message.text, wire.images, wire.attachments, message.id);
+      if (failed) throw new Error(failed);
+    },
   );
 }

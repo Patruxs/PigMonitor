@@ -175,6 +175,48 @@ export function resolveComposerKey(input: { key: string; primary: boolean; shift
   return null;
 }
 
+export interface AgentStatusFeed {
+  status: () => string | null;
+  subscribe: (listener: (status: string | null) => void) => () => void;
+}
+
+export function createQueueDrainer(queue: QueueWriter) {
+  const watches = new Map<string, () => void>();
+  return {
+    watch(agentId: string, feed: AgentStatusFeed, submit: (message: QueuedComposerMessage) => Promise<void>): void {
+      if (watches.has(agentId)) return;
+      let last = feed.status();
+      let inFlight = false;
+      let unsubscribe = () => {};
+      const stop = () => {
+        unsubscribe();
+        watches.delete(agentId);
+      };
+      const drain = () => {
+        if (inFlight) return;
+        const next = queue.read(agentId)[0];
+        if (!next) return stop();
+        inFlight = true;
+        void sendQueuedComposerMessageNow({ agentId, messageId: next.id, queue, submitMessage: ({ text, attachments }) => submit({ id: next.id, text, attachments }) })
+          .then((result) => {
+            if (result.status === "failed") console.error("[PigMonitor] failed to drain queued agent message", { agentId, error: result.errorMessage });
+          })
+          .finally(() => {
+            inFlight = false;
+            if (queue.read(agentId).length === 0) stop();
+          });
+      };
+      watches.set(agentId, stop);
+      unsubscribe = feed.subscribe((status) => {
+        const stoppedRunning = last === "running" && status !== "running";
+        last = status;
+        if (stoppedRunning) drain();
+      });
+      if (last !== null && last !== "running") drain();
+    },
+  };
+}
+
 export type PrimaryActionKind = "send" | "active" | "none";
 
 export function resolvePrimaryActionKind(input: { hasSendableContent: boolean; isAgentRunning: boolean; isSubmitLoading: boolean; keepSendVisible: boolean }): PrimaryActionKind {
