@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { attachmentText, bodyWithAttachments, bodyWithImages, saveImages, uploadTooLarge, mailBody } from "./attach.ts";
+import { ATTACH_ROOT, attachmentText, bodyWithAttachments, bodyWithImages, saveImages, uploadTooLarge, mailBody } from "./attach.ts";
 import { forgeAttachment, MAX_UPLOAD_BYTES } from "../shared/attach.ts";
 
 test("an image sent as mail is saved under the session's folder and its path is in the body", async () => {
@@ -44,4 +44,15 @@ test("an upload over Paseo's 50MB limit is refused before it reaches the daemon"
 
 test("mail with no text, images or attachments is refused before it reaches piggery", async () => {
   assert.deepEqual(await mailBody("/nowhere", "w1", "", [], []), { ok: false, code: "failed", error: "Nothing to send." });
+});
+
+test("images sent as mail are kept in a per-user folder only this user can open", async () => {
+  assert.ok(ATTACH_ROOT.startsWith(tmpdir()) && ATTACH_ROOT !== path.join(tmpdir(), "piggery-attach"));
+  const root = mkdtempSync(path.join(tmpdir(), "piggery-attach-"));
+  try {
+    const [file] = await saveImages(path.join(root, "mine"), "01PEER", [{ data: Buffer.from("png bytes").toString("base64"), mimeType: "image/png" }]);
+    assert.deepEqual([statSync(path.join(root, "mine")).mode & 0o777, statSync(path.dirname(file)).mode & 0o777], [0o700, 0o700]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

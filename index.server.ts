@@ -1,3 +1,4 @@
+import { tmpdir } from "node:os";
 import type { PluginRpcContract } from "@getpaseo/plugin";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
 import type { input as ZodInput, output as ZodOutput, ZodType } from "zod";
@@ -48,7 +49,13 @@ export default function contribute(server: PluginServerContext) {
     return transcripts.read(await database(), id, { limit, person: me.current(piggeryHome())?.id, since });
   });
 
-  server.handle(imageFile, async ({ path }) => readImage(path));
+  server.handle(imageFile, async ({ path }) => {
+    let places: string[] = [];
+    try {
+      places = db.places(await database());
+    } catch {}
+    return readImage(path, [...new Set([tmpdir(), "/tmp", ...places])]);
+  });
 
   const prompts = new PromptImageReader(savePasted);
   server.handle(promptImages, async ({ id }) => prompts.read(db, await database(), id));

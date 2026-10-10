@@ -1,22 +1,23 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
+import { tmpdir, userInfo } from "node:os";
 import path from "node:path";
 import { forgeOf, imageMark, MAX_UPLOAD_BYTES } from "../shared/attach.ts";
 import type { AttachmentData, ImageData } from "../shared/rpc.ts";
 
-export const ATTACH_ROOT = "/tmp/piggery-attach";
+export const ATTACH_ROOT = path.join(tmpdir(), `piggery-attach-${userInfo().uid}`);
 
 const EXTENSIONS: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" };
 
 export async function saveImages(root: string, session: string, images: ImageData[]): Promise<string[]> {
   if (images.length === 0) return [];
   const dir = path.join(root, path.basename(session));
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, { recursive: true, mode: 0o700 });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const out: string[] = [];
   for (const image of images) {
     const file = path.join(dir, `${stamp}-${randomUUID().slice(0, 8)}.${EXTENSIONS[image.mimeType] ?? "img"}`);
-    await writeFile(file, Buffer.from(image.data, "base64"));
+    await writeFile(file, Buffer.from(image.data, "base64"), { mode: 0o600 });
     out.push(file);
   }
   return out;

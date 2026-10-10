@@ -27,6 +27,8 @@ const SessionRow = z.object({ id: text, ref: maybeText, harness: maybeText, mode
 
 const TeammateRow = z.object({ name: text, role: text });
 
+const PlaceRow = z.object({ dir: text });
+
 function rowsOf<T>(schema: z.ZodType<T>, rows: unknown[]): T[] {
   return rows.map((row) => schema.parse(row));
 }
@@ -139,6 +141,11 @@ export class PiggeryDb {
       .prepare(`SELECT p.id, COALESCE(p.session_ref, p.harness_ref) AS ref, p.harness, p.mode, p.cwd, p.state, t.closed_at IS NOT NULL AS team_closed FROM participants p LEFT JOIN teams t ON t.id = p.team_id WHERE p.id IN (${placeholders(ids.length)})`)
       .all(...ids);
     return rowsOf(SessionRow, rows).map(({ team_closed, ...r }) => ({ ...r, gone: r.state === "gone", teamClosed: team_closed === 1 }));
+  }
+
+  places(file: string): string[] {
+    if (!existsSync(file)) return [];
+    return rowsOf(PlaceRow, this.open(file).prepare("SELECT cwd AS dir FROM participants UNION SELECT root_cwd AS dir FROM teams").all()).map((row) => row.dir);
   }
 
   teammates(file: string, teamId: string): Record<string, string> {
