@@ -1,15 +1,29 @@
 import { build } from "esbuild";
-import { readFileSync, realpathSync } from "node:fs";
-import { isBuiltin } from "node:module";
+import { execFileSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { createRequire, isBuiltin } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 const CLIENT_SDK = ["@getpaseo/plugin/client", "@getpaseo/plugin/client/ui", "@getpaseo/plugin/client/react-native"];
 const SERVER_SDK = ["@getpaseo/plugin/server", "@getpaseo/plugin/server/provider", "@getpaseo/plugin/server/usage", "@getpaseo/plugin/server/acp"];
 const SDK = ["@getpaseo/plugin", ...SERVER_SDK, ...CLIENT_SDK];
 const CLIENT_ONLY = /^((?:@types\/)?react(?:-dom|-native)?|use-sync-external-store|@tanstack\/react-query)(\/|$)/;
-const IMPORTS = /\b(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\s+from\s+)?["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
+const IMPORTS = /\b(?:import|export)\s+(type\s+)?(?:[^'";]*?\s+from\s+)?["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
+const HOST = /^(zod|react|react-native|@tanstack\/react-query)(\/|$)/;
 
-const root = realpathSync.native(process.cwd());
+function trackedCopy(source) {
+  const copy = realpathSync.native(mkdtempSync(path.join(tmpdir(), "pigmonitor-bundle-")));
+  const files = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: source }).toString("utf8").split("\0").filter(Boolean);
+  for (const file of files) {
+    if (!existsSync(path.join(source, file))) continue;
+    mkdirSync(path.dirname(path.join(copy, file)), { recursive: true });
+    copyFileSync(path.join(source, file), path.join(copy, file));
+  }
+  return copy;
+}
+
+const root = trackedCopy(realpathSync.native(process.cwd()));
 
 function placeOf(file) {
   const relative = path.relative(root, file);
@@ -20,6 +34,16 @@ function placeOf(file) {
   if (/^index\.client\.tsx?$/.test(relative)) return "client";
   if (/^index\.server\.tsx?$/.test(relative)) return "server";
   return "invalid";
+}
+
+function installError(specifier, importer, typeOnly) {
+  if (specifier.startsWith(".") || path.isAbsolute(specifier) || SDK.includes(specifier) || HOST.test(specifier) || isBuiltin(specifier) || specifier === "@types/node") return null;
+  try {
+    createRequire(importer).resolve(specifier);
+    return null;
+  } catch {
+    return typeOnly ? `Could not resolve type dependency "${specifier}" imported by ${importer}` : `Could not resolve "${specifier}" imported by ${importer}`;
+  }
 }
 
 function specifierError(specifier, owner) {
@@ -53,7 +77,8 @@ function boundary(target) {
       context.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, (args) => {
         if (placeOf(args.path) === null) return null;
         for (const match of readFileSync(args.path, "utf8").matchAll(IMPORTS)) {
-          const error = check(match[1] ?? match[2], args.path);
+          const specifier = match[2] ?? match[3];
+          const error = check(specifier, args.path) ?? installError(specifier, args.path, Boolean(match[1]));
           if (error) return { errors: [{ text: error }] };
         }
         return null;
@@ -86,9 +111,10 @@ function bundle(entry, target) {
 }
 
 const results = await Promise.allSettled([bundle("index.client.tsx", "client"), bundle("index.server.ts", "server")]);
+rmSync(root, { recursive: true, force: true });
 const failures = results.flatMap((result) => (result.status === "rejected" ? (result.reason.errors?.map((error) => `${error.location ? `${error.location.file}:${error.location.line}: ` : ""}${error.text}`) ?? [String(result.reason)]) : []));
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log("client and server bundles build as Paseo's plugin loader builds them");
+console.log("client and server bundles build from the tracked files alone, as Paseo's plugin loader builds them");
