@@ -10,6 +10,7 @@ import type { TurnPresentation } from "../shared/timeline.ts";
 import { StreamView, type ViewportHandle } from "./stream.tsx";
 import { clockText } from "../shared/view.ts";
 import { Markdown } from "./kit/markdown.tsx";
+import { MESSAGE_TEXT } from "./message.tsx";
 import { AVATAR, AVATAR_SM, paint, Panel, Pill, Quiet, RoleAvatar, tint } from "./kit/chat.tsx";
 import { Notice } from "./kit/notice.tsx";
 import { SPACING, text } from "./kit/theme.ts";
@@ -72,7 +73,9 @@ export function MailIn({ theme, item, role, now }: { theme: PluginTheme; item: I
         now={now}
       />
       <Panel theme={theme} tone={colour}>
-        <Markdown theme={theme} source={item.text} style={{ ...text(theme, "rowTitle"), lineHeight: BODY_LINE }} />
+        <View {...MESSAGE_TEXT}>
+          <Markdown theme={theme} source={item.text} style={{ ...text(theme, "rowTitle"), lineHeight: BODY_LINE }} />
+        </View>
       </Panel>
     </Message>
   );

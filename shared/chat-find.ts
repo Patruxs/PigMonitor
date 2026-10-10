@@ -2,8 +2,39 @@ import type { StreamItem } from "./stream.ts";
 
 export interface AgentTimelineSearchPayload {
   epoch: string;
-  locations: { seq: number; role: "user" | "assistant"; count?: number }[];
+  locations: { seq: number; role: "user" | "assistant"; count?: number; id?: string }[];
   nextCursor: number | null;
+}
+
+export const LOADED_HISTORY_EPOCH = "loaded";
+
+export function findPattern(query: string): RegExp {
+  const source = query
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("\\s+");
+  return new RegExp(source, "giu");
+}
+
+function searchableText(item: StreamItem): { role: "user" | "assistant"; text: string } | null {
+  if (item.kind === "user_message") return { role: "user", text: item.text };
+  if (item.kind === "assistant_message") return { role: "assistant", text: item.text };
+  if (item.kind === "piggery" && item.source.kind === "mail") return { role: "user", text: item.source.text };
+  return null;
+}
+
+export function searchLoadedItems(items: readonly StreamItem[], query: string): AgentTimelineSearchPayload {
+  const locations: AgentTimelineSearchPayload["locations"] = [];
+  if (!query.trim()) return { epoch: LOADED_HISTORY_EPOCH, locations, nextCursor: null };
+  const pattern = findPattern(query);
+  items.forEach((item, seq) => {
+    const searchable = searchableText(item);
+    if (!searchable) return;
+    const count = Array.from(searchable.text.replace(/\r/g, "").matchAll(pattern)).length;
+    if (count) locations.push({ seq, role: searchable.role, count, id: item.id });
+  });
+  return { epoch: LOADED_HISTORY_EPOCH, locations, nextCursor: null };
 }
 
 type Location = Omit<AgentTimelineSearchPayload["locations"][number], "count"> & {
@@ -110,6 +141,7 @@ export function createChatFindModel(operations: ChatFindOperations): ChatFindMod
     });
   };
   const target = (location: Location, exact: boolean): Target | null => {
+    if (location.id !== undefined) return items.some((item) => item.id === location.id) ? { id: location.id, seq: location.seq, before: location.seq } : null;
     let before = 0;
     for (const item of items) {
       if (item.timelineCursor?.epoch !== resultEpoch) continue;
@@ -216,6 +248,7 @@ export function createChatFindModel(operations: ChatFindOperations): ChatFindMod
             seq: location.seq,
             role: location.role,
             count: location.count ?? 1,
+            ...(location.id !== undefined ? { id: location.id } : {}),
           })),
         );
         cursor = result.nextCursor ?? undefined;

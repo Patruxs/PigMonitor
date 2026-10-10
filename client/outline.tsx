@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { Platform, Pressable, Text, View, type LayoutChangeEvent } from "react-native";
 import { timelinePrompts } from "../shared/rpc.ts";
 import type { StreamItem } from "../shared/stream.ts";
+import { getStreamItemMessageId } from "../shared/stream-presentation.ts";
+import type { AgentHistory } from "./chat-find.tsx";
 import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
 import type { ViewportHandle } from "./stream.tsx";
 
@@ -72,9 +74,16 @@ export interface ChatOutline {
   activePrompt: ActivePromptSource;
   jumpToPrompt: (seq: number) => void;
   reportReadingPosition: (seq: number | null) => void;
+  seqOf: (item: StreamItem) => number | null;
 }
 
-export function useChatOutline({ agentId, epoch, items, enabled, viewportRef, visibleMessageIds, revealLoadedMessage, fetchPromptWindow }: { agentId: string; epoch: string | null; items: StreamItem[]; enabled: boolean; viewportRef: { current: ViewportHandle | null }; visibleMessageIds: ReadonlySet<string>; revealLoadedMessage: (messageId: string) => boolean; fetchPromptWindow: (seq: number) => Promise<void> }): ChatOutline {
+function loadedPromptPreview(item: StreamItem): string | null {
+  if (item.kind === "user_message") return item.text;
+  if (item.kind === "piggery" && item.prompt && (item.source.kind === "mail" || item.source.kind === "wake")) return item.source.from ? `${item.source.from}: ${item.source.text}` : item.source.text;
+  return null;
+}
+
+export function useChatOutline({ streamKey, agent, items, viewportRef, visibleMessageIds, revealLoadedMessage }: { streamKey: string; agent: AgentHistory | null; items: StreamItem[]; viewportRef: { current: ViewportHandle | null }; visibleMessageIds: ReadonlySet<string>; revealLoadedMessage: (messageId: string) => boolean }): ChatOutline {
   const call = useRpc(timelinePrompts);
   const [index, setIndex] = useState<{ epoch: string; prompts: OutlinePrompt[] } | null>(null);
   const [pendingJump, setPendingJump] = useState<{ requestId: number; seq: number; fetchSettled: boolean; hasScrolled: boolean } | null>(null);
@@ -82,11 +91,28 @@ export function useChatOutline({ agentId, epoch, items, enabled, viewportRef, vi
   const readingSeq = useRef<number | null>(null);
   const nextJump = useRef(0);
   const nextIndex = useRef(0);
-  const prompts = enabled ? (index?.prompts ?? []) : [];
+  const agentRef = useRef(agent);
+  agentRef.current = agent;
+  const agentId = agent?.agentId ?? null;
+  const epoch = agent?.epoch ?? null;
+  const loaded = agentId === null;
+  const positions = useMemo(() => (loaded ? new Map(items.map((item, seq) => [item.id, seq])) : null), [loaded, items]);
+  const seqOf = useCallback((item: StreamItem) => (positions ? (positions.get(getStreamItemMessageId(item)) ?? null) : (item.timelineCursor?.seq ?? null)), [positions]);
+  const loadedPrompts = useMemo(
+    () =>
+      loaded
+        ? items.flatMap((item, seq) => {
+            const preview = loadedPromptPreview(item);
+            return preview === null ? [] : [{ seq, timestamp: item.timestamp.toISOString(), preview }];
+          })
+        : [],
+    [loaded, items],
+  );
+  const prompts = loaded ? loadedPrompts : (index?.prompts ?? []);
   const latestPromptSeq = items.reduce((latest, item) => (item.kind === "user_message" && item.timelineCursor?.epoch === epoch ? Math.max(latest, item.timelineCursor.seq) : latest), -1);
-  useEffect(() => setIndex(null), [agentId, enabled, epoch]);
+  useEffect(() => setIndex(null), [agentId, epoch]);
   useEffect(() => {
-    if (Platform.OS !== "web" || !enabled || epoch === null) {
+    if (Platform.OS !== "web" || agentId === null || epoch === null) {
       setIndex(null);
       return;
     }
@@ -101,7 +127,7 @@ export function useChatOutline({ agentId, epoch, items, enabled, viewportRef, vi
     return () => {
       active = false;
     };
-  }, [agentId, enabled, epoch, latestPromptSeq]);
+  }, [agentId, epoch, latestPromptSeq]);
   const publish = useCallback(() => activePrompt.publish(resolveActivePromptSeq(prompts, readingSeq.current)), [activePrompt, prompts]);
   const reportReadingPosition = useCallback(
     (seq: number | null) => {
@@ -115,11 +141,11 @@ export function useChatOutline({ agentId, epoch, items, enabled, viewportRef, vi
     setPendingJump(null);
     readingSeq.current = null;
     activePrompt.publish(null);
-  }, [activePrompt, agentId, epoch]);
+  }, [activePrompt, streamKey, agentId, epoch]);
   useEffect(() => publish(), [publish]);
   useEffect(() => {
     if (pendingJump === null) return;
-    const target = items.find((item) => item.timelineCursor?.seq === pendingJump.seq);
+    const target = items.find((item) => seqOf(item) === pendingJump.seq);
     if (target) {
       if (pendingJump.hasScrolled) return;
       if (!visibleMessageIds.has(target.id)) {
@@ -131,30 +157,32 @@ export function useChatOutline({ agentId, epoch, items, enabled, viewportRef, vi
       return;
     }
     if (pendingJump.fetchSettled) setPendingJump(null);
-  }, [items, pendingJump, revealLoadedMessage, viewportRef, visibleMessageIds]);
+  }, [items, pendingJump, revealLoadedMessage, seqOf, viewportRef, visibleMessageIds]);
   const jumpToPrompt = useCallback(
     (seq: number) => {
       nextJump.current += 1;
       setPendingJump(null);
-      const loaded = items.find((item) => item.timelineCursor?.seq === seq);
-      if (loaded) {
-        if (revealLoadedMessage(loaded.id)) {
+      const target = items.find((item) => seqOf(item) === seq);
+      if (target) {
+        if (revealLoadedMessage(target.id)) {
           setPendingJump({ requestId: nextJump.current, seq, fetchSettled: true, hasScrolled: false });
           return;
         }
-        viewportRef.current?.scrollToMessage(loaded.id);
+        viewportRef.current?.scrollToMessage(target.id);
         return;
       }
-      if (!index) return;
+      const source = agentRef.current;
+      if (!index || !source) return;
       const requestId = nextJump.current;
       setPendingJump({ requestId, seq, fetchSettled: false, hasScrolled: false });
-      void fetchPromptWindow(seq)
+      void source
+        .fetchPromptWindow(seq)
         .catch(() => undefined)
         .finally(() => setPendingJump((current) => (current?.requestId !== requestId ? current : { ...current, fetchSettled: true })));
     },
-    [items, index, revealLoadedMessage, viewportRef, fetchPromptWindow],
+    [items, index, revealLoadedMessage, seqOf, viewportRef],
   );
-  return { prompts, activePrompt, jumpToPrompt, reportReadingPosition };
+  return { prompts, activePrompt, jumpToPrompt, reportReadingPosition, seqOf };
 }
 
 function createHoverIntent(activate: (index: number | null) => void) {

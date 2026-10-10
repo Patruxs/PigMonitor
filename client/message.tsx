@@ -261,7 +261,7 @@ function capForRender(message: string): { text: string; capped: boolean } {
   return { text: message.slice(0, end), capped: true };
 }
 
-const MESSAGE_TEXT = { dataSet: { messageText: "true" } } as object;
+export const MESSAGE_TEXT = { dataSet: { messageText: "true" } } as object;
 
 export function AssistantMessage({ theme, text, phase, spacing = "default", renderFullContent = false }: { theme: PluginTheme; text: string; phase: "streaming" | "complete"; spacing?: AssistantSpacing; renderFullContent?: boolean }) {
   const rendered = useMemo(() => (renderFullContent ? { text, capped: false } : capForRender(text)), [text, renderFullContent]);

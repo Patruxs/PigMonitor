@@ -3,7 +3,7 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Platform, Pressable, Text, TextInput, View, type TextStyle } from "react-native";
-import { createChatFindModel, type ChatFindFailure, type ChatFindOperations } from "../shared/chat-find.ts";
+import { createChatFindModel, findPattern, searchLoadedItems, type ChatFindFailure, type ChatFindOperations } from "../shared/chat-find.ts";
 import { timelineSearch } from "../shared/rpc.ts";
 import type { StreamItem } from "../shared/stream.ts";
 import { TIMELINE_FETCH_PAGE_SIZE } from "../shared/timeline.ts";
@@ -57,11 +57,7 @@ function findRenderedMatches(row: HTMLElement, query: string): Range[] {
       groups.set(block, texts);
     }
   }
-  const pattern = query
-    .trim()
-    .split(/\s+/)
-    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("\\s+");
+  const pattern = findPattern(query);
   const ranges: Range[] = [];
   for (const texts of groups.values()) {
     const points = texts.map((node) => ({ node, start: 0, end: 0 }));
@@ -71,7 +67,7 @@ function findRenderedMatches(row: HTMLElement, query: string): Range[] {
       text += point.node.data;
       point.end = text.length;
     }
-    for (const match of text.matchAll(new RegExp(pattern, "giu"))) {
+    for (const match of text.matchAll(pattern)) {
       const start = points.find((point) => point.start <= match.index && point.end > match.index);
       const endOffset = match.index + match[0].length;
       const end = points.find((point) => point.start < endOffset && point.end >= endOffset);
@@ -246,7 +242,13 @@ function FindWidget({ theme, query, status, canNavigate, inputRef, onQueryChange
   );
 }
 
-export function ChatFind({ theme, agentId, epoch, items, viewportRef, revealLoadedMessage, visibleMessageIds, enabled, fetchWindow, children }: { theme: PluginTheme; agentId: string; epoch: string | null; items: StreamItem[]; viewportRef: { current: ViewportHandle | null }; revealLoadedMessage: (messageId: string) => boolean; visibleMessageIds: ReadonlySet<string>; enabled: boolean; fetchWindow: (seq: number) => Promise<void>; children: ReactNode }) {
+export interface AgentHistory {
+  agentId: string;
+  epoch: string | null;
+  fetchPromptWindow: (seq: number) => Promise<void>;
+}
+
+export function ChatFind({ theme, agent, items, viewportRef, revealLoadedMessage, visibleMessageIds, children }: { theme: PluginTheme; agent: AgentHistory | null; items: StreamItem[]; viewportRef: { current: ViewportHandle | null }; revealLoadedMessage: (messageId: string) => boolean; visibleMessageIds: ReadonlySet<string>; children: ReactNode }) {
   const call = useRpc(timelineSearch);
   const input = useRef<TextInput | null>(null);
   const root = useRef<HTMLDivElement | null>(null);
@@ -255,8 +257,10 @@ export function ChatFind({ theme, agentId, epoch, items, viewportRef, revealLoad
   const [highlightName] = useState(() => `pigmonitor-chat-find-${++nextHighlightId}`);
   const callRef = useRef(call);
   callRef.current = call;
-  const loadRef = useRef(fetchWindow);
-  loadRef.current = fetchWindow;
+  const agentRef = useRef(agent);
+  agentRef.current = agent;
+  const agentId = agent?.agentId ?? null;
+  const epoch = agent?.epoch ?? null;
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const historyWaiters = useRef(new Set<() => void>());
@@ -280,12 +284,14 @@ export function ChatFind({ theme, agentId, epoch, items, viewportRef, revealLoad
     () =>
       createChatFindModel({
         async search(query, cursor) {
+          if (agentId === null) return searchLoadedItems(itemsRef.current, query);
           const result = await callRef.current({ agentId, query, ...(cursor !== undefined ? { cursor } : {}) });
           if (!result.ok) throw new Error(result.error);
           return result;
         },
         async load(_epoch, seq) {
-          await loadRef.current(seq);
+          if (!agentRef.current) return;
+          await agentRef.current.fetchPromptWindow(seq);
           await historyNear(seq);
         },
         ...createFindViewport(() => bindings.current, () => root.current, highlightName),
@@ -299,7 +305,7 @@ export function ChatFind({ theme, agentId, epoch, items, viewportRef, revealLoad
   }, [model, epoch, items]);
   useEffect(() => () => model.close(), [model]);
   useEffect(() => {
-    if (!isWeb || !enabled) return;
+    if (!isWeb) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || !isFindShortcut(event)) return;
       const active = document.activeElement;
@@ -311,8 +317,8 @@ export function ChatFind({ theme, agentId, epoch, items, viewportRef, revealLoad
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [enabled, model]);
-  if (!isWeb || !enabled) return <SelectedMessage.Provider value={null}>{children}</SelectedMessage.Provider>;
+  }, [model]);
+  if (!isWeb) return <SelectedMessage.Provider value={null}>{children}</SelectedMessage.Provider>;
   const close = () => {
     model.close();
     root.current?.focus({ preventScroll: true });

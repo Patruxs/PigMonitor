@@ -26,7 +26,7 @@ import { createStreamPresentation, getStreamItemMessageId } from "../shared/stre
 import type { TurnPresentation } from "../shared/timeline.ts";
 import { hostColours, MAX_CONTENT_WIDTH, SPACING } from "./kit/theme.ts";
 import { TURN_FOOTER_BOTTOM_SPACING, AssistantMessage, Notification, CompactionMarker, CompletedTurnFooter, RunningTurnFooter, SpeakMessage, ThoughtBadge, TodoListCard, ToolCall, TurnFooterRow, UserMessage, useIsCompact } from "./message.tsx";
-import { ChatFind, useChatFindSelectedMessageId } from "./chat-find.tsx";
+import { ChatFind, useChatFindSelectedMessageId, type AgentHistory } from "./chat-find.tsx";
 import { ChatOutlineRail, useChatOutline } from "./outline.tsx";
 import { PermissionRequestCard } from "./permission.tsx";
 import type { PermissionRequest, PermissionResponse } from "./timeline.ts";
@@ -85,7 +85,7 @@ export interface StreamViewProps {
   onReadingPosition?: (itemId: string | null) => void;
   viewportRef?: { current: ViewportHandle | null };
   overlay?: ReactNode;
-  outline?: { agentId: string; epoch: string | null; fetchPromptWindow: (seq: number) => Promise<void> };
+  outline?: AgentHistory;
   composerTracks?: boolean;
 }
 
@@ -782,12 +782,14 @@ export function StreamView({ theme, streamKey, tail, head, turn, cwd, permission
   const layout = useMemo(() => layoutStream({ isTurnActive: turn.isActive, history: renderedTail, liveHead: presentation.head, timing: timing.byAssistantId }), [turn.isActive, renderedTail, presentation.head, timing]);
   const visibleMessageIds = useMemo(() => new Set([...renderedTail, ...presentation.head].map(getStreamItemMessageId)), [renderedTail, presentation.head]);
   const loadedItems = useMemo(() => [...tail, ...head], [tail, head]);
-  const outline = useChatOutline({ agentId: outlineSource?.agentId ?? streamKey, epoch: outlineSource?.epoch ?? null, items: loadedItems, enabled: outlineSource !== undefined, viewportRef, visibleMessageIds, revealLoadedMessage: windowed.reveal, fetchPromptWindow: outlineSource?.fetchPromptWindow ?? (async () => undefined) });
+  const agentHistory = outlineSource ?? null;
+  const outline = useChatOutline({ streamKey, agent: agentHistory, items: loadedItems, viewportRef, visibleMessageIds, revealLoadedMessage: windowed.reveal });
   const rowsById = useMemo(() => new Map([...layout.history, ...layout.liveHead].map((row) => [row.item.id, row.item])), [layout]);
   const reportReading = useCallback(
     (rowId: string | null) => {
       onReadingPosition?.(rowId);
-      outline.reportReadingPosition(rowId === null ? null : (rowsById.get(rowId)?.timelineCursor?.seq ?? null));
+      const row = rowId === null ? undefined : rowsById.get(rowId);
+      outline.reportReadingPosition(row ? outline.seqOf(row) : null);
     },
     [onReadingPosition, outline, rowsById],
   );
@@ -845,7 +847,7 @@ export function StreamView({ theme, streamKey, tail, head, turn, cwd, permission
   };
   return (
     <View style={{ flex: 1, minHeight: 0, backgroundColor: theme.colors.surface0 }}>
-      <ChatFind theme={theme} agentId={outlineSource?.agentId ?? streamKey} epoch={outlineSource?.epoch ?? null} items={loadedItems} viewportRef={viewportRef} revealLoadedMessage={windowed.reveal} visibleMessageIds={visibleMessageIds} enabled={outlineSource !== undefined} fetchWindow={outlineSource?.fetchPromptWindow ?? (async () => undefined)}>
+      <ChatFind theme={theme} agent={agentHistory} items={loadedItems} viewportRef={viewportRef} revealLoadedMessage={windowed.reveal} visibleMessageIds={visibleMessageIds}>
         {isWeb ? <WebViewport {...viewportProps} /> : <NativeViewport {...viewportProps} />}
       </ChatFind>
       <ChatOutlineRail theme={theme} outline={outline} />
