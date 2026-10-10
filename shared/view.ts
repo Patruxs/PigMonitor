@@ -235,3 +235,9 @@ export function briefAgo(ms: number, now: number): string {
   if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
 }
+
+export const URGENCY: Record<Status, number> = { waiting: 0, working: 1, idle: 2, gone: 3 };
+
+export function taskWords(title: string): string {
+  return title.replace(/^#\d+\s*/, "").trim();
+}

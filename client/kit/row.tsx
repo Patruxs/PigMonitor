@@ -8,7 +8,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import type { ReactNode } from "react";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
-import type { Row } from "../../shared/view.ts";
+import { taskWords, type Row } from "../../shared/view.ts";
 import { statusColour } from "./badge.tsx";
 import { Pill, RoleAvatar, StatusPill, paint, tint } from "./chat.tsx";
 import { PressRow } from "./press.tsx";
@@ -73,11 +73,6 @@ export function AgentRow({ theme, row, left, slot, columns, noState, onPress }: 
       <View style={{ width: slot }} />
     </PressRow>
   );
-}
-
-/** A task's title as mail titles it, without its leading #N: what the card says the agent is doing. */
-export function taskWords(title: string): string {
-  return title.replace(/^#\d+\s*/, "").trim();
 }
 
 /**

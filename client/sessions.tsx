@@ -7,13 +7,13 @@ import { basenameOf } from "../shared/events.ts";
 import type { MailMessage } from "../shared/mail.ts";
 import { mail, person, sendMail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { latestFrom, type Me } from "../shared/thread.ts";
-import { briefAgo, type Dir, type Row, type Status, type View as PigView } from "../shared/view.ts";
+import { briefAgo, type Dir, type Status, type View as PigView } from "../shared/view.ts";
+import { conversationsOf, matches, mostPressing, passes, projectsOf, SOLO_KEY, type Conversation, type Filter, type Group, type Project } from "../shared/conversations.ts";
 import { Chip, statusColour } from "./kit/badge.tsx";
 import { AVATAR, AvatarStack, Pill, RoleAvatar, STATUS_WORD, StatusDot, StatusPill, StatusWord, paint, tint } from "./kit/chat.tsx";
 import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
 import { Notice } from "./kit/notice.tsx";
 import { PressRow } from "./kit/press.tsx";
-import { taskWords } from "./kit/row.tsx";
 import { TreeGuides, treeIndent, treeSpotsOf, type TreeSpot } from "./kit/tree.tsx";
 import { AVATAR_LG, ICON_SIZE, LIST_MIN_WIDTH, LIST_WIDTH, RADIUS, ROW_CHAT, SPACING, CHAT_SPLIT_MIN, text, ROW_MIN } from "./kit/theme.ts";
 import { BUSY_MS, QUIET_MS, usePoll } from "./poll.ts";
@@ -36,37 +36,6 @@ import { useProjectActions, type ProjectActions } from "./project.tsx";
 import { NotifyHint } from "./notify.tsx";
 import { KillDialog, ModelDialog, ReleaseDialog, ResumeDialog, StepInNotice, stepInItems, useHeld, useStepIn, type StepInDialog } from "./step-in.tsx";
 
-export interface Conversation {
-  row: Row;
-  teamKey: string;
-  teamName: string | undefined;
-  template: string | undefined;
-  /** The project directory piggery lists it under: its path and its label as piggery prints it. */
-  dir: { path: string; label: string };
-  preview: string;
-  at: number | undefined;
-}
-
-/** A team, or the solos, within one project. */
-export interface Group {
-  key: string;
-  label: string;
-  icon: string;
-  items: Conversation[];
-}
-
-/** One project directory and the groups in it. */
-export interface Project {
-  path: string;
-  name: string;
-  label: string;
-  groups: Group[];
-}
-
-export type Filter = "all" | "live" | "waiting" | "gone";
-
-const STATUS_ORDER: Record<Status, number> = { waiting: 0, working: 1, idle: 2, gone: 3 };
-const SOLO_KEY = "";
 const BAR = 3;
 const RING_GAP = 3;
 const PARENT_REACH = (ROW_CHAT - AVATAR_LG) / 2 + 3;
@@ -76,79 +45,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "waiting", label: "Needs you" },
   { id: "gone", label: "Ended" },
 ];
-
-function previewOf(view: PigView, row: Row): string {
-  const task = view.details[row.id]?.task?.title;
-  if (task) return taskWords(task);
-  return `${row.harness ?? "agent"} session`;
-}
-
-export function conversationsOf(view: PigView, dirs: Dir[]): Conversation[] {
-  const teamName = (id: string | undefined) => view.tabs.find((t) => t.key === id)?.label;
-  const out: Conversation[] = [];
-  for (const d of dirs) {
-    for (const b of d.blocks) {
-      for (const r of b.rows) {
-        if (r.kind !== "member" && r.kind !== "solo") continue;
-        out.push({ row: r, teamKey: r.team ?? SOLO_KEY, teamName: teamName(r.team), template: b.head?.template, dir: { path: d.path, label: d.label }, preview: previewOf(view, r), at: r.last_turn_end ?? r.state_since ?? r.created_at });
-      }
-    }
-  }
-  return out;
-}
-
-const byUrgency = (a: Conversation, b: Conversation) => STATUS_ORDER[a.row.status] - STATUS_ORDER[b.row.status] || (b.at ?? 0) - (a.at ?? 0);
-
-function mostPressing(items: Conversation[]): Conversation | undefined {
-  return [...items].sort(byUrgency)[0];
-}
-
-export function matches(c: Conversation, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  return [c.row.name, c.row.role, c.teamName, c.preview, c.row.harness].some((s) => s?.toLowerCase().includes(q));
-}
-
-export function passes(c: Conversation, filter: Filter): boolean {
-  switch (filter) {
-    case "all":
-      return true;
-    case "live":
-      return c.row.status !== "gone";
-    case "waiting":
-      return c.row.status === "waiting";
-    case "gone":
-      return c.row.status === "gone";
-  }
-}
-
-const weightOf = (items: Conversation[]) => Math.min(...items.map((c) => STATUS_ORDER[c.row.status]));
-const latestOf = (items: Conversation[]) => Math.max(...items.map((c) => c.at ?? 0));
-
-export function groupsOf(items: Conversation[]): Group[] {
-  const byKey = new Map<string, Group>();
-  for (const c of items) {
-    const existing = byKey.get(c.teamKey);
-    if (existing) existing.items.push(c);
-    else byKey.set(c.teamKey, { key: c.teamKey, label: c.teamKey === SOLO_KEY ? "Solo sessions" : (c.teamName ?? "Team"), icon: c.teamKey === SOLO_KEY ? "User" : "Users", items: [c] });
-  }
-  const solos = byKey.get(SOLO_KEY);
-  if (solos) solos.items.sort(byUrgency);
-  return [...byKey.values()].sort((a, b) => weightOf(a.items) - weightOf(b.items) || latestOf(b.items) - latestOf(a.items));
-}
-
-/** The conversations by project directory, the most pressing project first, each with its teams and solos. */
-export function projectsOf(items: Conversation[]): Project[] {
-  const byPath = new Map<string, Conversation[]>();
-  for (const c of items) {
-    const list = byPath.get(c.dir.path);
-    if (list) list.push(c);
-    else byPath.set(c.dir.path, [c]);
-  }
-  return [...byPath.entries()]
-    .sort(([, a], [, b]) => weightOf(a) - weightOf(b) || latestOf(b) - latestOf(a))
-    .map(([path, list]) => ({ path, name: basenameOf(path), label: list[0].dir.label, groups: groupsOf(list) }));
-}
 
 function hoveredOf(state: PressableStateCallbackType): boolean {
   return (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;
@@ -839,3 +735,5 @@ export function SessionsPane({ theme, view, dirs, width, selected, opened, now, 
     </View>
   );
 }
+
+export { conversationsOf };
