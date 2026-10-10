@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { Pressable, Text, View } from "react-native";
 import { createQueueDrainer, splitAttachmentsForSubmit, type QueuedComposerMessage, type QueueWriter } from "../shared/composer.ts";
 import { agentStatusFeed, type PaseoApi } from "./agent-live.ts";
-import { sendToAgent } from "./chat-send.ts";
+import { mountedTimeline, submitToAgent } from "./chat-send.ts";
 import { ICON_SIZE, SPACING } from "./kit/theme.ts";
 
 const QUEUE_BUTTON = 32;
@@ -43,7 +43,7 @@ export function drainWhenIdle(paseo: PaseoApi, agentId: string): void {
     agentStatusFeed(paseo, agentId),
     async (message) => {
       const wire = splitAttachmentsForSubmit(message.attachments);
-      const failed = await sendToAgent(paseo, agentId, message.text, wire.images, wire.attachments, message.id);
+      const failed = await submitToAgent({ paseo, agentId, timeline: mountedTimeline(agentId), body: message.text, images: wire.images, attachments: wire.attachments, clientMessageId: message.id });
       if (failed) throw new Error(failed);
     },
   );

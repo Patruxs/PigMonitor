@@ -11,7 +11,7 @@ import { mail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { replyTarget, type Me } from "../shared/mail.ts";
 import { FileDropZone } from "./attachments-drop.tsx";
 import { ChatHead } from "./chat-head.tsx";
-import { submitToAgent, useSendMailTo } from "./chat-send.ts";
+import { submitToAgent, useMountedTimeline, useSendMailTo } from "./chat-send.ts";
 import { ChatPaneScope } from "./chat-pane-scope.tsx";
 import { Composer, canAttach } from "./composer.tsx";
 import { SessionContextMeter } from "./context-meter.tsx";
@@ -117,6 +117,7 @@ function OpenStream({ theme, id, timeline, cwd, draftKey, viewportRef }: { theme
 
 function OpenChat({ agentId, children }: { agentId: string; children: (timeline: AgentTimeline) => ReactNode }) {
   const timeline = useAgentTimeline(agentId);
+  useMountedTimeline(timeline);
   return <>{children(timeline)}</>;
 }
 
