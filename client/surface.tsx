@@ -273,15 +273,15 @@ const NOW_PILL_HALF = 20;
 function Axis({ theme, scale, tick }: { theme: PluginTheme; scale: Scale; tick: number }) {
   const [labelWidths, setLabelWidths] = useState<Record<string, number>>({});
   const ticks = ticksOf(scale, tick, 0).map((t) => ({ t, step: Math.round(t / tick), x: xOf(scale, t), label: clockText(t, scale.now) }));
-  const measured = ticks.flatMap((m) => (labelWidths[m.label] === undefined ? [] : [{ step: m.step, x: m.x, width: labelWidths[m.label] }]));
+  const measured = ticks.flatMap((m) => (labelWidths[m.label] === undefined ? [] : [{ step: m.step, x: m.x - labelWidths[m.label] / 2, width: labelWidths[m.label] }]));
   const kept = new Set(keptAxisSteps(measured, scale.width - NOW_PILL_HALF - LABEL_GAP, LABEL_GAP));
   const measure = (label: string, width: number) => setLabelWidths((widths) => (widths[label] === width ? widths : { ...widths, [label]: width }));
   return (
     <View style={{ height: AXIS_H, position: "relative" }}>
       {ticks.map((m) => (
-        <View key={m.t} style={{ position: "absolute", left: m.x, top: 0, bottom: 0, width: LABEL_BOX_W, alignItems: "flex-start", justifyContent: "flex-end" }}>
+        <View key={m.t} style={{ position: "absolute", left: m.x - LABEL_BOX_W / 2, top: 0, bottom: 0, width: LABEL_BOX_W, alignItems: "center", justifyContent: "flex-end" }}>
           <Text onLayout={(e) => measure(m.label, e.nativeEvent.layout.width)} numberOfLines={1} aria-hidden={!kept.has(m.step)} style={[text(theme, "label"), { color: theme.colors.foreground, fontVariant: ["tabular-nums"], marginBottom: SPACING[2], opacity: kept.has(m.step) ? 1 : 0 }]}>{m.label}</Text>
-          <View style={{ position: "absolute", left: 0, bottom: 0, width: 2, height: SPACING[2], borderRadius: 1, backgroundColor: theme.colors.accent, opacity: kept.has(m.step) ? 0.8 : 0.4 }} />
+          <View style={{ position: "absolute", left: LABEL_BOX_W / 2 - 1, bottom: 0, width: 2, height: SPACING[2], borderRadius: 1, backgroundColor: theme.colors.accent, opacity: kept.has(m.step) ? 0.8 : 0.4 }} />
         </View>
       ))}
       <View style={{ position: "absolute", left: scale.width, top: 0, bottom: 0, alignItems: "center", width: 0 }}>

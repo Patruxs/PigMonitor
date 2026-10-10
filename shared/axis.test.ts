@@ -24,3 +24,7 @@ test("the kept labels stay on the same ticks as the window slides", () => {
 test("a label that would run past the end is dropped instead of clipped", () => {
   assert.deepEqual(keptAxisSteps(ticks([36, 36, 36], 64), 150, 8), [0, 1]);
 });
+
+test("a label that would run past the start is dropped instead of clipped", () => {
+  assert.deepEqual(keptAxisSteps(ticks([36, 36, 36], 64).map((label) => ({ ...label, x: label.x - 18 })), 1000, 8), [1, 2]);
+});

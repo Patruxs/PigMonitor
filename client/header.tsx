@@ -1,7 +1,9 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
+import { useState } from "react";
 import { Text, View } from "react-native";
 import { headlineOf, readAgo } from "../shared/events.ts";
+import { tileWidth } from "../shared/tiles.ts";
 import type { Daemon, Summary } from "../shared/view.ts";
 import { tint } from "./kit/chat.tsx";
 import { DOT, RADIUS, SPACING, text } from "./kit/theme.ts";
@@ -22,13 +24,14 @@ const STATS: { key: StatKey; label: string; colour: Colour | `#${string}`; icon?
 
 const HEADLINE_COLOUR: Record<"warning" | "success" | "muted", Colour> = { warning: "statusWarning", success: "foreground", muted: "foregroundMuted" };
 
-const TILE_MIN = 104;
+const TILE_MIN = 88;
+const TILE_MAX = 220;
 
-function StatTile({ theme, n, label, colour, icon }: { theme: PluginTheme; n: number; label: string; colour: Colour | `#${string}`; icon?: string }) {
+function StatTile({ theme, n, label, colour, icon, width }: { theme: PluginTheme; n: number; label: string; colour: Colour | `#${string}`; icon?: string; width: number | undefined }) {
   const c = colour.startsWith("#") ? colour : theme.colors[colour as Colour];
   const lit = n > 0;
   return (
-    <View accessibilityLabel={`${n} ${label}`} style={{ minWidth: TILE_MIN, paddingHorizontal: SPACING[3], paddingVertical: SPACING[2], borderRadius: RADIUS.lg, borderWidth: 1, borderColor: lit ? tint(c, "55") : theme.colors.border, backgroundColor: lit ? tint(c, "14") : theme.colors.surface1, gap: SPACING[0.5] }}>
+    <View accessibilityLabel={`${n} ${label}`} style={{ width, minWidth: width === undefined ? TILE_MIN : undefined, paddingHorizontal: SPACING[3], paddingVertical: SPACING[2], borderRadius: RADIUS.lg, borderWidth: 1, borderColor: lit ? tint(c, "55") : theme.colors.border, backgroundColor: lit ? tint(c, "14") : theme.colors.surface1, gap: SPACING[0.5] }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5] }}>
         {icon ? <Icon name={icon} size={13} color={lit ? c : theme.colors.foregroundMuted} /> : <View style={{ width: DOT, height: DOT, borderRadius: DOT, backgroundColor: lit ? c : tint(theme.colors.foregroundMuted, "88") }} />}
         <Text style={[text(theme, "stat"), { color: lit ? c : theme.colors.foreground, fontSize: 22, lineHeight: 26, fontWeight: "600", fontVariant: ["tabular-nums"] }]}>{n}</Text>
@@ -41,8 +44,10 @@ function StatTile({ theme, n, label, colour, icon }: { theme: PluginTheme; n: nu
 }
 
 export function Header({ theme, summary, daemon, at, now }: { theme: PluginTheme; summary: Summary; daemon: Daemon | undefined; at: number | null; now: number }) {
+  const [rowW, setRowW] = useState(0);
   const count = (key: StatKey) => summary[key] ?? 0;
   const stats = STATS.filter((s) => s.always || count(s.key) > 0);
+  const tileW = rowW > 0 ? tileWidth(rowW, stats.length, TILE_MIN, TILE_MAX, SPACING[2]) : undefined;
   const fresh = at !== null && now - at <= pollEvery(count("working") + count("waiting") > 0) + GRACE_MS;
   const note = daemon?.version_mismatch ? daemon.version_notes?.[0] : undefined;
   const headline = headlineOf(summary);
@@ -62,9 +67,9 @@ export function Header({ theme, summary, daemon, at, now }: { theme: PluginTheme
           </Text>
         </View>
       </View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACING[2] }}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACING[2] }} onLayout={(e) => setRowW(e.nativeEvent.layout.width)}>
         {stats.map((s) => (
-          <StatTile key={s.key} theme={theme} n={count(s.key)} label={s.label} colour={s.colour} icon={s.icon} />
+          <StatTile key={s.key} theme={theme} n={count(s.key)} label={s.label} colour={s.colour} icon={s.icon} width={tileW} />
         ))}
       </View>
       {daemon?.outdated ? <Text style={text(theme, "label", "statusWarning")}>{daemon.outdated}</Text> : null}
