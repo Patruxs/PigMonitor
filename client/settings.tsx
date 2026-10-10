@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { settings } from "../shared/rpc.ts";
 import { RADIUS, SPACING, text } from "./kit/theme.ts";
+import { NotifyHint } from "./notify.tsx";
 
 function Field({ theme, label, hint, value, placeholder, onChange }: { theme: PluginTheme; label: string; hint: string; value: string; placeholder: string; onChange: (value: string) => void }) {
   return (
@@ -52,6 +53,7 @@ export function PigMonitorSettings({ theme }: PluginSurfaceProps) {
       >
         <Text style={text(theme, "meta", changed ? "foreground" : "foregroundMuted")}>{state.saving ? "Saving…" : "Save"}</Text>
       </Pressable>
+      <NotifyHint theme={theme} />
     </View>
   );
 }

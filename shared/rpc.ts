@@ -310,7 +310,13 @@ export const transcribe = defineRpc({
   output: z.union([z.object({ ok: z.literal(true), text: z.string() }), Failure]),
 });
 
-export const RPC_NAMES = [snapshot.name, tail.name, mail.name, transcript.name, person.name, sendMail.name, sessions.name, resume.name, agentConfig.name, usageReports.name, stop.name, imageFile.name, upload.name, forgeSearch.name, timelinePrompts.name, rewind.name, timelineSearch.name, dirSuggest.name, checkoutRemote.name, dictationStatus.name, transcribe.name];
+export const notifyStatus = defineRpc({
+  name: "pigmonitor.notify-status",
+  input: z.object({}),
+  output: z.union([z.object({ ok: z.literal(true), set: z.boolean() }), Failure]),
+});
+
+export const RPC_NAMES = [snapshot.name, tail.name, mail.name, transcript.name, person.name, sendMail.name, sessions.name, resume.name, agentConfig.name, usageReports.name, stop.name, imageFile.name, upload.name, forgeSearch.name, timelinePrompts.name, rewind.name, timelineSearch.name, dirSuggest.name, checkoutRemote.name, dictationStatus.name, transcribe.name, notifyStatus.name];
 
 /** What the user folded, the tab they chose (shared/folds.ts) and the Sessions list width: kept per Paseo host, saved by the app after a change. */
 export const viewSettings = defineSettings({

@@ -30,6 +30,7 @@ import { createUserMessage, generateMessageId } from "../shared/stream.ts";
 import { ResizeHandle, clampWidth, useSavedListWidth } from "./resize.tsx";
 import { abortable, type Native } from "../shared/native.ts";
 import { useProjectActions, type ProjectActions } from "./project.tsx";
+import { NotifyHint } from "./notify.tsx";
 
 export interface Conversation {
   row: Row;
@@ -390,6 +391,11 @@ function ConversationList({ theme, items, selected, now, actions, hidden, onPick
         </ScrollView>
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: SPACING[1.5], paddingBottom: SPACING[6] }}>
+        {filter === "waiting" ? (
+          <View style={{ paddingHorizontal: SPACING[1.5], paddingBottom: SPACING[2] }}>
+            <NotifyHint theme={theme} />
+          </View>
+        ) : null}
         {shown.length === 0 ? (
           <View style={{ padding: SPACING[4], gap: SPACING[1] }}>
             <Text style={text(theme, "rowTitle")}>No session matches</Text>
