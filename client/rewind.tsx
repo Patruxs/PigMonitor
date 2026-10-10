@@ -53,7 +53,10 @@ export function RewindMenu({ theme, capabilities, agentId, messageId, rewoundTex
         return r.ok ? rewoundImageOf({ ...image, mimeType: r.mimeType }, `data:${r.mimeType};base64,${r.data}`, now) : null;
       }),
     );
-    return restored.filter((attachment): attachment is ComposerAttachment => attachment !== null);
+    const kept = restored.filter((attachment): attachment is ComposerAttachment => attachment !== null);
+    const lost = rewoundImages.length - kept.length;
+    if (lost > 0) toast.error(lost === 1 ? "One image from this prompt couldn't be put back in the composer." : `${lost} images from this prompt couldn't be put back in the composer.`);
+    return kept;
   };
   const toast = useToast();
   const [open, setOpen] = useState(false);
