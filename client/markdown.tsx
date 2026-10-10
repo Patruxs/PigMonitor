@@ -7,13 +7,16 @@ import { imagesIn, parseMarkdown, type Block, type Inline } from "../shared/mark
 import { imageFile } from "../shared/rpc.ts";
 import { RADIUS, SPACING, text } from "./kit/theme.ts";
 import { markdownTagProps } from "./find-anchors.ts";
+import { BoundedMap } from "../shared/bounded-map.ts";
+
+const PICTURE_CACHE_LIMIT = 50;
 
 const IMAGE_MAX_HEIGHT = 400;
 const MARKER_WIDTH = 20;
 
 type Picture = { uri: string; width: number; height: number };
 
-const pictures = new Map<string, Promise<Picture>>();
+const pictures = new BoundedMap<string, Promise<Picture>>(PICTURE_CACHE_LIMIT);
 
 function sizeOf(uri: string): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => Image.getSize(uri, (width, height) => resolve({ width, height }), reject));

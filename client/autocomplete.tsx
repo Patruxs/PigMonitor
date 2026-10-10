@@ -18,6 +18,10 @@ import {
 } from "../shared/autocomplete.ts";
 import { dirSuggest } from "../shared/rpc.ts";
 import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
+import { BoundedMap } from "../shared/bounded-map.ts";
+
+const COMMAND_CACHE_LIMIT = 50;
+const DIRECTORY_CACHE_LIMIT = 100;
 
 export interface AutocompleteOption {
   id: string;
@@ -49,8 +53,8 @@ const BOLT_GLYPH_PATTERN = /⚡|️/gu;
 
 type Loaded<T> = { at: number; value: T } | { at: number; error: string };
 
-const commandCache = new Map<string, Loaded<AgentSlashCommand[]>>();
-const directoryCache = new Map<string, Loaded<DirectoryEntry[]>>();
+const commandCache = new BoundedMap<string, Loaded<AgentSlashCommand[]>>(COMMAND_CACHE_LIMIT);
+const directoryCache = new BoundedMap<string, Loaded<DirectoryEntry[]>>(DIRECTORY_CACHE_LIMIT);
 
 function messageOf(error: unknown): string {
   return String((error as Error)?.message ?? error);

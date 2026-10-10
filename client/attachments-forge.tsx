@@ -9,6 +9,10 @@ import { checkoutRemote, forgeSearch, type ForgeItemData } from "../shared/rpc.t
 import { forgeNumberLabel } from "./attachments.tsx";
 import { PressRow } from "./kit/press.tsx";
 import { ICON_SIZE, RADIUS, ROW_MIN, SPACING, text } from "./kit/theme.ts";
+import { BoundedMap } from "../shared/bounded-map.ts";
+
+const FORGE_SEARCH_CACHE_LIMIT = 50;
+const REMOTE_CACHE_LIMIT = 20;
 
 const FORGE_SEARCH_STALE_MS = 30000;
 const FORGE_SEARCH_DEBOUNCE_MS = 250;
@@ -25,8 +29,8 @@ export function ForgeGlyph({ size, color }: { size: number; color: string }) {
 type ForgeSearchState = { loading: boolean; items: ForgeItemData[]; error: string | null };
 type ForgeSearchCall = (input: { cwd: string; query: string }) => Promise<{ ok: true; items: ForgeItemData[] } | { ok: false; error: string }>;
 
-const forgeSearchCache = new Map<string, { at: number; items: ForgeItemData[] }>();
-const remoteCache = new Map<string, Promise<string | null>>();
+const forgeSearchCache = new BoundedMap<string, { at: number; items: ForgeItemData[] }>(FORGE_SEARCH_CACHE_LIMIT);
+const remoteCache = new BoundedMap<string, Promise<string | null>>(REMOTE_CACHE_LIMIT);
 
 function cacheKeyOf(cwd: string, query: string): string {
   return `${cwd}\u0000${query}`;
