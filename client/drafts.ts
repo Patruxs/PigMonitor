@@ -101,7 +101,9 @@ export function clearDraft(draftKey: string, lifecycle: Exclude<DraftLifecycleSt
 }
 
 const dom = globalThis as { document?: Document; window?: Window };
-dom.document?.addEventListener("visibilitychange", () => {
-  if (dom.document?.visibilityState === "hidden") flushDrafts();
-});
-dom.window?.addEventListener("pagehide", flushDrafts);
+if (typeof dom.document?.addEventListener === "function") {
+  dom.document.addEventListener("visibilitychange", () => {
+    if (dom.document?.visibilityState === "hidden") flushDrafts();
+  });
+}
+if (typeof dom.window?.addEventListener === "function") dom.window.addEventListener("pagehide", flushDrafts);
