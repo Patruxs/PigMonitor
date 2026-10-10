@@ -90,3 +90,11 @@ test("the fork parent is found past a first line of any size, and quoted text th
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a link to an agent Paseo no longer has is dropped, and the participant is not left formerly linked", () => {
+  const linker = createLinker({ store: memoryStore(), readParent: () => null });
+  const tundra = { id: "tundra", ref: "ac2c96a6", transcript: null };
+  linker.links([{ agentId: "fe6455cd", sessionId: "ac2c96a6", archived: false }], [tundra]);
+  assert.deepEqual(linker.links([], [tundra], []).links, [{ participantId: "tundra", agentId: "fe6455cd" }]);
+  assert.deepEqual(linker.links([], [tundra], ["fe6455cd"]), { links: [], formerly: [] });
+});

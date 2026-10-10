@@ -9,6 +9,7 @@ import { useLiveAgent, type PaseoApi } from "./agent-live.ts";
 import { SPACING, text } from "./kit/theme.ts";
 import { QUIET_MS, usePoll } from "./poll.ts";
 import { messageOf } from "../shared/errors.ts";
+import { BoundedMap } from "../shared/bounded-map.ts";
 
 export type Navigation = PluginSurfaceProps["navigation"];
 
@@ -29,6 +30,38 @@ interface Routing extends PaseoListing {
 }
 
 const NO_ROUTING: Routing = { byRef: new Map(), byAgent: new Map(), sessions: [], links: new Map(), formerly: new Set() };
+
+const VERIFY_TTL_MS = 5 * 60 * 1000;
+const VERIFIED_LIMIT = 200;
+
+type ListedSession = PaseoListing["sessions"][number];
+
+const verified = new BoundedMap<string, { at: number; agent: { session: ListedSession | null; listed: ListedAgent } | null }>(VERIFIED_LIMIT);
+
+async function verifyAgents(paseo: PaseoApi, agentIds: string[]): Promise<{ sessions: ListedSession[]; listed: ListedAgent[]; missing: string[] }> {
+  const out = { sessions: [] as ListedSession[], listed: [] as ListedAgent[], missing: [] as string[] };
+  for (const agentId of agentIds) {
+    let known = verified.get(agentId);
+    if (!known || Date.now() - known.at >= VERIFY_TTL_MS) {
+      try {
+        const result = await paseo.agents.ref(agentId).refresh();
+        const agent = result?.agent;
+        const sessionId = agent?.persistence?.sessionId;
+        known = { at: Date.now(), agent: agent ? { session: sessionId && agent.provider.startsWith("claude") ? { agentId, sessionId, archived: Boolean(agent.archivedAt) } : null, listed: { agentId, busy: paseoBusyOf(agent), archived: Boolean(agent.archivedAt) } } : null };
+        verified.set(agentId, known);
+      } catch {
+        continue;
+      }
+    }
+    if (!known.agent) {
+      out.missing.push(agentId);
+      continue;
+    }
+    if (known.agent.session) out.sessions.push(known.agent.session);
+    out.listed.push(known.agent.listed);
+  }
+  return out;
+}
 
 async function agentsFor(paseo: PaseoApi, wantedRefs: string[]): Promise<PaseoListing> {
   const listing: PaseoListing = { byRef: new Map(), byAgent: new Map(), sessions: [] };
@@ -96,8 +129,11 @@ export function useChatRouting(ids: string[], selected: string, navigation: Navi
   const { value: found } = usePoll(
     async () => {
       try {
-        const listing = wantedRefs.length === 0 ? NO_ROUTING : await agentsFor(paseo, wantedRefs);
-        const r = await callLinks({ agents: listing.sessions });
+        const listed = wantedRefs.length === 0 ? NO_ROUTING : await agentsFor(paseo, wantedRefs);
+        const remembered = [...new Set(lastAgents.current?.links.values() ?? [])].filter((agentId) => !listed.byAgent.has(agentId));
+        const checked = await verifyAgents(paseo, remembered);
+        const listing: PaseoListing = { byRef: listed.byRef, byAgent: new Map([...listed.byAgent, ...checked.listed.map((agent) => [agent.agentId, agent] as const)]), sessions: [...listed.sessions, ...checked.sessions] };
+        const r = await callLinks({ agents: listing.sessions, missing: checked.missing });
         if (!r.ok) return r;
         return { ok: true as const, value: { ...listing, links: new Map(r.links.map((link) => [link.participantId, link.agentId])), formerly: new Set(r.formerly) } as Routing };
       } catch (error) {

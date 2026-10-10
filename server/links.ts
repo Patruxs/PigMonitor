@@ -105,7 +105,7 @@ export function createLinker({ store, readParent = forkParentOf }: { store: Link
   };
 
   return {
-    links(agents: AgentSession[], sessions: KnownSession[]): LinkState {
+    links(agents: AgentSession[], sessions: KnownSession[], missing: readonly string[] = []): LinkState {
       const exactAgent = new Map<string, string>();
       for (const agent of agents) if (!exactAgent.has(agent.sessionId)) exactAgent.set(agent.sessionId, agent.agentId);
       const next = new Map(links);
@@ -119,6 +119,13 @@ export function createLinker({ store, readParent = forkParentOf }: { store: Link
         exactlyHeld.add(session.id);
       }
       for (const [participantId, agentId] of next) if (!exactlyHeld.has(participantId) && claimed.has(agentId)) next.delete(participantId);
+      const deleted = new Set(missing);
+      const forgotten = new Set<string>();
+      for (const [participantId, agentId] of next) {
+        if (exactlyHeld.has(participantId) || !deleted.has(agentId)) continue;
+        next.delete(participantId);
+        forgotten.add(participantId);
+      }
       const unmatched = sessions.filter((session) => session.ref && !exactAgent.has(session.ref) && !next.has(session.id));
       if (unmatched.length > 0) {
         const byRef = new Map(unmatched.map((session) => [session.ref as string, session]));
@@ -133,7 +140,7 @@ export function createLinker({ store, readParent = forkParentOf }: { store: Link
           linkedAgents.add(agent.agentId);
         }
       }
-      const nextEver = new Set([...everLinked, ...next.keys()]);
+      const nextEver = new Set([...[...everLinked].filter((participantId) => !forgotten.has(participantId)), ...next.keys()]);
       const changed = nextEver.size !== everLinked.size || next.size !== links.size || [...next].some(([participantId, agentId]) => links.get(participantId) !== agentId);
       links = next;
       everLinked = nextEver;
