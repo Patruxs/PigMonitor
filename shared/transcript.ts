@@ -138,10 +138,16 @@ export function inputText(input: unknown): string {
   return ordered.join("\n").trim();
 }
 
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+
+function blocksOf(content: unknown[]): Block[] {
+  return content.filter((block): block is Block => isObject(block));
+}
+
 export function contentText(content: unknown): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
-  return (content as Block[])
+  return blocksOf(content)
     .map((b) => {
       if (b.type === "text") return b.text ?? "";
       if (b.type === "tool_reference") return `[tool ${b.tool_name ?? ""}]`;
@@ -226,13 +232,13 @@ export class Parser {
   line(raw: string): void {
     const s = raw.trim();
     if (!s) return;
-    let e: Entry;
+    let parsed: unknown;
     try {
-      e = JSON.parse(s) as Entry;
+      parsed = JSON.parse(s);
     } catch {
       return;
     }
-    this.entry(e);
+    if (isObject(parsed)) this.entry(parsed as Entry);
   }
 
   entry(e: Entry): void {
@@ -271,7 +277,8 @@ export class Parser {
     }
     if (e.type !== "user" && e.type !== "assistant") return;
     if (e.isMeta || e.isCompactSummary) return;
-    const content = e.message?.content;
+    const raw: unknown = e.message?.content;
+    const content = typeof raw === "string" ? raw : Array.isArray(raw) ? blocksOf(raw) : undefined;
     if (content === undefined) return;
     if (e.type === "assistant") this.assistant(content, at);
     else this.user(content, at, e.isSynthetic === true);

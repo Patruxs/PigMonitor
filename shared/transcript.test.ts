@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inputText, isWake, mailsIn, parseLines } from "./transcript.ts";
+import { inputText, isWake, mailsIn, Parser, parseLines } from "./transcript.ts";
 
 const line = (o: unknown) => JSON.stringify(o);
 
@@ -125,4 +125,11 @@ test("a run is started once, not again for each query, unless its session, model
   const say = (text: string) => line({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text }] } });
   const items = parseLines([init("/p"), say("one"), init("/p"), say("two"), init("/q"), say("three")].join("\n"));
   assert.deepEqual(items.map((i) => [i.kind, i.text]), [["session", "m · /p"], ["assistant", "one"], ["assistant", "two"], ["session", "m · /q"], ["assistant", "three"]]);
+});
+
+test("a log line that is valid JSON but not an entry is skipped, and the lines after it still read", () => {
+  const parser = new Parser("run1");
+  for (const odd of ["null", "42", '"text"', "[1]", '{"type":"user","message":{"content":[null]}}', '{"type":"assistant","message":{"content":[null, 7]}}', '{"type":"user","message":{"content":7}}', '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"x","content":[null]}]}}']) parser.line(odd);
+  parser.line(line({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: "Still here." }] } }));
+  assert.deepEqual(parser.items.map((i) => [i.kind, i.text]), [["assistant", "Still here."]]);
 });
