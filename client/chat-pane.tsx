@@ -9,7 +9,7 @@ import type { MailMessage } from "../shared/mail.ts";
 import { abortable, stepInsOf, type Native } from "../shared/native.ts";
 import { mail, sendMail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { createUserMessage, generateMessageId } from "../shared/stream.ts";
-import { latestFrom, type Me } from "../shared/thread.ts";
+import { replyTarget, type Me } from "../shared/mail.ts";
 import { FileDropZone } from "./attachments-drop.tsx";
 import { ChatHead } from "./chat-head.tsx";
 import { Composer, canAttach } from "./composer.tsx";
@@ -165,7 +165,7 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
       sent();
       return null;
     }
-    const reply = me ? latestFrom(thread, item.row.id) : undefined;
+    const reply = me ? replyTarget(thread, item.row.id) : undefined;
     const r = await call({ to: item.row.id, body, ...(images.length > 0 ? { images } : {}), ...(attachments.length > 0 ? { attachments } : {}), ...(reply ? { reply_to: `#${reply.seq}` } : {}) });
     if (!r.ok) return r.code === "denied" && r.gate_name ? `${r.error} Write to ${r.gate_name} instead.` : r.error;
     sent();

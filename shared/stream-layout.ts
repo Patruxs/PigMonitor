@@ -95,7 +95,7 @@ export function deriveStreamTurnTiming(params: { isTurnActive: boolean; activeTu
     }
     lastAt = item.timestamp;
     if (item.kind === "assistant_message") assistantIds.push(item.id);
-    if (item.kind === "piggery" && item.source.kind === "turn") reported = item.source;
+    if (item.kind === "piggery" && item.source.kind === "turn-end") reported = item.source;
     previous = item;
   }
   if (!params.isTurnActive) flush();

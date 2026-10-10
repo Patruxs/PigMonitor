@@ -5,7 +5,7 @@ import { Text, View } from "react-native";
 import { transcript } from "../shared/rpc.ts";
 import { withIncrement, type Item, type Transcript } from "../shared/transcript.ts";
 import type { Usage } from "../shared/context-meter.ts";
-import { streamOfTranscript } from "../shared/stream-mail.ts";
+import { streamOfLog } from "../shared/log-stream.ts";
 import type { PiggeryStreamItem } from "../shared/stream.ts";
 import type { TurnPresentation } from "../shared/timeline.ts";
 import { StreamView, type ViewportHandle } from "./stream.tsx";
@@ -102,7 +102,7 @@ export function MailStream({ theme, id, refresh, working, workingSince, cwd, vie
   const usage = value?.usage ?? null;
   useEffect(() => onUsage?.(usage), [onUsage, usage?.contextWindowUsedTokens, usage?.contextWindowMaxTokens]);
   const isLoadingOlder = fresh === null && value !== null && (kept.current?.limit ?? limit) < limit;
-  const tail = useMemo(() => streamOfTranscript(value?.items ?? []), [value]);
+  const tail = useMemo(() => streamOfLog(value?.items ?? []), [value]);
   const hasOlder = value !== null && value.total > value.items.length;
   const turn: TurnPresentation = { isActive: working, isCancelling: false, startedAt: working && workingSince !== undefined ? new Date(workingSince) : null, turnId: null };
   const loadOlder = useCallback(async () => {
@@ -113,9 +113,9 @@ export function MailStream({ theme, id, refresh, working, workingSince, cwd, vie
   const renderPiggery = useCallback(
     (item: PiggeryStreamItem) => {
       const { source } = item;
-      if (source.kind === "session") return <Quiet theme={theme} icon="Play" label={`Session started${source.text ? ` · ${source.text}` : ""}`} />;
+      if (source.kind === "run-start") return <Quiet theme={theme} icon="Play" label={`Session started${source.text ? ` · ${source.text}` : ""}`} />;
       if (source.kind === "wake") return <Quiet theme={theme} icon="Bell" label={source.text} />;
-      if (source.kind === "turn") return null;
+      if (source.kind === "turn-end") return null;
       return <MailIn theme={theme} item={{ i: 0, kind: "mail", at: item.timestamp.getTime(), text: source.text, from: source.from, to: source.to, ref: source.ref, reply: source.reply }} role={source.from ? value?.roles?.[source.from] : undefined} now={now} />;
     },
     [theme, value, now],

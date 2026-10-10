@@ -11,9 +11,9 @@ function imagesOf(item: Item, key: string): { text: string; images: UserMessageI
   return { text, images: [...(item.images ?? []), ...paths].map((path, n) => ({ id: `${key}:image:${n}`, path })) };
 }
 
-export function streamOfTranscript(items: Item[]): StreamItem[] {
+export function streamOfLog(items: Item[]): StreamItem[] {
   const out: StreamItem[] = [];
-  const byResult = items.some((item) => item.kind === "turn");
+  const byResult = items.some((item) => item.kind === "turn-end");
   let lastAt = 0;
   let turn = 0;
   let working = false;
@@ -21,8 +21,8 @@ export function streamOfTranscript(items: Item[]): StreamItem[] {
     lastAt = item.at ?? lastAt;
     const timestamp = new Date(lastAt);
     const key = keyOf(item);
-    if (item.kind === "session" && working) turn += 1;
-    if (item.kind === "session" || item.kind === "turn") working = false;
+    if (item.kind === "run-start" && working) turn += 1;
+    if (item.kind === "run-start" || item.kind === "turn-end") working = false;
     else if (item.kind !== "mail" && item.kind !== "user" && item.kind !== "wake") working = true;
     const start = out.length;
     switch (item.kind) {
@@ -47,21 +47,21 @@ export function streamOfTranscript(items: Item[]): StreamItem[] {
         });
         break;
       }
-      case "turn":
+      case "turn-end":
         if (item.error) out.push({ kind: "notification", sourceType: "error", id: `error:${key}`, timestamp, level: "error", message: item.text || "The run failed" });
-        out.push({ kind: "piggery", id: `turn:${key}`, timestamp, prompt: false, source: { kind: "turn", text: item.text, ...(item.durationMs !== undefined ? { durationMs: item.durationMs } : {}), ...(item.costUsd !== undefined ? { costUsd: item.costUsd } : {}) } });
+        out.push({ kind: "piggery", id: `turn-end:${key}`, timestamp, prompt: false, source: { kind: "turn-end", text: item.text, ...(item.durationMs !== undefined ? { durationMs: item.durationMs } : {}), ...(item.costUsd !== undefined ? { costUsd: item.costUsd } : {}) } });
         break;
       case "compaction":
         out.push({ kind: "compaction", id: `compaction:${key}`, timestamp, status: "completed", ...(item.trigger ? { trigger: item.trigger } : {}), ...(item.preTokens !== undefined ? { preTokens: item.preTokens } : {}) });
         break;
-      case "session":
+      case "run-start":
       case "wake":
       case "mail":
-        out.push({ kind: "piggery", id: `${item.kind}:${key}`, timestamp, prompt: item.to === undefined, source: { kind: item.kind, text: item.text, ...(item.from ? { from: item.from } : {}), ...(item.to ? { to: item.to } : {}), ...(item.ref ? { ref: item.ref } : {}), ...(item.reply ? { reply: item.reply } : {}) } });
+        out.push({ kind: "piggery", id: `${item.kind}:${key}`, timestamp, prompt: item.outgoing !== true, source: { kind: item.kind, text: item.text, ...(item.from ? { from: item.from } : {}), ...(item.to ? { to: item.to } : {}), ...(item.ref ? { ref: item.ref } : {}), ...(item.reply ? { reply: item.reply } : {}) } });
         break;
     }
     if (byResult) for (const made of out.slice(start)) made.turnId = `turn:${turn}`;
-    if (item.kind === "turn") turn += 1;
+    if (item.kind === "turn-end") turn += 1;
   }
   return out;
 }

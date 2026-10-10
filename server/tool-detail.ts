@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import type { ToolCall, ToolResultBlock } from "../shared/transcript.ts";
+import type { ToolResultBlock } from "../shared/claude-log.ts";
+import type { ToolCall } from "../shared/transcript.ts";
 import type { ToolCallDetail } from "../shared/tool-call.ts";
 
 type Rec = Record<string, unknown>;

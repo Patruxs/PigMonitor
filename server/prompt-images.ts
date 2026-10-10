@@ -1,6 +1,6 @@
 import { closeSync, existsSync, openSync, readSync, statSync } from "node:fs";
 import { promptKeys, type Prompt, type PromptImage } from "../shared/prompt-images.ts";
-import type { SaveImage } from "../shared/transcript.ts";
+import type { SaveImage } from "../shared/claude-log.ts";
 import type { MailReader } from "./mail.ts";
 
 export type PromptImagesResult = { ok: true; prompts: Prompt[] } | { ok: false; code: "failed"; error: string };

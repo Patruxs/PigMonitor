@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { contentText, isWake, mailsIn, Parser, type DescribeTool, type SaveImage } from "./transcript.ts";
+import { contentText, Parser, type DescribeTool, type SaveImage } from "./claude-log.ts";
 
 const line = (o: unknown) => JSON.stringify(o);
 
@@ -16,16 +16,6 @@ function read(text: string, run?: string, saveImage?: SaveImage) {
 test("non-empty thinking is kept as its own entry", () => {
   const items = read(JSON.stringify({ type: "assistant", message: { role: "assistant", content: [{ type: "thinking", thinking: "" }, { type: "thinking", thinking: "Let me check CI." }, { type: "text", text: "Checking." }] } }));
   assert.deepEqual(items.map((i) => [i.kind, i.text]), [["thinking", "Let me check CI."], ["assistant", "Checking."]]);
-});
-
-test("mailsIn reads piggery's message blocks", () => {
-  const text = '[piggery] 2 new messages:\n\n<message id="#1440" from="gates (supervisor, you report to them)" sender="gates" reply_to="#1433" at="10:22:12">\nTình trạng?\n</message>\n<message id="#1441" from="x" sender="ci">\nDone.\n</message>';
-  assert.deepEqual(mailsIn(text), [
-    { ref: "#1440", from: "gates", reply: "#1433", body: "Tình trạng?" },
-    { ref: "#1441", from: "ci", reply: undefined, body: "Done." },
-  ]);
-  assert.equal(isWake("Another Claude session sent a message:\n[piggery] wake #1: you have new mail"), true);
-  assert.equal(isWake("merge code vào main đi"), false);
 });
 
 test("stream-json reads as a session: the run start, tool calls with their status, mail read from the inbox, and the run end", () => {
@@ -44,12 +34,12 @@ test("stream-json reads as a session: the run start, tool calls with their statu
   assert.deepEqual(
     items.map((i) => [i.i, i.kind, i.text, i.tool, i.status, i.error, i.from, i.ref, i.reply, i.run]),
     [
-      [0, "session", "claude-opus-5-5 · /p", undefined, undefined, undefined, undefined, undefined, undefined, "run1"],
+      [0, "run-start", "claude-opus-5-5 · /p", undefined, undefined, undefined, undefined, undefined, undefined, "run1"],
       [1, "tool", "mcp__piggery__inbox", "mcp__piggery__inbox", "completed", undefined, undefined, undefined, undefined, "run1"],
       [2, "mail", "Fix CI", undefined, undefined, undefined, "gates", "#1", "#0", "run1"],
       [3, "assistant", "On it.", undefined, undefined, undefined, undefined, undefined, undefined, "run1"],
       [4, "tool", "Bash", "Bash", "failed", true, undefined, undefined, undefined, "run1"],
-      [5, "turn", "2 turns · 16s · $7.74", undefined, undefined, false, undefined, undefined, undefined, "run1"],
+      [5, "turn-end", "2 turns · 16s · $7.74", undefined, undefined, false, undefined, undefined, undefined, "run1"],
     ],
   );
   assert.equal(items[0].at, Date.parse("2026-10-10T03:00:00Z"));
@@ -99,7 +89,7 @@ test("a run's start, its handed-over prompt and its end take the times around th
     line({ type: "result", subtype: "success", duration_ms: 2000, total_cost_usd: 0.75 }),
   ].join("\n");
   const items = read(log, "run1");
-  assert.deepEqual(items.map((i) => [i.kind, i.at]), [["delivery", Date.parse("2026-10-10T03:00:01Z")], ["session", Date.parse("2026-10-10T03:00:01Z")], ["assistant", Date.parse("2026-10-10T03:00:01Z")], ["assistant", Date.parse("2026-10-10T03:00:05Z")], ["turn", Date.parse("2026-10-10T03:00:05Z")], ["assistant", Date.parse("2026-10-10T03:01:00Z")], ["turn", Date.parse("2026-10-10T03:01:00Z")]]);
+  assert.deepEqual(items.map((i) => [i.kind, i.at]), [["delivery", Date.parse("2026-10-10T03:00:01Z")], ["run-start", Date.parse("2026-10-10T03:00:01Z")], ["assistant", Date.parse("2026-10-10T03:00:01Z")], ["assistant", Date.parse("2026-10-10T03:00:05Z")], ["turn-end", Date.parse("2026-10-10T03:00:05Z")], ["assistant", Date.parse("2026-10-10T03:01:00Z")], ["turn-end", Date.parse("2026-10-10T03:01:00Z")]]);
   assert.deepEqual([items[4].durationMs, items[4].costUsd, items[6].durationMs, items[6].costUsd], [4000, 0.5, 2000, 0.25]);
 });
 
@@ -126,7 +116,7 @@ test("a run is started once, not again for each query, unless its session, model
   const init = (cwd: string) => line({ type: "system", subtype: "init", session_id: "s1", model: "m", cwd });
   const say = (text: string) => line({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text }] } });
   const items = read([init("/p"), say("one"), init("/p"), say("two"), init("/q"), say("three")].join("\n"));
-  assert.deepEqual(items.map((i) => [i.kind, i.text]), [["session", "m · /p"], ["assistant", "one"], ["assistant", "two"], ["session", "m · /q"], ["assistant", "three"]]);
+  assert.deepEqual(items.map((i) => [i.kind, i.text]), [["run-start", "m · /p"], ["assistant", "one"], ["assistant", "two"], ["run-start", "m · /q"], ["assistant", "three"]]);
 });
 
 test("a log line that is valid JSON but not an entry is skipped, and the lines after it still read", () => {

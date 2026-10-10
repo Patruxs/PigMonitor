@@ -200,7 +200,7 @@ export interface PiggeryStreamItem {
   turnId?: string;
   timestamp: Date;
   prompt: boolean;
-  source: { kind: "session" | "wake" | "mail" | "turn"; text: string; from?: string; to?: string; ref?: string; reply?: string; durationMs?: number; costUsd?: number };
+  source: { kind: "run-start" | "wake" | "mail" | "turn-end"; text: string; from?: string; to?: string; ref?: string; reply?: string; durationMs?: number; costUsd?: number };
 }
 
 export type StreamItem = UserMessageItem | AssistantMessageItem | ThoughtItem | ToolCallItem | TodoListItem | NotificationItem | CompactionItem | PluginTimelineStreamItem | PiggeryStreamItem;

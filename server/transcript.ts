@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { closeSync, existsSync, openSync, readdirSync, readSync, statSync } from "node:fs";
 import path from "node:path";
 import type { MailMessage } from "../shared/mail.ts";
-import { mergeMail } from "../shared/thread.ts";
-import { Parser, usageOf, type ContextReading, type Item, type SaveImage, type Transcript } from "../shared/transcript.ts";
+import { Parser, usageOf, type ContextReading, type SaveImage } from "../shared/claude-log.ts";
+import { mergeMail } from "../shared/transcript-mail.ts";
+import type { Item, Transcript } from "../shared/transcript.ts";
 import type { MailReader, Participant } from "./mail.ts";
 import { claudeToolCall } from "./tool-detail.ts";
 

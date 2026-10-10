@@ -1,16 +1,5 @@
-// Pure, so `node --test` loads it as is.
 import type { MailMessage } from "./mail.ts";
 import type { Item, ShownItem } from "./transcript.ts";
-
-export interface Me {
-  id: string;
-  name: string;
-}
-
-/** The newest mail `id` sent: what a reply answers. */
-export function latestFrom(messages: MailMessage[], id: string): MailMessage | undefined {
-  return messages.filter((m) => m.from === id).sort((a, b) => b.seq - a.seq)[0];
-}
 
 function isShown(item: Item): item is ShownItem {
   return item.kind !== "delivery";
@@ -20,7 +9,7 @@ export function mergeMail(items: Item[], messages: MailMessage[], self: string, 
   const mailItem = (m: MailMessage, at: number): ShownItem => {
     const ref = `#${m.seq}`;
     if (m.from === person) return { i: 0, kind: "user", at, text: m.body, ref, note: m.held ? "Held" : m.acked_at ? "Read" : "Sent", run: "mail" };
-    return { i: 0, kind: "mail", at, text: m.body, from: m.from_name, ...(m.from === self ? { to: m.to_name } : {}), ref, ...(m.reply_seq !== undefined ? { reply: `#${m.reply_seq}` } : {}), run: "mail" };
+    return { i: 0, kind: "mail", at, text: m.body, from: m.from_name, ...(m.from === self ? { to: m.to_name, outgoing: true } : {}), ref, ...(m.reply_seq !== undefined ? { reply: `#${m.reply_seq}` } : {}), run: "mail" };
   };
   const byRef = new Map(messages.map((m) => [`#${m.seq}`, m]));
   const placed = new Set<string>();

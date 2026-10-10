@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 import { conversationsOf, mostPressing } from "../shared/conversations.ts";
 import { person } from "../shared/rpc.ts";
-import type { Me } from "../shared/thread.ts";
+import type { Me } from "../shared/mail.ts";
 import type { Dir, View as PigView } from "../shared/view.ts";
 import { Chat } from "./chat-pane.tsx";
 import { Notice } from "./piggery/notice.tsx";

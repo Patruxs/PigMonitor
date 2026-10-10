@@ -75,3 +75,12 @@ export function roleWord(role: string | undefined, id: string): string {
 export function previewOf(body: string): string {
   return body.split("\n").map((l) => l.trim()).find(Boolean) ?? "";
 }
+
+export interface Me {
+  id: string;
+  name: string;
+}
+
+export function replyTarget(messages: MailMessage[], id: string): MailMessage | undefined {
+  return messages.filter((m) => m.from === id).sort((a, b) => b.seq - a.seq)[0];
+}

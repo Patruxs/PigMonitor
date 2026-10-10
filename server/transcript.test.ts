@@ -5,7 +5,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { MailReader } from "./mail.ts";
-import { streamOfTranscript } from "../shared/stream-mail.ts";
+import { streamOfLog } from "../shared/log-stream.ts";
 import { withIncrement } from "../shared/transcript.ts";
 import { logsDirOf, page, runLogs, TranscriptReader } from "./transcript.ts";
 
@@ -210,7 +210,7 @@ test("a log row keeps its id when mail lands before it, so the row is not remoun
     const after = reader.read(db, "X1", undefined, 100, "ME", before.ok ? before : undefined);
     assert.ok(before.ok && after.ok);
     if (!before.ok || !after.ok) return;
-    const idOf = (items: typeof before.items, text: string) => streamOfTranscript(items).find((row) => "text" in row && row.text === text)?.id;
+    const idOf = (items: typeof before.items, text: string) => streamOfLog(items).find((row) => "text" in row && row.text === text)?.id;
     const shown = withIncrement(before.items, after, 100);
     assert.deepEqual(shown.map((i) => i.text), ["one", "between", "two"]);
     assert.equal(idOf(shown, "two"), idOf(before.items, "two"));

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { StreamItem } from "./stream.ts";
-import { streamOfTranscript } from "./stream-mail.ts";
+import { streamOfLog } from "./log-stream.ts";
 import { createReadingAnchor, deriveStreamTurnTiming, layoutStream } from "./stream-layout.ts";
 
 const at = (s: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, s));
@@ -22,13 +22,15 @@ test("a finished turn's footer hangs under its last answer, with the time from t
   assert.equal(layout.history[4].completedFooter, null);
 });
 
-test("piggery mail starts a new turn like a prompt, and a message's parsed images and image marks become its attachments", () => {
-  const stream = streamOfTranscript([
+test("mail the worker received starts a new turn like a prompt, mail it sent does not, and a message's parsed images and image marks become its attachments", () => {
+  const stream = streamOfLog([
     { i: 1, kind: "user", at: 0, text: "look\n[image: /tmp/a.png]", images: ["/tmp/b.png"], note: "Sent" },
     { i: 2, kind: "assistant", at: 1000, text: "seen" },
     { i: 3, kind: "mail", at: 2000, text: "from the lead", from: "squid", ref: "#4" },
     { i: 4, kind: "assistant", at: 3000, text: "ok" },
+    { i: 5, kind: "mail", at: 4000, text: "done", from: "worker", to: "squid", ref: "#5", outgoing: true },
   ]);
+  assert.deepEqual(stream.map((item) => item.kind === "piggery" && item.prompt), [false, false, true, false, false]);
   const user = stream[0];
   assert.equal(user.kind === "user_message" && user.text, "look");
   assert.deepEqual(user.kind === "user_message" && user.images?.map((image) => image.path), ["/tmp/b.png", "/tmp/a.png"]);
@@ -37,16 +39,16 @@ test("piggery mail starts a new turn like a prompt, and a message's parsed image
 });
 
 test("a worker's turn takes its duration and cost from its result, and mail arriving mid-turn does not split it", () => {
-  const stream = streamOfTranscript([
-    { i: 0, kind: "session", at: 0, text: "run" },
+  const stream = streamOfLog([
+    { i: 0, kind: "run-start", at: 0, text: "run" },
     { i: 1, kind: "mail", at: 1000, text: "brief", from: "lead", ref: "#1" },
     { i: 2, kind: "assistant", at: 2000, text: "on it" },
     { i: 3, kind: "mail", at: 3000, text: "also this", from: "lead", ref: "#2" },
     { i: 4, kind: "assistant", at: 4000, text: "done" },
-    { i: 5, kind: "turn", at: 4000, text: "", durationMs: 758000, costUsd: 3.93 },
+    { i: 5, kind: "turn-end", at: 4000, text: "", durationMs: 758000, costUsd: 3.93 },
     { i: 6, kind: "mail", at: 5000, text: "thanks", from: "lead", ref: "#3" },
     { i: 7, kind: "assistant", at: 6000, text: "ok" },
-    { i: 8, kind: "turn", at: 6000, text: "", durationMs: 1000 },
+    { i: 8, kind: "turn-end", at: 6000, text: "", durationMs: 1000 },
   ]);
   const timing = deriveStreamTurnTiming({ isTurnActive: false, activeTurnStartedAt: null, tail: stream, head: [] });
   assert.deepEqual(timing.byAssistantId.get("assistant::4"), { completedAt: new Date(4000), durationMs: 758000, costUsd: 3.93 });
@@ -65,7 +67,7 @@ test("a reader scrolled up keeps the same row in view when older history is prep
 });
 
 test("a piggery tool row carries the parsed Claude detail and status when the transcript has them", () => {
-  const [call] = streamOfTranscript([{ i: 1, kind: "tool", at: 0, text: "Bash", tool: "Bash", detail: { type: "shell", command: "ls", output: "a" }, status: "completed" }]);
+  const [call] = streamOfLog([{ i: 1, kind: "tool", at: 0, text: "Bash", tool: "Bash", detail: { type: "shell", command: "ls", output: "a" }, status: "completed" }]);
   assert.equal(call.kind === "tool_call" && call.payload.data.detail.type, "shell");
   assert.equal(call.kind === "tool_call" && call.payload.data.status, "completed");
 });
