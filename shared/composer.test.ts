@@ -68,3 +68,9 @@ test("Escape cancels a recording before it would stop the agent, and stops nothi
   assert.equal(key({ focus: "pane" }), "interrupt");
   assert.equal(key({ focus: "outside" }), null);
 });
+
+test("Cmd/Ctrl+D toggles dictation and Enter while recording confirms and sends", () => {
+  assert.equal(key({ key: "d", primary: true, focus: "pane" }), "dictation-toggle");
+  assert.equal(key({ key: "Enter", dictation: "recording" }), "dictation-send");
+  assert.equal(key({ key: "Enter" }), null);
+});

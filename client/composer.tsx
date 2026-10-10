@@ -413,6 +413,8 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
       if (action === "focus-input") return focusInput();
       if (action === "interrupt") return handleCancelAgent();
       if (action === "dictation-cancel") return void dictation.cancel();
+      if (action === "dictation-send") return void dictation.confirm(true);
+      if (action === "dictation-toggle" && !disabled) return void dictation.toggle();
     },
   };
 

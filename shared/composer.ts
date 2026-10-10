@@ -157,7 +157,7 @@ export async function sendQueuedComposerMessageNow(input: { agentId: string; mes
 }
 
 export type ComposerFocus = "input" | "pane" | "outside";
-export type ComposerKeyAction = "focus-input" | "interrupt" | "dictation-cancel";
+export type ComposerKeyAction = "focus-input" | "interrupt" | "dictation-cancel" | "dictation-toggle" | "dictation-send";
 
 export function resolveComposerKey(input: { key: string; primary: boolean; shift: boolean; alt: boolean; focus: ComposerFocus; dictation: DictationStatus; isAgentRunning: boolean; isCancelling: boolean }): ComposerKeyAction | null {
   if (input.focus === "outside") return null;
@@ -168,6 +168,8 @@ export function resolveComposerKey(input: { key: string; primary: boolean; shift
     if (input.dictation !== "idle") return "dictation-cancel";
     return input.isAgentRunning && !input.isCancelling ? "interrupt" : null;
   }
+  if (key === "enter" && plain && !input.shift && input.dictation === "recording") return "dictation-send";
+  if (chord && key === "d") return "dictation-toggle";
   if (chord && key === "l") return "focus-input";
   return null;
 }
