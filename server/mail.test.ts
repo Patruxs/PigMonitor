@@ -18,6 +18,7 @@ test("whereOf builds the scope, the participant and the page", () => {
   assert.deepEqual(whereOf({ limit: 10, teams: ["t1"], participants: ["p1"] }), { sql: " WHERE (m.team_id IN (?) OR m.from_id IN (?) OR m.to_id IN (?))", params: ["t1", "p1", "p1"] });
   assert.deepEqual(whereOf({ limit: 10, teams: [] }), { sql: " WHERE 0", params: [] });
   assert.deepEqual(whereOf({ limit: 10, participant: "p", before: 50 }), { sql: " WHERE (m.from_id = ? OR m.to_id = ?) AND m.seq < ?", params: ["p", "p", 50] });
+  assert.deepEqual(whereOf({ limit: 10, participant: "p", held: true }), { sql: " WHERE (m.from_id = ? OR m.to_id = ?) AND m.held_reason IS NOT NULL", params: ["p", "p"] });
 });
 
 function farm(): { dir: string; file: string } {

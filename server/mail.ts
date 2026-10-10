@@ -74,6 +74,7 @@ export function whereOf(filter: MailFilter): { sql: string; params: (string | nu
     clauses.push("(m.from_id = ? OR m.to_id = ?)");
     params.push(filter.participant, filter.participant);
   }
+  if (filter.held) clauses.push("m.held_reason IS NOT NULL");
   if (filter.before !== undefined) {
     clauses.push("m.seq < ?");
     params.push(filter.before);
@@ -166,9 +167,9 @@ export class MailReader {
   sessions(file: string, ids: string[]): Session[] {
     if (!existsSync(file) || ids.length === 0) return [];
     const rows = this.open(file)
-      .prepare(`SELECT id, COALESCE(session_ref, harness_ref) AS ref, harness, mode, cwd, state FROM participants WHERE id IN (${placeholders(ids.length)})`)
-      .all(...ids) as unknown as (Omit<Session, "gone"> & { state: string })[];
-    return rows.map(({ state, ...r }) => ({ ...r, gone: state === "gone" }));
+      .prepare(`SELECT p.id, COALESCE(p.session_ref, p.harness_ref) AS ref, p.harness, p.mode, p.cwd, p.state, t.closed_at IS NOT NULL AS team_closed FROM participants p LEFT JOIN teams t ON t.id = p.team_id WHERE p.id IN (${placeholders(ids.length)})`)
+      .all(...ids) as unknown as (Omit<Session, "gone" | "teamClosed"> & { team_closed: number })[];
+    return rows.map(({ team_closed, ...r }) => ({ ...r, gone: r.state === "gone", teamClosed: team_closed === 1 }));
   }
 
   teammates(file: string, teamId: string): Record<string, string> {

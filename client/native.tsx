@@ -45,6 +45,7 @@ export interface NativeChat {
   ready: boolean;
   canOpen: boolean;
   of: (id: string) => Native;
+  session: (id: string) => Session | undefined;
   open: (agentId: string) => void;
   resume: (id: string) => Promise<string | null>;
   send: (agentId: string, body: string, images: ImageData[], attachments: AttachmentData[], messageId?: string) => Promise<string | null>;
@@ -91,6 +92,7 @@ export function useNative(ids: string[], selected: string, navigation: Navigatio
       const session = byId.get(id);
       return nativeOf(session, session?.ref ? agents.get(session.ref) : undefined);
     },
+    session: (id) => byId.get(id),
     open: (agentId) => navigation?.openAgent({ agentId, ...(serverId ? { serverId } : {}) }),
     resume: async (id) => {
       const r = await callResume({ id });

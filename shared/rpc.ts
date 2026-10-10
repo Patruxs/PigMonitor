@@ -62,6 +62,7 @@ export const mail = defineRpc({
     participants: z.array(z.string()).optional(),
     participant: z.string().optional(),
     before: z.number().int().optional(),
+    held: z.boolean().optional(),
     limit: z.number().int().min(1).max(1000).default(100),
   }),
   output: z.union([z.object({ ok: z.literal(true), messages: z.array(MailMessage), teams: z.record(z.string(), MailTeam), total: z.number().int() }), Failure]),
@@ -222,7 +223,7 @@ export const sendMail = defineRpc({
   ]),
 });
 
-const SessionRef = z.object({ id: z.string(), ref: z.string().nullable(), harness: z.string().nullable(), mode: z.string().nullable(), cwd: z.string(), gone: z.boolean() });
+const SessionRef = z.object({ id: z.string(), ref: z.string().nullable(), harness: z.string().nullable(), mode: z.string().nullable(), cwd: z.string(), gone: z.boolean(), state: z.string(), teamClosed: z.boolean() });
 
 export const sessions = defineRpc({
   name: "pigmonitor.sessions",
@@ -322,7 +323,26 @@ export const notifyStatus = defineRpc({
   output: z.union([z.object({ ok: z.literal(true), set: z.boolean() }), Failure]),
 });
 
-export const RPC_NAMES = [snapshot.name, tail.name, mail.name, transcript.name, person.name, sendMail.name, sessions.name, resume.name, agentConfig.name, usageReports.name, stop.name, imageFile.name, upload.name, forgeSearch.name, timelinePrompts.name, rewind.name, timelineSearch.name, dirSuggest.name, checkoutRemote.name, dictationStatus.name, transcribe.name, notifyStatus.name];
+export const THINKING_LEVELS = ["low", "medium", "high", "xhigh", "max"] as const;
+
+export const stepIn = defineRpc({
+  name: "pigmonitor.step-in",
+  input: z.discriminatedUnion("verb", [
+    z.object({ verb: z.literal("kill"), id: z.string().min(1) }),
+    z.object({ verb: z.literal("resume"), id: z.string().min(1) }),
+    z.object({ verb: z.literal("model"), id: z.string().min(1), model: z.string().min(1).optional(), thinking: z.enum(THINKING_LEVELS).optional() }),
+    z.object({ verb: z.literal("release"), id: z.string().min(1) }),
+  ]),
+  output: z.union([z.object({ ok: z.literal(true), said: z.string() }), Failure]),
+});
+
+export const models = defineRpc({
+  name: "pigmonitor.models",
+  input: z.object({ id: z.string().min(1) }),
+  output: z.union([z.object({ ok: z.literal(true), models: z.array(z.string()) }), Failure]),
+});
+
+export const RPC_NAMES = [snapshot.name, tail.name, mail.name, transcript.name, person.name, sendMail.name, sessions.name, resume.name, agentConfig.name, usageReports.name, stop.name, imageFile.name, upload.name, forgeSearch.name, timelinePrompts.name, rewind.name, timelineSearch.name, dirSuggest.name, checkoutRemote.name, dictationStatus.name, transcribe.name, notifyStatus.name, stepIn.name, models.name];
 
 /** What the user folded, the tab they chose (shared/folds.ts) and the Sessions list width: kept per Paseo host, saved by the app after a change. */
 export const viewSettings = defineSettings({

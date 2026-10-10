@@ -30,9 +30,10 @@ import { RewindMenu } from "./rewind.tsx";
 import { useHasComposerTracks } from "./tracks.tsx";
 import { createUserMessage, generateMessageId } from "../shared/stream.ts";
 import { ResizeHandle, clampWidth, useSavedListWidth } from "./resize.tsx";
-import { abortable, type Native } from "../shared/native.ts";
+import { abortable, stepInsOf, type Native } from "../shared/native.ts";
 import { useProjectActions, type ProjectActions } from "./project.tsx";
 import { NotifyHint } from "./notify.tsx";
+import { KillDialog, ModelDialog, ReleaseDialog, StepInNotice, stepInItems, useHeld, useStepIn, type StepInDialog } from "./step-in.tsx";
 
 export interface Conversation {
   row: Row;
@@ -446,9 +447,18 @@ const COMPACT_HEAD_BELOW = 720;
 const COMPACT_HEAD_HEIGHT = 44;
 const COMPACT_STATUS_DOT = 10;
 
-function SessionMenu({ theme, item, native, chat, writable, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; onInfo: () => void }) {
-  const toast = useToast();
+function SessionMenu({ theme, name, items }: { theme: PluginTheme; name: string; items: MenuItem[] }) {
   const [open, setOpen] = useState(false);
+  return (
+    <AnchoredMenu theme={theme} open={open} label={`${name} menu`} items={items} drop="down-left" onClose={() => setOpen(false)}>
+      <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel="Session menu" hitSlop={SPACING[2]} style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" }}>
+        <Icon name="Ellipsis" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />
+      </Pressable>
+    </AnchoredMenu>
+  );
+}
+
+function sessionItems(theme: PluginTheme, item: Conversation, native: Native, chat: NativeChat, writable: boolean, onInfo: () => void, toast: ReturnType<typeof useToast>): MenuItem[] {
   const resume = async () => {
     const failed = await chat.resume(item.row.id);
     if (failed) toast.error(failed);
@@ -457,16 +467,11 @@ function SessionMenu({ theme, item, native, chat, writable, onInfo }: { theme: P
   const items: MenuItem[] = [{ id: "details", label: "Session details", icon: <Icon name="Info" size={ICON_SIZE.md} color={muted} />, onSelect: onInfo }];
   if (native.kind === "open" && chat.canOpen) items.push({ id: "open", label: "Open in Paseo", icon: <Icon name="ExternalLink" size={ICON_SIZE.md} color={muted} />, onSelect: () => chat.open(native.agentId) });
   if (native.kind === "resume" && writable) items.push({ id: "resume", label: "Resume in Paseo", icon: <Icon name="Import" size={ICON_SIZE.md} color={muted} />, onSelect: () => void resume() });
-  return (
-    <AnchoredMenu theme={theme} open={open} label={`${item.row.name} menu`} items={items} onClose={() => setOpen(false)}>
-      <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel="Session menu" hitSlop={SPACING[2]} style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" }}>
-        <Icon name="Ellipsis" size={ICON_SIZE.md} color={muted} />
-      </Pressable>
-    </AnchoredMenu>
-  );
+  return items;
 }
 
-function CompactChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; onBack?: () => void; onInfo: () => void }) {
+function CompactChatHead({ theme, item, native, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
+  const toast = useToast();
   const { row } = item;
   const place = item.teamName ?? basenameOf(item.dir.path);
   return (
@@ -490,15 +495,15 @@ function CompactChatHead({ theme, item, native, chat, writable, onBack, onInfo }
           {place}
         </Text>
       </View>
-      <SessionMenu theme={theme} item={item} native={native} chat={chat} writable={writable} onInfo={onInfo} />
+      <SessionMenu theme={theme} name={row.name} items={[...sessionItems(theme, item, native, chat, writable, onInfo, toast), ...steps]} />
     </View>
   );
 }
 
-function ChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; onBack?: () => void; onInfo: () => void }) {
+function ChatHead({ theme, item, native, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
   const compactFormFactor = useWindowDimensions().width < COMPACT_HEAD_BELOW;
   const [width, setWidth] = useState(0);
-  if (compactFormFactor) return <CompactChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} onBack={onBack} onInfo={onInfo} />;
+  if (compactFormFactor) return <CompactChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />;
   const stacked = width > 0 && width < HEAD_STACK_BELOW;
   const link = <NativeLink theme={theme} id={item.row.id} native={native} chat={chat} writable={writable} />;
   const { row } = item;
@@ -506,7 +511,7 @@ function ChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { the
   const sub = [row.harness, row.model && row.model !== "-" ? row.model : undefined, row.ctx ? `${row.ctx} ctx` : undefined, row.turns ? `${row.turns} turns` : undefined].filter(Boolean).join(" · ");
   const project = basenameOf(item.dir.path);
   return (
-    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={{ borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface0 }}>
+    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={{ zIndex: 1, borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface0 }}>
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[3], paddingTop: SPACING[2], overflow: "hidden" }} accessibilityLabel={`In project ${project}${item.teamName ? `, team ${item.teamName}` : ""}`}>
       <Icon name="Folder" size={12} color={theme.colors.accent} />
       <Text style={[text(theme, "label"), { color: theme.colors.foreground, fontWeight: "600", flexShrink: 0 }]} numberOfLines={1}>
@@ -556,6 +561,7 @@ function ChatHead({ theme, item, native, chat, writable, onBack, onInfo }: { the
         {stacked ? <View style={{ flexDirection: "row", marginTop: SPACING[0.5] }}>{link}</View> : null}
       </View>
       {stacked ? null : link}
+      {steps.length > 0 ? <SessionMenu theme={theme} name={row.name} items={steps} /> : null}
       <Pressable onPress={onInfo} accessibilityRole="button" accessibilityLabel="About this session" hitSlop={SPACING[2]} style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" }}>
         <Icon name="Info" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />
       </Pressable>
@@ -682,6 +688,12 @@ function Chat({ theme, item, all, me, chat, onSent, onPick, onBack, onInfo }: { 
 
 function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick, onBack, onInfo }: { theme: PluginTheme; item: Conversation; all: Conversation[]; me: Me | null; chat: NativeChat; native: Native; timeline: AgentTimeline | null; onSent: () => void; onPick: (id: string) => void; onBack?: () => void; onInfo: () => void }) {
   const stop = useStop(item.row.id, native, abortable(item.row.state));
+  const [heldBump, setHeldBump] = useState(0);
+  const held = useHeld(item.row.id, heldBump);
+  const step = useStepIn(item.row.name, () => setHeldBump((n) => n + 1));
+  const [dialog, setDialog] = useState<StepInDialog>(null);
+  const steps = stepInItems(theme, stepInsOf(item.row, chat.session(item.row.id)), held.length, step.busy, setDialog, () => void step.run({ verb: "resume", id: item.row.id }));
+  const target = { ...step, id: item.row.id };
   const [bump, setBump] = useState(0);
   const call = useRpc(sendMail);
   const writable = item.row.kind === "solo" || item.row.gate === true;
@@ -719,13 +731,17 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
   return (
     <FileDropZone theme={theme} style={{ flex: 1, minWidth: 0 }}>
     <KeyboardAvoidingPane>
-      <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} onBack={onBack} onInfo={onInfo} />
+      <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />
       {timeline ? <OpenStream theme={theme} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} onUsage={setLogUsage} />}
+      {step.note ? <StepInNotice theme={theme} note={step.note} onDismiss={step.dismiss} /> : null}
       {writable ? (
         <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={native.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : ({ isCompactLayout }) => <SessionContextMeter theme={theme} usage={logUsage} status={logStatus} isCompactLayout={isCompactLayout} />} stop={stop} agent={native.kind === "open" && timeline ? { agentId: native.agentId, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />
       ) : (
         <ThroughGate theme={theme} gate={gateOf(item, all)} stop={stop} onPick={onPick} trailing={timeline ? undefined : <SessionContextMeter theme={theme} usage={logUsage} status={logStatus} isCompactLayout={false} />} />
       )}
+      <KillDialog theme={theme} name={item.row.name} open={dialog === "kill"} step={target} onClose={() => setDialog(null)} />
+      <ModelDialog theme={theme} name={item.row.name} current={item.row.model} open={dialog === "model"} step={target} onClose={() => setDialog(null)} />
+      <ReleaseDialog theme={theme} held={held} open={dialog === "release"} step={step} onClose={() => setDialog(null)} />
     </KeyboardAvoidingPane>
     </FileDropZone>
   );

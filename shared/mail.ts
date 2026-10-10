@@ -41,6 +41,7 @@ export interface MailFilter {
   participants?: string[];
   participant?: string;
   before?: number;
+  held?: boolean;
   limit: number;
 }
 

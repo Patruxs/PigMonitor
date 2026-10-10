@@ -8,10 +8,13 @@ import { checkoutRemoteUrl, configureAgent, listTimelinePrompts, listUsageReport
 import { ATTACH_ROOT, bodyWithAttachments, bodyWithImages, saveImages, uploadTooLarge } from "./server/attach.ts";
 import { TranscriptReader } from "./server/transcript.ts";
 import { notifyHooksSet } from "./server/notify.ts";
+import { adminCall, piggeryDir } from "./server/admin.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
-import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, notifyStatus, person, resume, sendMail, sessions, settings, snapshot, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
+import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, person, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
 import { TAIL_VERSION } from "./shared/view.ts";
+
+const STEP_IN_TIMEOUT_MS = 30000;
 
 export default function contribute(server: PluginServerContext) {
   const stored = server.registerSettings(settings);
@@ -107,6 +110,16 @@ export default function contribute(server: PluginServerContext) {
     if (agentId) return stopAgent(agentId);
     const r = await runPiggery(await bin(), ["abort", id]);
     return r.ok ? { ok: true as const } : r;
+  });
+  server.handle(stepIn, async (input) => {
+    const args = input.verb === "model" ? ["model", input.id, ...(input.model ? [input.model] : []), ...(input.thinking ? ["--thinking", input.thinking] : [])] : [input.verb, input.id];
+    if (input.verb === "model" && !input.model && !input.thinking) return { ok: false as const, code: "failed" as const, error: "Choose a model or a thinking level." };
+    const r = await runPiggery(await bin(), args, STEP_IN_TIMEOUT_MS);
+    return r.ok ? { ok: true as const, said: r.out.trim() } : r;
+  });
+  server.handle(models, async ({ id }) => {
+    const r = await adminCall<{ models?: string[] }>(piggeryDir(), "models", { target: id });
+    return r.ok ? { ok: true as const, models: r.value?.models ?? [] } : r;
   });
   server.handle(resume, async ({ id }) => {
     try {

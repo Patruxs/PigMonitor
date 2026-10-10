@@ -64,7 +64,9 @@ function BottomSheet({ theme, open, title, fontFamily, onClose, onDismiss, child
   );
 }
 
-export function AnchoredPopover({ theme, open, label, role, onClose, onSheetDismiss, panel, minWidth, maxWidth, maxHeight, offset, children }: { theme: PluginTheme; open: boolean; label: string; role?: "menu"; onClose: () => void; onSheetDismiss?: () => void; panel: ReactNode; minWidth: number; maxWidth?: number; maxHeight?: number; offset: number; children: ReactNode }) {
+export type Drop = "up-right" | "down-left";
+
+export function AnchoredPopover({ theme, open, label, role, onClose, onSheetDismiss, panel, minWidth, maxWidth, maxHeight, offset, drop = "up-right", children }: { theme: PluginTheme; open: boolean; label: string; role?: "menu"; onClose: () => void; onSheetDismiss?: () => void; panel: ReactNode; minWidth: number; maxWidth?: number; maxHeight?: number; offset: number; drop?: Drop; children: ReactNode }) {
   const anchor = useRef<View>(null);
   const sheet = useSheetPresentation();
   const [fontFamily, setFontFamily] = useState<string | undefined>(undefined);
@@ -108,7 +110,7 @@ export function AnchoredPopover({ theme, open, label, role, onClose, onSheetDism
     <View ref={anchor} style={{ position: "relative" }}>
       {children}
       {open ? (
-        <View accessibilityRole={role} accessibilityLabel={label} style={{ position: "absolute", bottom: "100%", left: 0, marginBottom: offset, minWidth, maxWidth, maxHeight, zIndex: 10, paddingVertical: SPACING[1], backgroundColor: theme.colors.surface1, borderWidth: 1, borderColor: theme.colors.border, borderRadius: RADIUS.lg, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }}>
+        <View accessibilityRole={role} accessibilityLabel={label} style={{ position: "absolute", ...(drop === "down-left" ? { top: "100%", right: 0, marginTop: offset } : { bottom: "100%", left: 0, marginBottom: offset }), minWidth, maxWidth, maxHeight, zIndex: 10, paddingVertical: SPACING[1], backgroundColor: theme.colors.surface1, borderWidth: 1, borderColor: theme.colors.border, borderRadius: RADIUS.lg, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }}>
           {maxHeight ? <ScrollView style={{ flexGrow: 0 }}>{panel}</ScrollView> : panel}
         </View>
       ) : null}
@@ -116,7 +118,7 @@ export function AnchoredPopover({ theme, open, label, role, onClose, onSheetDism
   );
 }
 
-export function AnchoredMenu({ theme, open, label, items, onClose, children }: { theme: PluginTheme; open: boolean; label: string; items: MenuItem[]; onClose: () => void; children: ReactNode }) {
+export function AnchoredMenu({ theme, open, label, items, drop, onClose, children }: { theme: PluginTheme; open: boolean; label: string; items: MenuItem[]; drop?: Drop; onClose: () => void; children: ReactNode }) {
   const sheet = useSheetPresentation();
   const itemHeight = sheet ? MENU_ITEM_HEIGHT.sheet : MENU_ITEM_HEIGHT.popover;
   const selectionAwaitingDismiss = useRef<(() => void) | null>(null);
@@ -145,7 +147,7 @@ export function AnchoredMenu({ theme, open, label, items, onClose, children }: {
     </Pressable>
   ));
   return (
-    <AnchoredPopover theme={theme} open={open} label={label} role="menu" onClose={onClose} onSheetDismiss={runSelectionAwaitingDismiss} panel={panel} minWidth={MENU_MIN_WIDTH} offset={MENU_OFFSET}>
+    <AnchoredPopover theme={theme} open={open} label={label} role="menu" onClose={onClose} onSheetDismiss={runSelectionAwaitingDismiss} panel={panel} minWidth={MENU_MIN_WIDTH} offset={MENU_OFFSET} drop={drop}>
       {children}
     </AnchoredPopover>
   );
