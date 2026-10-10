@@ -14,12 +14,10 @@ import {
   type TimelinePage,
   type TimelineState,
 } from "../shared/timeline.ts";
+import { useLiveAgent, type AgentHandle, type PaseoAgent } from "./agent-live.ts";
 import { reduceTurnLiveness, resolveTurnPresentation, turnLivenessOfEvents, TURN_LIVENESS_IDLE, type TurnLiveness, type TurnPresentation } from "../shared/turns.ts";
 import type { ToolCallDetail } from "../shared/tool-call.ts";
 
-type PaseoApi = ReturnType<typeof usePaseo>;
-type AgentHandle = ReturnType<PaseoApi["agents"]["ref"]>;
-export type PaseoAgent = NonNullable<ReturnType<AgentHandle["current"]>>;
 
 export interface PermissionAction {
   id: string;
@@ -85,7 +83,8 @@ export function useAgentTimeline(agentId: string): AgentTimeline {
   const stateRef = useRef<TimelineState>(EMPTY_TIMELINE);
   const [state, setState] = useState<TimelineState>(EMPTY_TIMELINE);
   const [error, setError] = useState<string | null>(null);
-  const [agent, setAgent] = useState<PaseoAgent | null>(null);
+  const live = useLiveAgent(agentId);
+  const { agent, accept: acceptAgent, refresh: refreshAgent } = live;
   const [liveness, setLiveness] = useState<TurnLiveness>(TURN_LIVENESS_IDLE);
   const [isLoadingOlder, setLoadingOlder] = useState(false);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
@@ -114,7 +113,7 @@ export function useAgentTimeline(agentId: string): AgentTimeline {
   const fetchPage = useCallback(
     async (plan: TimelineFetchPlan): Promise<void> => {
       const page = (await handle.timeline.refetch(plan as Parameters<AgentHandle["timeline"]["refetch"]>[0])) as unknown as TimelinePage & { agent?: PaseoAgent | null };
-      if (page.agent) setAgent(page.agent);
+      if (page.agent) acceptAgent(page.agent);
       const result = processTimelineResponse(page, stateRef.current, [...pendingRef.current]);
       if (result.error) {
         setError(result.error);
@@ -171,21 +170,11 @@ export function useAgentTimeline(agentId: string): AgentTimeline {
       queueRef.current.push({ event: payload.event, seq: payload.seq, epoch: payload.epoch, timestamp: new Date(payload.timestamp) });
       if (timerRef.current === null) timerRef.current = setTimeout(flush, FLUSH_MS);
     });
-    const unsubscribeAgent = handle.subscribe((update) => {
-      if (!disposed && update.kind === "upsert") setAgent(update.agent);
-    });
     void subscription.ready.catch(() => undefined).then(() => !disposed && resume());
-    void handle.refresh().then(
-      (result) => {
-        if (disposed || !result) return;
-        setAgent(result.agent);
-      },
-      () => undefined,
-    );
+    void refreshAgent();
     return () => {
       disposed = true;
       subscription();
-      unsubscribeAgent();
       if (timerRef.current !== null) clearTimeout(timerRef.current);
       timerRef.current = null;
       queueRef.current = [];

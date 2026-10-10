@@ -5,15 +5,15 @@ import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { agentsBySession, nativeOf, type Native, type Session } from "../shared/native.ts";
 import { resume, sessions, stop, type AttachmentData, type ImageData } from "../shared/rpc.ts";
+import { useLiveAgent, type PaseoApi } from "./agent-live.ts";
 import { SPACING, text } from "./kit/theme.ts";
-import { BUSY_MS, QUIET_MS, usePoll } from "./poll.ts";
+import { QUIET_MS, usePoll } from "./poll.ts";
 
 export type Navigation = PluginSurfaceProps["navigation"];
 
 const PAGE_SIZE = 200;
 const MAX_PAGES = 5;
 
-export type PaseoApi = ReturnType<typeof usePaseo>;
 
 async function agentsFor(paseo: PaseoApi, wanted: string[]): Promise<Map<string, string>> {
   const found = new Map<string, string>();
@@ -110,29 +110,15 @@ export interface Stop {
 }
 
 export function useStop(id: string, native: Native, abortable: boolean): Stop | undefined {
-  const paseo = usePaseo();
   const callStop = useRpc(stop);
-  const [bump, setBump] = useState(0);
-  const agentId = native.kind === "open" ? native.agentId : "";
-  const { value: agentRunning } = usePoll(
-    async () => {
-      if (!agentId) return { ok: true as const, value: false };
-      try {
-        const r = await paseo.agents.ref(agentId).refresh();
-        return { ok: true as const, value: r?.agent.status === "running" };
-      } catch (error) {
-        return { ok: false as const, code: "failed", error: messageOf(error) };
-      }
-    },
-    `running:${agentId}:${bump}`,
-    () => BUSY_MS,
-  );
+  const agentId = native.kind === "open" ? native.agentId : null;
+  const live = useLiveAgent(agentId);
   if (native.kind === "resume") return undefined;
   return {
-    running: native.kind === "open" ? agentRunning === true : abortable,
+    running: native.kind === "open" ? live.agent?.status === "running" : abortable,
     onStop: async () => {
       const r = await callStop({ id, ...(agentId ? { agentId } : {}) });
-      setBump((n) => n + 1);
+      void live.refresh();
       return r.ok ? null : r.error;
     },
   };

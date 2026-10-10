@@ -6,6 +6,7 @@ import { Platform, Pressable, View, useWindowDimensions, type LayoutChangeEvent 
 import { buildSelectorProviders, filterAndRankOptions, filterSelectableModels, formatAgentModeLabel, formatThinkingOptionLabel, getAgentFeatureIcon, getAgentModeIcon, getAgentModeOptionIcon, getFeatureHighlightColor, getFeatureTooltip, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveControlPresentation, resolveToolbarGlyphSize, selectorOpenRefetchDecision, shortModelLabel, type ControlDensity, type ControlPresentation, type Feature, type Mode, type ProviderEntry, type SelectorProvider } from "../shared/controls.ts";
 import type { Usage } from "../shared/context-meter.ts";
 import { agentConfig } from "../shared/rpc.ts";
+import { useLiveAgent } from "./agent-live.ts";
 import { useRegisterModeCycle } from "./composer-keys.tsx";
 import { ContextWindowMeter } from "./context-meter.tsx";
 import { Anchored, ComboList, ControlTrigger, PALETTE, SearchRow, sidebarColour, ToolbarGlyph, TooltipText, useComboKeys, type ComboOption } from "./controls-kit.tsx";
@@ -13,9 +14,6 @@ import { ProviderGlyph } from "./controls-provider-icons.tsx";
 import { COMPACT_MODEL_VIEWPORT, CompactModelTrigger, DesktopModelSelector, ModelBrowserBody, useModelBrowser, type IconSvgs, type ModelBrowserState } from "./controls-model.tsx";
 import { COMPACT_BELOW, SPACING } from "./kit/theme.ts";
 
-type PaseoApi = ReturnType<typeof usePaseo>;
-type AgentHandle = ReturnType<PaseoApi["agents"]["ref"]>;
-type Agent = NonNullable<ReturnType<AgentHandle["current"]>>;
 
 const isNative = Platform.OS !== "web";
 const DESKTOP_SEARCH_THRESHOLD = 6;
@@ -26,37 +24,6 @@ function messageOf(error: unknown): string {
   return String((error as Error)?.message ?? error);
 }
 
-function useLiveAgent(agentId: string): { agent: Agent | null; refresh: () => void } {
-  const paseo = usePaseo();
-  const handle = useMemo(() => paseo.agents.ref(agentId), [paseo, agentId]);
-  const [agent, setAgent] = useState<Agent | null>(() => handle.current());
-  useEffect(() => {
-    let disposed = false;
-    setAgent(handle.current());
-    const unsubscribe = handle.subscribe((update) => {
-      if (!disposed && update.kind === "upsert") setAgent(update.agent as Agent);
-    });
-    void handle.refresh().then(
-      (result) => {
-        if (!disposed && result) setAgent(result.agent);
-      },
-      () => undefined,
-    );
-    return () => {
-      disposed = true;
-      unsubscribe();
-    };
-  }, [handle]);
-  const refresh = useCallback(() => {
-    void handle.refresh().then(
-      (result) => {
-        if (result) setAgent(result.agent);
-      },
-      () => undefined,
-    );
-  }, [handle]);
-  return { agent, refresh };
-}
 
 interface ProvidersSnapshot {
   entries: ProviderEntry[] | undefined;
@@ -541,7 +508,7 @@ export function AgentControls({ theme, agentId, isCompactLayout: isCompact }: { 
     async (input: { field: "model" | "mode" | "thinking" | "feature"; value: string | boolean | null; featureId?: string }) => {
       try {
         const r = await call({ agentId, ...input });
-        refreshAgent();
+        void refreshAgent();
         if (!r.ok) return toast.error(r.error);
         const notice = r.notice;
         if (!notice) return;

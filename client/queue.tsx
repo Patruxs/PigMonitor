@@ -3,9 +3,9 @@ import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useSyncExternalStore } from "react";
 import { Pressable, Text, View } from "react-native";
 import { createQueueDrainer, splitAttachmentsForSubmit, type QueuedComposerMessage, type QueueWriter } from "../shared/composer.ts";
-import { sendToAgent, type PaseoApi } from "./native.tsx";
+import { agentStatusFeed, type PaseoApi } from "./agent-live.ts";
+import { sendToAgent } from "./native.tsx";
 import { ICON_SIZE, SPACING } from "./kit/theme.ts";
-import { BUSY_MS } from "./poll.ts";
 
 const QUEUE_BUTTON = 32;
 
@@ -38,27 +38,9 @@ export function useQueuedMessages(agentId: string | undefined): QueuedComposerMe
 const drainer = createQueueDrainer(queueWriter);
 
 export function drainWhenIdle(paseo: PaseoApi, agentId: string): void {
-  const handle = paseo.agents.ref(agentId);
   drainer.watch(
     agentId,
-    {
-      status: () => handle.current()?.status ?? null,
-      subscribe: (listener) => {
-        const unsubscribe = handle.subscribe((update) => {
-          if (update.kind === "upsert") listener(update.agent.status);
-        });
-        const timer = setInterval(() => {
-          void handle.refresh().then(
-            (result) => result && listener(result.agent.status),
-            () => undefined,
-          );
-        }, BUSY_MS);
-        return () => {
-          clearInterval(timer);
-          unsubscribe();
-        };
-      },
-    },
+    agentStatusFeed(paseo, agentId),
     async (message) => {
       const wire = splitAttachmentsForSubmit(message.attachments);
       const failed = await sendToAgent(paseo, agentId, message.text, wire.images, wire.attachments, message.id);
