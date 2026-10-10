@@ -1,4 +1,6 @@
+import type { PluginRpcContract } from "@getpaseo/plugin";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { input as ZodInput, output as ZodOutput, ZodType } from "zod";
 import { piggeryPath } from "./server/installed.ts";
 import { MailReader, pickDatabase } from "./server/mail.ts";
 import { abort, listModels, piggeryHome, pickBin, runStepIn, snapshotView, tailView } from "./server/piggery.ts";
@@ -12,7 +14,12 @@ import { dictationReadiness, transcribe as transcribeRecording } from "./server/
 import { pastedImageSaver, readImage } from "./server/image.ts";
 import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
 
+export const OBSERVE_ONLY_REFUSAL = { ok: false as const, code: "denied" as const, error: "This Paseo daemon runs PigMonitor observe-only, so nothing is sent to piggery or Paseo." };
+
 export default function contribute(server: PluginServerContext) {
+  const observeOnly = process.env.PIGMONITOR_OBSERVE_ONLY === "1";
+  const changes = <I extends ZodType, O extends ZodType>(contract: PluginRpcContract<I, O>, handler: (input: ZodOutput<I>) => Promise<ZodInput<O>>, ..._refusable: typeof OBSERVE_ONLY_REFUSAL extends ZodInput<O> ? [] : [never]) =>
+    server.handle(contract, observeOnly ? async () => OBSERVE_ONLY_REFUSAL as ZodInput<O> : handler);
   const stored = server.registerSettings(settings);
   server.registerSettings(viewSettings);
   const bin = async () => {
@@ -37,22 +44,21 @@ export default function contribute(server: PluginServerContext) {
 
   const transcripts = new TranscriptReader(reader, pastedImageSaver(`${ATTACH_ROOT}/pasted`));
   server.handle(transcript, async ({ id, before, limit, since }) => {
-    const file = await database();
-    return transcripts.read(file, id, before, limit, me.current(file)?.id, since);
+    return transcripts.read(await database(), id, before, limit, me.current(piggeryHome())?.id, since);
   });
 
   server.handle(imageFile, async ({ path }) => readImage(path));
 
   const prompts = new PromptImageReader(pastedImageSaver(`${ATTACH_ROOT}/pasted`));
   server.handle(promptImages, async ({ id }) => prompts.read(reader, await database(), id));
-  void database().then((db) => me.warm(db));
+  if (!observeOnly) me.warm(piggeryHome());
   server.handle(person, async () => {
-    const who = me.current(await database());
+    const who = me.current(piggeryHome());
     return { ok: true as const, person: who ? { id: who.id, name: who.name } : null };
   });
-  server.handle(sendMail, async ({ images, attachments, ...input }) => {
+  changes(sendMail, async ({ images, attachments, ...input }) => {
     const composed = await mailBody(ATTACH_ROOT, input.to, input.body, images ?? [], attachments ?? []);
-    return composed.ok ? me.send(await database(), { ...input, body: composed.body }) : composed;
+    return composed.ok ? me.send(piggeryHome(), { ...input, body: composed.body }) : composed;
   });
   server.handle(sessions, async ({ ids }) => {
     try {
@@ -61,7 +67,7 @@ export default function contribute(server: PluginServerContext) {
       return { ok: false as const, code: "failed" as const, error: `Could not read piggery's database: ${String((error as Error).message ?? error)}` };
     }
   });
-  server.handle(upload, async ({ fileName, mimeType, data }) => {
+  changes(upload, async ({ fileName, mimeType, data }) => {
     const tooLarge = uploadTooLarge(fileName, data);
     if (tooLarge) return { ok: false as const, code: "failed" as const, error: tooLarge };
     return uploadFile(fileName, mimeType, data);
@@ -73,14 +79,14 @@ export default function contribute(server: PluginServerContext) {
   server.handle(transcribe, async ({ format, chunks }) => transcribeRecording(format, chunks));
   server.handle(notifyStatus, async () => ({ ok: true as const, set: notifyHooksSet(piggeryHome()) }));
   server.handle(timelinePrompts, async ({ agentId }) => listTimelinePrompts(agentId));
-  server.handle(rewind, async ({ agentId, messageId, mode }) => rewindAgent(agentId, messageId, mode));
+  changes(rewind, async ({ agentId, messageId, mode }) => rewindAgent(agentId, messageId, mode));
   server.handle(timelineSearch, async ({ agentId, query, cursor }) => searchTimeline(agentId, query, cursor));
-  server.handle(agentConfig, async ({ agentId, field, featureId, value }) => configureAgent(agentId, field, value, featureId));
+  changes(agentConfig, async ({ agentId, field, featureId, value }) => configureAgent(agentId, field, value, featureId));
   server.handle(usageReports, async (options) => listUsageReports(options));
-  server.handle(stop, async ({ id, agentId }) => (agentId ? stopAgent(agentId) : abort(await bin(), id)));
-  server.handle(stepIn, async (input) => runStepIn(await bin(), input));
+  changes(stop, async ({ id, agentId }) => (agentId ? stopAgent(agentId) : abort(await bin(), id)));
+  changes(stepIn, async (input) => runStepIn(await bin(), input));
   server.handle(models, async ({ id }) => listModels(piggeryHome(), id));
-  server.handle(resume, async ({ id }) => {
+  changes(resume, async ({ id }) => {
     try {
       return await resumeInPaseo(reader.sessions(await database(), [id])[0]);
     } catch (error) {

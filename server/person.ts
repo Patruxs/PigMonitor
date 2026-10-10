@@ -43,12 +43,12 @@ function harness() {
   return { harness: "paseo", mode: "interactive", harness_ref: HARNESS_REF, tool_prefix: "", model: "", thinking: "", capabilities: ["wake"] };
 }
 
-export function identityFile(database: string): string {
-  return path.join(path.dirname(database), "paseo-person.json");
+export function identityFile(home: string): string {
+  return path.join(home, "paseo-person.json");
 }
 
-export function socketFile(database: string): string {
-  return path.join(path.dirname(database), "piggery.sock");
+export function socketFile(home: string): string {
+  return path.join(home, "piggery.sock");
 }
 
 function readIdentity(file: string): Identity | null {
@@ -168,7 +168,7 @@ class Socket {
 
 /**
  * The person behind Paseo as one piggery participant: a solo session the daemon names, kept across
- * restarts in paseo-person.json beside piggery.db. It joins on the first send (or at start, when it
+ * restarts in paseo-person.json in piggery's home. It joins on the first send (or at start, when it
  * already has an identity), sends mail by the daemon's own verbs, and reads its inbox when woken so
  * replies count as read.
  */
@@ -176,7 +176,7 @@ export class Person {
   private socket: Socket | null = null;
   private identity: Identity | null = null;
   private connecting: Promise<void> | null = null;
-  private database = "";
+  private home = "";
   private stopped = false;
   private reconnect: ReturnType<typeof setTimeout> | undefined;
   private readonly log: (line: string) => void;
@@ -185,27 +185,27 @@ export class Person {
     this.log = log;
   }
 
-  current(database: string): Identity | null {
-    if (database !== this.database || this.identity === null) {
-      this.database = database;
-      this.identity = readIdentity(identityFile(database));
+  current(home: string): Identity | null {
+    if (home !== this.home || this.identity === null) {
+      this.home = home;
+      this.identity = readIdentity(identityFile(home));
     }
     return this.identity;
   }
 
   /** Connects now when an identity is saved already, so wakes are answered; otherwise waits for the first send. */
-  warm(database: string): void {
-    if (this.current(database)) void this.ensure(database).catch((e: DaemonError) => this.log(`piggery person: ${e.message ?? e}`));
+  warm(home: string): void {
+    if (this.current(home)) void this.ensure(home).catch((e: DaemonError) => this.log(`piggery person: ${e.message ?? e}`));
   }
 
-  private async ensure(database: string): Promise<Socket> {
-    this.current(database);
+  private async ensure(home: string): Promise<Socket> {
+    this.current(home);
     if (this.socket?.open && this.identity) return this.socket;
     if (this.connecting) {
       await this.connecting;
       if (this.socket?.open) return this.socket;
     }
-    this.connecting = this.connect(database).finally(() => {
+    this.connecting = this.connect(home).finally(() => {
       this.connecting = null;
     });
     await this.connecting;
@@ -213,13 +213,13 @@ export class Person {
     return this.socket;
   }
 
-  private async connect(database: string): Promise<void> {
+  private async connect(home: string): Promise<void> {
     const sock = new Socket(
-      socketFile(database),
+      socketFile(home),
       (f) => void this.push(f),
       () => {
         if (this.socket === sock) this.socket = null;
-        this.scheduleReconnect(database);
+        this.scheduleReconnect(home);
       },
     );
     await sock.connect();
@@ -246,15 +246,15 @@ export class Person {
     }
     const identity: Identity = { id: auth.id, token: auth.token, run_id: identified.run_id, name: identified.name };
     this.identity = identity;
-    writeIdentity(identityFile(database), identity);
+    writeIdentity(identityFile(home), identity);
     this.socket = sock;
     void this.readInbox().catch(() => {});
   }
 
-  private scheduleReconnect(database: string): void {
+  private scheduleReconnect(home: string): void {
     if (this.stopped || !this.identity) return;
     clearTimeout(this.reconnect);
-    this.reconnect = setTimeout(() => void this.ensure(database).catch(() => {}), 5000);
+    this.reconnect = setTimeout(() => void this.ensure(home).catch(() => {}), 5000);
   }
 
   private async push(f: Frame): Promise<void> {
@@ -279,10 +279,10 @@ export class Person {
     }
   }
 
-  async send(database: string, input: SendInput): Promise<SendResult> {
+  async send(home: string, input: SendInput): Promise<SendResult> {
     let sock: Socket;
     try {
-      sock = await this.ensure(database);
+      sock = await this.ensure(home);
     } catch (e) {
       const err = daemonError(e);
       return { ok: false, code: err.code === "down" ? "down" : "failed", error: err.message ?? "piggery did not answer." };
