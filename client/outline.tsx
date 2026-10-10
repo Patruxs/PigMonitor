@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { Platform, Pressable, Text, View, type LayoutChangeEvent } from "react-native";
 import { timelinePrompts } from "../shared/rpc.ts";
 import type { StreamItem } from "../shared/stream.ts";
+import { promptsOfLoadedItems, resolveActivePromptSeq, type OutlinePrompt } from "../shared/outline.ts";
 import { getStreamItemMessageId } from "../shared/stream-presentation.ts";
 import type { AgentHistory } from "./chat-find.tsx";
 import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
@@ -23,12 +24,6 @@ const PREVIEW_GAP = 4;
 const OUTLINE_MAGNIFY_RADIUS = 3;
 const INITIAL_ACTIVATION_DELAY_MS = 150;
 const HORIZONTAL_TRANSIT_DISTANCE_PX = 4;
-
-export interface OutlinePrompt {
-  seq: number;
-  timestamp: string;
-  preview: string;
-}
 
 interface ActivePromptSource {
   subscribe: (listener: () => void) => () => void;
@@ -59,28 +54,12 @@ function promptTickMagnification(slotDistance: number): number {
   return (1 + Math.cos((Math.PI * distance) / OUTLINE_MAGNIFY_RADIUS)) / 2;
 }
 
-function resolveActivePromptSeq(prompts: readonly OutlinePrompt[], anchorSeq: number | null): number | null {
-  if (anchorSeq === null) return null;
-  let active: number | null = null;
-  for (const prompt of prompts) {
-    if (prompt.seq > anchorSeq) break;
-    active = prompt.seq;
-  }
-  return active;
-}
-
 export interface ChatOutline {
   prompts: OutlinePrompt[];
   activePrompt: ActivePromptSource;
   jumpToPrompt: (seq: number) => void;
   reportReadingPosition: (seq: number | null) => void;
   seqOf: (item: StreamItem) => number | null;
-}
-
-function loadedPromptPreview(item: StreamItem): string | null {
-  if (item.kind === "user_message") return item.text;
-  if (item.kind === "piggery" && item.prompt && (item.source.kind === "mail" || item.source.kind === "wake")) return item.source.from ? `${item.source.from}: ${item.source.text}` : item.source.text;
-  return null;
 }
 
 export function useChatOutline({ streamKey, agent, items, viewportRef, visibleMessageIds, revealLoadedMessage }: { streamKey: string; agent: AgentHistory | null; items: StreamItem[]; viewportRef: { current: ViewportHandle | null }; visibleMessageIds: ReadonlySet<string>; revealLoadedMessage: (messageId: string) => boolean }): ChatOutline {
@@ -98,16 +77,7 @@ export function useChatOutline({ streamKey, agent, items, viewportRef, visibleMe
   const loaded = agentId === null;
   const positions = useMemo(() => (loaded ? new Map(items.map((item, seq) => [item.id, seq])) : null), [loaded, items]);
   const seqOf = useCallback((item: StreamItem) => (positions ? (positions.get(getStreamItemMessageId(item)) ?? null) : (item.timelineCursor?.seq ?? null)), [positions]);
-  const loadedPrompts = useMemo(
-    () =>
-      loaded
-        ? items.flatMap((item, seq) => {
-            const preview = loadedPromptPreview(item);
-            return preview === null ? [] : [{ seq, timestamp: item.timestamp.toISOString(), preview }];
-          })
-        : [],
-    [loaded, items],
-  );
+  const loadedPrompts = useMemo(() => (loaded ? promptsOfLoadedItems(items) : []), [loaded, items]);
   const prompts = loaded ? loadedPrompts : (index?.prompts ?? []);
   const latestPromptSeq = items.reduce((latest, item) => (item.kind === "user_message" && item.timelineCursor?.epoch === epoch ? Math.max(latest, item.timelineCursor.seq) : latest), -1);
   useEffect(() => setIndex(null), [agentId, epoch]);
