@@ -157,9 +157,9 @@ export async function sendQueuedComposerMessageNow(input: { agentId: string; mes
 }
 
 export type ComposerFocus = "input" | "pane" | "outside";
-export type ComposerKeyAction = "focus-input" | "interrupt" | "dictation-cancel" | "dictation-toggle" | "dictation-send";
+export type ComposerKeyAction = "focus-input" | "interrupt" | "dictation-cancel" | "dictation-toggle" | "dictation-send" | "mode-cycle";
 
-export function resolveComposerKey(input: { key: string; primary: boolean; shift: boolean; alt: boolean; focus: ComposerFocus; dictation: DictationStatus; isAgentRunning: boolean; isCancelling: boolean }): ComposerKeyAction | null {
+export function resolveComposerKey(input: { key: string; primary: boolean; shift: boolean; alt: boolean; focus: ComposerFocus; dictation: DictationStatus; isAgentRunning: boolean; isCancelling: boolean; canCycleMode: boolean }): ComposerKeyAction | null {
   if (input.focus === "outside") return null;
   const key = input.key.toLowerCase();
   const plain = !input.primary && !input.alt;
@@ -171,6 +171,7 @@ export function resolveComposerKey(input: { key: string; primary: boolean; shift
   if (key === "enter" && plain && !input.shift && input.dictation === "recording") return "dictation-send";
   if (chord && key === "d") return "dictation-toggle";
   if (chord && key === "l") return "focus-input";
+  if (key === "tab" && plain && input.shift && input.focus === "input" && input.canCycleMode) return "mode-cycle";
   return null;
 }
 

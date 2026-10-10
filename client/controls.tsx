@@ -3,9 +3,10 @@ import { usePaseo, useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
-import { buildSelectorProviders, COMPACT_BREAKPOINT, filterAndRankOptions, filterSelectableModels, formatAgentModeLabel, formatThinkingOptionLabel, getAgentFeatureIcon, getAgentModeIcon, getAgentModeOptionIcon, getFeatureHighlightColor, getFeatureTooltip, isFeatureActive, resolveAgentModelSelection, resolveControlDensity, resolveControlPresentation, resolveToolbarGlyphSize, selectorOpenRefetchDecision, shortModelLabel, type ControlDensity, type ControlPresentation, type Feature, type Mode, type ProviderEntry, type SelectorProvider } from "../shared/controls.ts";
+import { buildSelectorProviders, COMPACT_BREAKPOINT, filterAndRankOptions, filterSelectableModels, formatAgentModeLabel, formatThinkingOptionLabel, getAgentFeatureIcon, getAgentModeIcon, getAgentModeOptionIcon, getFeatureHighlightColor, getFeatureTooltip, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveControlPresentation, resolveToolbarGlyphSize, selectorOpenRefetchDecision, shortModelLabel, type ControlDensity, type ControlPresentation, type Feature, type Mode, type ProviderEntry, type SelectorProvider } from "../shared/controls.ts";
 import type { Usage } from "../shared/context-meter.ts";
 import { agentConfig } from "../shared/rpc.ts";
+import { useRegisterModeCycle } from "./composer.tsx";
 import { ContextWindowMeter } from "./context-meter.tsx";
 import { Anchored, ComboList, ControlTrigger, PALETTE, SearchRow, sidebarColour, ToolbarGlyph, TooltipText, useComboKeys, type ComboOption } from "./controls-kit.tsx";
 import { ProviderGlyph } from "./controls-provider-icons.tsx";
@@ -552,6 +553,9 @@ export function AgentControls({ theme, agentId, isCompactLayout: isCompact }: { 
     },
     [agentId, call, toast, refreshAgent],
   );
+  const cycleModes = (agent?.availableModes ?? []) as Mode[];
+  const nextMode = agent ? nextModeId(cycleModes, agent.currentModeId) : null;
+  useRegisterModeCycle(nextMode ? () => void send({ field: "mode", value: nextMode }) : null);
   if (!agent) return null;
   const selection = resolveAgentModelSelection({ models, runtimeModelId: agent.runtimeInfo?.model ?? null, configuredModelId: agent.model, runtimeThinkingOptionId: agent.runtimeInfo?.thinkingOptionId ?? null, explicitThinkingOptionId: agent.thinkingOptionId });
   const thinkingOptions = (selection.thinkingOptions ?? []).map((option) => ({ id: option.id, label: formatThinkingOptionLabel(option) }));

@@ -24,6 +24,12 @@ export interface Mode {
   colorTier?: string;
 }
 
+export function nextModeId(modes: readonly Mode[], selectedModeId: string | null | undefined): string | null {
+  if (modes.length < 2) return null;
+  const selected = modes.findIndex((mode) => mode.id === selectedModeId);
+  return modes[((selected >= 0 ? selected : 0) + 1) % modes.length]?.id ?? null;
+}
+
 export type Feature =
   | { type: "toggle"; id: string; label: string; description?: string; tooltip?: string; icon?: string; value: boolean }
   | { type: "select"; id: string; label: string; description?: string; tooltip?: string; icon?: string; desktopTrigger?: "icon" | "label"; value: string | null; options: SelectOption[] };

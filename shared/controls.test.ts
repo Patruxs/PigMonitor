@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSelectorProviders, filterAndRankModelRows, allProviderModelRows, formatAgentModeLabel, formatThinkingOptionLabel, isFeatureActive, resolveAgentModelSelection, resolveControlDensity, resolveInitialModelBrowserView, resolveModelBrowserAllView, resolveSelectedModelLabel, type ProviderEntry } from "./controls.ts";
+import { buildSelectorProviders, filterAndRankModelRows, allProviderModelRows, formatAgentModeLabel, formatThinkingOptionLabel, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveInitialModelBrowserView, resolveModelBrowserAllView, resolveSelectedModelLabel, type ProviderEntry } from "./controls.ts";
 
 const selection = (input: Partial<Parameters<typeof resolveAgentModelSelection>[0]>) => resolveAgentModelSelection({ models: [], runtimeModelId: null, configuredModelId: null, runtimeThinkingOptionId: null, explicitThinkingOptionId: null, ...input });
 
@@ -67,4 +67,9 @@ test("the picker opens a sole provider directly, and search ranks matches or rep
   assert.deepEqual(resolveInitialModelBrowserView({ providers, selectedProvider: "", selectedModel: "" }), { kind: "provider", providerId: "claude", providerLabel: "Claude" });
   assert.deepEqual(filterAndRankModelRows(allProviderModelRows(providers), "son").map((r) => r.modelId), ["sonnet"]);
   assert.deepEqual(resolveModelBrowserAllView({ providers, normalizedQuery: "zzz", isSearchFocused: false }), { kind: "noSearchMatches" });
+});
+
+test("the next mode follows the current one and wraps to the first", () => {
+  const modes = [{ id: "default", label: "Default" }, { id: "acceptEdits", label: "Accept edits" }, { id: "plan", label: "Plan" }];
+  assert.deepEqual([nextModeId(modes, "default"), nextModeId(modes, "plan"), nextModeId(modes, "unknown"), nextModeId(modes.slice(0, 1), "default")], ["acceptEdits", "default", "acceptEdits", null]);
 });

@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { openExternalUrl, useRpc } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, useWindowDimensions, View, type LayoutChangeEvent, type NativeSyntheticEvent, type PressableStateCallbackType, type TextInputSelectionChangeEventData, type TextStyle } from "react-native";
 import { MAX_UPLOAD_BYTES } from "../shared/attach.ts";
 import {
@@ -165,6 +165,23 @@ function QueuedMessageRow({ theme, item, onEdit, onSendNow }: { theme: PluginThe
 
 type ToolbarSlot = ReactNode | ((layout: { isCompactLayout: boolean }) => ReactNode);
 
+const ModeCycle = createContext<{ current: (() => void) | null } | null>(null);
+
+export function useRegisterModeCycle(cycle: (() => void) | null): void {
+  const slot = useContext(ModeCycle);
+  const latest = useRef(cycle);
+  latest.current = cycle;
+  const present = cycle !== null;
+  useEffect(() => {
+    if (!slot || !present) return;
+    const run = () => latest.current?.();
+    slot.current = run;
+    return () => {
+      if (slot.current === run) slot.current = null;
+    };
+  }, [slot, present]);
+}
+
 export function Composer({ theme, placeholder, disabled = false, hint, controls, trailing, draftKey, cwd, stop, agent, onSend }: { theme: PluginTheme; placeholder: string; disabled?: boolean; hint?: string; controls?: ToolbarSlot; trailing?: ToolbarSlot; draftKey?: string; cwd?: string; stop?: { running: boolean; onStop: () => Promise<string | null> }; agent?: ComposerAgent; onSend: (body: string, images: ImageData[], attachments: AttachmentData[]) => Promise<string | null> }) {
   const initial = useMemo(() => (draftKey === undefined ? { text: "", attachments: [] } : readDraft(draftKey)), []);
   const [value, setValue] = useState(initial.text);
@@ -185,6 +202,7 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
   const root = useRef<View>(null);
   const nextPendingFileId = useRef(0);
   const drainInFlight = useRef(false);
+  const modeCycle = useRef<(() => void) | null>(null);
   const toast = useToast();
   const callUpload = useRpc(upload);
   const maxInputHeight = resolveMaxInputHeight(windowHeight);
@@ -408,13 +426,14 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
 
   const keys = useRef({ resolve: (_chord: KeyChord, _focus: ComposerFocus): ComposerKeyAction | null => null, run: (_action: ComposerKeyAction) => {} });
   keys.current = {
-    resolve: (chord, focus) => resolveComposerKey({ key: chord.key, primary: isMac ? chord.metaKey === true && chord.ctrlKey !== true : chord.ctrlKey === true && chord.metaKey !== true, shift: chord.shiftKey === true, alt: chord.altKey === true, focus, dictation: dictation.status, isAgentRunning, isCancelling: isCancellingAgent }),
+    resolve: (chord, focus) => resolveComposerKey({ key: chord.key, primary: isMac ? chord.metaKey === true && chord.ctrlKey !== true : chord.ctrlKey === true && chord.metaKey !== true, shift: chord.shiftKey === true, alt: chord.altKey === true, focus, dictation: dictation.status, isAgentRunning, isCancelling: isCancellingAgent, canCycleMode: modeCycle.current !== null }),
     run: (action) => {
       if (action === "focus-input") return focusInput();
       if (action === "interrupt") return handleCancelAgent();
       if (action === "dictation-cancel") return void dictation.cancel();
       if (action === "dictation-send") return void dictation.confirm(true);
       if (action === "dictation-toggle" && !disabled) return void dictation.toggle();
+      if (action === "mode-cycle") return modeCycle.current?.();
     },
   };
 
@@ -500,6 +519,7 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
   const footerHint = agent ? undefined : hint;
 
   return (
+    <ModeCycle.Provider value={modeCycle}>
     <View ref={root} style={{ position: "relative", flexShrink: 1, alignItems: "center", width: "100%", paddingHorizontal: SPACING[4], paddingBottom: SPACING[4] }} onLayout={onInputAreaLayout}>
       {agentId && timeline ? <ComposerTracks theme={theme} agentId={agentId} items={timeline.tail.concat(timeline.head)} onOpenAgent={agent?.open} /> : null}
       <AttachmentLightbox theme={theme} uri={lightboxUri} onClose={closeLightbox} />
@@ -576,5 +596,6 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
         ) : null}
       </View>
     </View>
+    </ModeCycle.Provider>
   );
 }
