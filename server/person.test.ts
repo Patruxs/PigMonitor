@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -46,6 +46,28 @@ test("the person joins on its first send, keeps its identity in piggery's home, 
     assert.deepEqual(await me.send(home, { to: "peer", body: "hi" }), { ok: false, code: "denied", error: "write to the gate", gate: "G1", gate_name: "ilya" });
   } finally {
     me.stop();
+    daemon.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("at start the person reconnects only when it already has an identity, so it never joins piggery before its first send", async () => {
+  const home = mkdtempSync(path.join(tmpdir(), "person-home-"));
+  const daemon = await fakeDaemon(home, (req) => (req.verb === "identify" ? { result: { participant_id: "P1", run_id: "R1", name: "otter" } } : { result: {} }));
+  const fresh = new Person();
+  const known = new Person();
+  try {
+    fresh.warm(home);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(daemon.verbs.length, 0);
+    writeFileSync(identityFile(home), JSON.stringify({ id: "P1", token: "T1", run_id: "R1", name: "otter" }));
+    known.warm(home);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(daemon.verbs[0], "identify");
+    assert.ok(!daemon.verbs.includes("join.auto"));
+  } finally {
+    fresh.stop();
+    known.stop();
     daemon.close();
     rmSync(home, { recursive: true, force: true });
   }

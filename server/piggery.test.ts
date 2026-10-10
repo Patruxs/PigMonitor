@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { listModels, pickBin, runPiggery, stepInArgs, tailView } from "./piggery.ts";
+import { listModels, pickBin, realDir, runPiggery, stepInArgs, tailView } from "./piggery.ts";
 
 function fakeBin(script: string): { bin: string; done: () => void } {
   const dir = mkdtempSync(path.join(tmpdir(), "fake-piggery-"));
@@ -79,5 +79,16 @@ test("models are asked over piggery's admin socket with its admin token, and an 
   } finally {
     daemon.close();
     rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a workspace directory is matched as piggery records it, with symlinks resolved, and kept as given when it cannot be resolved", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "real-dir-"));
+  const link = path.join(dir, "link");
+  symlinkSync(dir, link);
+  try {
+    assert.deepEqual([await realDir(link), await realDir("/nowhere/at/all")], [realpathSync(dir), "/nowhere/at/all"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

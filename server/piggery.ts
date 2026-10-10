@@ -13,8 +13,8 @@ export type Result = { ok: true; out: string } | { ok: false; code: "missing" | 
 const TIMEOUT_MS = 5000;
 
 /** The binary to run: the user's setting, else the piggery that installed the plugin, else PATH. */
-export function pickBin(setting: string, installed: string): string {
-  return setting.trim() || installed.trim() || "piggery";
+export function pickBin(setting: string, installedByPiggery: string): string {
+  return setting.trim() || installedByPiggery.trim() || "piggery";
 }
 
 export function piggeryHome(): string {

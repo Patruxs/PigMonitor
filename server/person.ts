@@ -248,7 +248,7 @@ export class Person {
     this.identity = identity;
     writeIdentity(identityFile(home), identity);
     this.socket = sock;
-    void this.readInbox().catch(() => {});
+    void this.markInboxRead().catch(() => {});
   }
 
   private scheduleReconnect(home: string): void {
@@ -258,7 +258,7 @@ export class Person {
   }
 
   private async push(f: Frame): Promise<void> {
-    if (f.event === "wake") await this.readInbox().catch((e: DaemonError) => this.log(`piggery person: inbox: ${e.message ?? e}`));
+    if (f.event === "wake") await this.markInboxRead().catch((e: DaemonError) => this.log(`piggery person: inbox: ${e.message ?? e}`));
     else if (f.event === "retire") {
       this.log(`piggery person: retired by the daemon (${String((f as { reason?: string }).reason ?? "")}); joining anew on the next send`);
       this.identity = null;
@@ -267,7 +267,7 @@ export class Person {
   }
 
   /** One short turn: the daemon records the mail as delivered in it and marks it read when it ends. */
-  private async readInbox(): Promise<void> {
+  private async markInboxRead(): Promise<void> {
     const sock = this.socket;
     if (!sock?.open) return;
     const key = randomUUID();
