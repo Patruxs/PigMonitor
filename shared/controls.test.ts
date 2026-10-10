@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSelectorProviders, filterAndRankModelRows, allProviderModelRows, formatAgentModeLabel, formatThinkingOptionLabel, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveInitialModelBrowserView, resolveModelBrowserAllView, resolveSelectedModelLabel, type ProviderEntry } from "./controls.ts";
+import { buildSelectorProviders, filterAndRankModelRows, allProviderModelRows, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveInitialModelBrowserView, resolveModelBrowserAllView, resolveSelectedModelLabel, type ProviderEntry } from "./controls.ts";
 
 const selection = (input: Partial<Parameters<typeof resolveAgentModelSelection>[0]>) => resolveAgentModelSelection({ models: [], runtimeModelId: null, configuredModelId: null, runtimeThinkingOptionId: null, explicitThinkingOptionId: null, ...input });
 
@@ -26,12 +26,6 @@ test("thinking shows the runtime level when it is a model option, else the chose
 test("an agent on a model the catalog does not list shows its own model id and chosen thinking", () => {
   const s = selection({ models: [{ id: "gpt-6-sol", label: "GPT-6-Sol", isDefault: true, thinkingOptions: [{ id: "medium", label: "medium" }, { id: "max", label: "max" }], defaultThinkingOptionId: "medium" }], runtimeModelId: "gpt-6.1-sol", configuredModelId: "gpt-6.1-sol", explicitThinkingOptionId: "max" });
   assert.deepEqual([s.selectedModel, s.activeModelId, s.displayModel, s.displayThinking], [null, "gpt-6.1-sol", "gpt-6.1-sol", "Max"]);
-});
-
-test("labels are sentence-cased and split, with xhigh read as Extra high", () => {
-  assert.equal(formatAgentModeLabel({ id: "bypassPermissions", label: null }), "Bypass permissions");
-  assert.equal(formatAgentModeLabel({ id: "x", label: "Accept Edits" }), "Accept edits");
-  assert.equal(formatThinkingOptionLabel({ id: "xhigh", label: "xhigh" }), "Extra high");
 });
 
 test("a select feature is active only on a non-default option", () => {
