@@ -15,6 +15,8 @@ import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./speech.ts";
  */
 const Failure = z.object({ ok: z.literal(false), code: z.enum(["missing", "down", "older", "newer", "failed", "nodb", "nolog", "denied"]), error: z.string() });
 
+const StateSegment = z.object({ state: z.enum(["working", "idle", "waiting", "gone"]), start: z.number(), end: z.number().nullable() });
+
 /**
  * `piggery ps --view`, passed through as piggery wrote it (shared/view.ts checks its version and
  * types it). With a workspace `dir`, also that directory as piggery records paths (symlinks
@@ -23,7 +25,7 @@ const Failure = z.object({ ok: z.literal(false), code: z.enum(["missing", "down"
 export const snapshot = defineRpc({
   name: "pigmonitor.snapshot",
   input: z.object({ dir: z.string().optional() }),
-  output: z.union([z.object({ ok: z.literal(true), view: z.record(z.string(), z.unknown()), dir: z.string().optional() }), Failure]),
+  output: z.union([z.object({ ok: z.literal(true), view: z.record(z.string(), z.unknown()), segments: z.record(z.string(), z.array(StateSegment)).optional(), dir: z.string().optional() }), Failure]),
 });
 
 /** The last lines of one participant's session, as `piggery tail --view` gives them. */

@@ -9,6 +9,7 @@ import { TranscriptReader } from "./server/transcript.ts";
 import { PromptImageReader } from "./server/prompt-images.ts";
 import { notifyHooksSet } from "./server/notify.ts";
 import { adminCall } from "./server/admin.ts";
+import { StateRecorder, STATES_FILE } from "./server/states.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
 import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
@@ -24,16 +25,12 @@ export default function contribute(server: PluginServerContext) {
     return pickBin(state.status === "ready" ? state.values.path : "", piggeryPath);
   };
 
+  const states = new StateRecorder(STATES_FILE, async () => runPiggery(await bin(), ["ps", "--view"]));
+  states.start();
   server.handle(snapshot, async ({ dir }) => {
-    const b = await bin();
-    const r = await runPiggery(b, ["ps", "--view"]);
+    const r = await states.snapshot();
     if (!r.ok) return r;
-    try {
-      const view = JSON.parse(r.out) as Record<string, unknown>;
-      return { ok: true as const, view, dir: dir === undefined ? undefined : await realDir(dir) };
-    } catch {
-      return { ok: false as const, code: "failed" as const, error: "piggery ps --view did not print JSON." };
-    }
+    return { ok: true as const, view: r.view, segments: states.segments(), dir: dir === undefined ? undefined : await realDir(dir) };
   });
 
   server.handle(tail, async ({ id, lines }) => {
@@ -133,6 +130,7 @@ export default function contribute(server: PluginServerContext) {
   });
 
   return () => {
+    states.stop();
     me.stop();
     reader.close();
   };

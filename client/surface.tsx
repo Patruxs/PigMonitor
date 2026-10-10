@@ -9,6 +9,8 @@ import { snapshot, tail, viewSettings } from "../shared/rpc.ts";
 import { keptAxisSteps } from "../shared/axis.ts";
 import { agoText, clockText, readView, related, type Block, type Column, type Detail, type Dir, type EventRow, type Head, type Row, type Status, type TailKind, type Tone, type View as PigView } from "../shared/view.ts";
 import { DetailDialog, type Index } from "./dialog.tsx";
+import { barColours, PastSegments } from "./gantt.tsx";
+import { piecesIn, type Segment } from "../shared/segments.ts";
 import { Header } from "./header.tsx";
 import { conversationsOf, HiddenProjects, SessionsPane } from "./sessions.tsx";
 import type { Navigation } from "./native.tsx";
@@ -32,7 +34,7 @@ function useView(dir: string | undefined) {
       const r = await call({ dir });
       if (!r.ok) return r;
       const v = readView(r.view);
-      return v.ok ? { ok: true as const, value: { view: v.view, dir: r.dir ?? dir } } : v;
+      return v.ok ? { ok: true as const, value: { view: v.view, dir: r.dir ?? dir, segments: r.segments ?? {} } } : v;
     },
     `view:${dir ?? ""}`,
     (v) => pollEvery((v?.view.summary.working ?? 0) + (v?.view.summary.waiting ?? 0) > 0),
@@ -305,17 +307,11 @@ function Grid({ theme, scale, tick }: { theme: PluginTheme; scale: Scale; tick: 
   );
 }
 
-function barColours(theme: PluginTheme, status: Status, own: string): { fill: string; ink: string; border: string } {
-  const c = statusColour(theme, status);
-  if (status === "idle") return { fill: tint(own, "2a"), ink: theme.colors.foreground, border: tint(own, "88") };
-  return { fill: c, ink: theme.colors.surface0, border: c };
-}
-
 function stateWords(row: Row): { word: string; since: string } {
   return { word: row.state_text.replace(/^[^\p{L}]+/u, ""), since: row.since ?? "" };
 }
 
-function Track({ theme, member, scale, events, onPress }: { theme: PluginTheme; member: Member; scale: Scale; events: { t: number; tone: Tone; type: string }[]; onPress: () => void }) {
+function Track({ theme, member, segments, scale, events, onPress }: { theme: PluginTheme; member: Member; segments: Segment[]; scale: Scale; events: { t: number; tone: Tone; type: string }[]; onPress: () => void }) {
   const { row } = member;
   const born = row.created_at ?? scale.start;
   const since = row.state_since ?? born;
@@ -332,11 +328,13 @@ function Track({ theme, member, scale, events, onPress }: { theme: PluginTheme; 
   const status = statusColour(theme, row.status);
   const top = TRACK_H / 2 - BAR_H / 2;
   const inside = stateW >= WORD_MIN;
+  const pieces = piecesIn(segments, scale.start, Math.min(since, scale.now), scale.now);
   const outsideRoom = stateX - SPACING[2];
   return (
     <PressRow theme={theme} onPress={onPress} label={`${row.name}, ${row.state_text}`} style={{ height: TRACK_H, justifyContent: "center" }}>
       <View style={{ position: "absolute", left: lifeX, width: lifeW, top: TRACK_H / 2 - LIFE_H / 2, height: LIFE_H, borderRadius: LIFE_H / 2, backgroundColor: own, opacity: gone ? 0.25 : 0.55 }} />
       {born >= scale.start && !gone ? <View style={{ position: "absolute", left: lifeX - 1, top: TRACK_H / 2 - 7, width: 3, height: 14, borderRadius: 1.5, backgroundColor: own }} /> : null}
+      <PastSegments theme={theme} pieces={pieces} xOf={(t) => xOf(scale, t)} top={top} height={BAR_H} own={own} />
       {!gone ? (
         <>
           <View style={{ position: "absolute", left: stateX, width: stateW, top, height: BAR_H, borderRadius: 6, backgroundColor: colours.fill, borderWidth: 1, borderColor: colours.border, overflow: "hidden", justifyContent: "center", paddingHorizontal: SPACING[2] }}>
@@ -349,7 +347,7 @@ function Track({ theme, member, scale, events, onPress }: { theme: PluginTheme; 
             ) : null}
           </View>
           {!inside && outsideRoom > WORD_MIN ? (
-            <View style={{ position: "absolute", right: scale.width - stateX + SPACING[2], top, height: BAR_H, justifyContent: "center", maxWidth: outsideRoom }}>
+            <View style={{ position: "absolute", right: scale.width - stateX + SPACING[1], top, height: BAR_H, justifyContent: "center", maxWidth: outsideRoom, paddingHorizontal: SPACING[1], borderRadius: 6, backgroundColor: pieces.length > 0 ? theme.colors.surface0 : "transparent" }}>
               <Text style={[text(theme, "label"), { color: status, fontWeight: "700", lineHeight: 16 }]} numberOfLines={1}>
                 {word}
                 {sinceText ? <Text style={{ fontWeight: "500", color: theme.colors.foregroundMuted }}>{`  ${sinceText}`}</Text> : null}
@@ -533,7 +531,7 @@ function TimeSlider({ theme, viewportW, contentW, scrollX, onScrollTo }: { theme
   );
 }
 
-function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { theme: PluginTheme; view: PigView; dirs: Dir[]; h: Handlers; index: Index; whole: boolean; width: number; now: number; empty: string }) {
+function Overview({ theme, view, segments, dirs, h, index, whole, width, now, empty }: { theme: PluginTheme; view: PigView; segments: Record<string, Segment[]>; dirs: Dir[]; h: Handlers; index: Index; whole: boolean; width: number; now: number; empty: string }) {
   const [pick, setPick] = useState(1);
   const win = WINDOWS[pick];
   const narrow = width < 640;
@@ -621,7 +619,7 @@ function Overview({ theme, view, dirs, h, index, whole, width, now, empty }: { t
                         {scale.width > 0 ? (
                           <>
                             <Grid theme={theme} scale={scale} tick={win.tick} />
-                            <Track theme={theme} member={m} scale={scale} events={eventsOf(m.row.name)} onPress={() => h.open(m.row.id)} />
+                            <Track theme={theme} member={m} segments={segments[m.row.id] ?? []} scale={scale} events={eventsOf(m.row.name)} onPress={() => h.open(m.row.id)} />
                           </>
                         ) : null}
                       </View>
@@ -1400,7 +1398,7 @@ function Shell({ theme, compact, dir, empty, navigation, serverId }: { theme: Pl
             {view && dirs.length === 0 ? <Notice theme={theme} kind="empty" detail={empty} /> : null}
             {view && !graph ? (
               <View style={{ paddingHorizontal: SPACING[4], paddingTop: SPACING[4] }}>
-                <Overview theme={theme} view={view} dirs={dirs} h={h} index={index} whole={whole} width={width} now={now} empty={empty} />
+                <Overview theme={theme} view={view} segments={snap?.segments ?? {}} dirs={dirs} h={h} index={index} whole={whole} width={width} now={now} empty={empty} />
               </View>
             ) : null}
             {view && hidden > 0 ? (
