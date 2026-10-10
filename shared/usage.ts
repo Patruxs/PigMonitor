@@ -3,10 +3,6 @@ import type { FailedData, UnavailableData, UsageBalanceData, UsageProblemData, U
 
 export type { UsageReportEntryData, UsageWindowData, UsageBalanceData, UsageTone };
 
-export type UsageDisplayAs = "used" | "remaining";
-
-export const USAGE_DISPLAY_AS: UsageDisplayAs = "used";
-
 export const USAGE_COPY = {
   refresh: "Refresh",
   refreshFailed: "Unable to refresh usage",
@@ -52,13 +48,6 @@ export function usedPercent(window: UsageWindowData): number | null {
   return null;
 }
 
-export function displayPercent(window: UsageWindowData, displayAs: UsageDisplayAs): number | null {
-  if (displayAs === "used") return usedPercent(window);
-  if (window.remainingPct != null) return window.remainingPct;
-  const used = usedPercent(window);
-  return used == null ? null : 100 - used;
-}
-
 export function windowTone(window: UsageWindowData): UsageTone {
   if (window.tone) return window.tone;
   const used = usedPercent(window);
@@ -74,10 +63,6 @@ export function clampPct(value: number): number {
 
 export function formatPct(value: number): string {
   return `${Math.round(clampPct(value))}%`;
-}
-
-export function formatDisplayPct(value: number, displayAs: UsageDisplayAs): string {
-  return displayAs === "used" ? formatPct(value) : `${formatPct(value)} left`;
 }
 
 export function formatResetLabel(iso: string | null | undefined, now: Date = new Date()): string | null {

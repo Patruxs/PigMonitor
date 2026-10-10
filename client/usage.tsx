@@ -4,7 +4,7 @@ import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useState } from "react";
 import { Image, Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { usageReports } from "../shared/rpc.ts";
-import { clampPct, displayPercent, formatDisplayPct, formatResetLabel, formatUsageFreshness, replaceReport, reportContent, reportMessages, resolveAgentUsageView, resolveBalance, statusText, USAGE_COPY, USAGE_DISPLAY_AS, windowTone, windowTrailing, type UsageBalanceData, type UsageReportEntryData, type UsageTone, type UsageWindowData } from "../shared/usage.ts";
+import { clampPct, formatPct, formatResetLabel, formatUsageFreshness, replaceReport, reportContent, reportMessages, resolveAgentUsageView, resolveBalance, statusText, USAGE_COPY, usedPercent, windowTone, windowTrailing, type UsageBalanceData, type UsageReportEntryData, type UsageTone, type UsageWindowData } from "../shared/usage.ts";
 import { Anchored, FONT_BASE, FONT_SM, hoveredOf } from "./controls-kit.tsx";
 import { COMPACT_BELOW, hostColours, RADIUS, SPACING } from "./kit/theme.ts";
 
@@ -72,7 +72,7 @@ function Meter({ theme, percent, tone }: { theme: PluginTheme; percent: number; 
 }
 
 function WindowBar({ theme, window }: { theme: PluginTheme; window: UsageWindowData }) {
-  const shown = displayPercent(window, USAGE_DISPLAY_AS);
+  const shown = usedPercent(window);
   const isAtRisk = window.runsOutAt != null && window.shortfallPct != null;
   const trailing = windowTrailing(window);
   return (
@@ -83,7 +83,7 @@ function WindowBar({ theme, window }: { theme: PluginTheme; window: UsageWindowD
             {window.label}
           </Text>
           <Text style={{ color: theme.colors.foreground, fontSize: FONT_SM, fontWeight: "500" }}>
-            {shown != null ? formatDisplayPct(shown, USAGE_DISPLAY_AS) : "—"}
+            {shown != null ? formatPct(shown) : "—"}
             {trailing ? <Text style={{ color: isAtRisk ? theme.colors.statusDanger : theme.colors.foregroundMuted, fontWeight: "400" }}>{` · ${trailing}`}</Text> : null}
           </Text>
         </View>

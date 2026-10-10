@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { displayPercent, formatAmount, formatResetLabel, formatUsageFreshness, problemText, replaceReport, reportMessages, resolveAgentUsageView, resolveBalance, windowTone, windowTrailing, type UsageReportEntryData } from "./usage.ts";
+import { formatAmount, formatResetLabel, formatUsageFreshness, problemText, replaceReport, reportMessages, resolveAgentUsageView, resolveBalance, usedPercent, windowTone, windowTrailing, type UsageReportEntryData } from "./usage.ts";
 
 const now = new Date("2026-10-01T12:00:00Z");
 
@@ -11,9 +11,9 @@ test("a login problem reads as Paseo words it", () => {
 });
 
 test("a window shows the share used, or derives it from the share left", () => {
-  assert.equal(displayPercent({ id: "w", label: "W", usedPct: 31 }, "used"), 31);
-  assert.equal(displayPercent({ id: "w", label: "W", remainingPct: 69 }, "used"), 31);
-  assert.equal(displayPercent({ id: "w", label: "W" }, "used"), null);
+  assert.equal(usedPercent({ id: "w", label: "W", usedPct: 31 }), 31);
+  assert.equal(usedPercent({ id: "w", label: "W", remainingPct: 69 }), 31);
+  assert.equal(usedPercent({ id: "w", label: "W" }), null);
 });
 
 test("a window without the source's tone warns from 70% and turns danger above 90%", () => {
