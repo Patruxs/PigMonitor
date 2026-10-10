@@ -12,7 +12,7 @@ export interface Cursor {
   rev: number;
 }
 
-export type TranscriptResult = ({ ok: true } & Transcript) | { ok: false; code: "nodb" | "failed" | "nolog"; error: string };
+export type TranscriptResult = ({ ok: true } & Transcript & Cursor) | { ok: false; code: "nodb" | "failed" | "nolog"; error: string };
 
 interface RunLog {
   file: string;

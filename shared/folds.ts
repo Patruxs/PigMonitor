@@ -14,10 +14,12 @@ export interface Folds {
   hidden: Record<string, boolean>;
 }
 
+export type StoredFolds = Partial<Omit<Folds, "tab"> & { tab: string }>;
+
 export const NO_FOLDS: Folds = { teams: {}, gone: {}, tab: "overview", hidden: {} };
 
 /** Folds as the host stored them, tolerating a missing or odd document. */
-export function foldsOf(values: Partial<Folds> | null | undefined): Folds {
+export function foldsOf(values: StoredFolds | null | undefined): Folds {
   return { teams: { ...values?.teams }, gone: { ...values?.gone }, tab: values?.tab === "graph" || values?.tab === "sessions" ? values.tab : values?.tab === "board" ? "graph" : "overview", hidden: { ...values?.hidden } };
 }
 

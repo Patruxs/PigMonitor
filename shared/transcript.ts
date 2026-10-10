@@ -3,6 +3,8 @@ import type { ToolCallDetail } from "./tool-call.ts";
 
 export type ItemKind = "session" | "user" | "wake" | "assistant" | "thinking" | "tool" | "mail" | "turn" | "compaction" | "delivery";
 
+export type ShownKind = Exclude<ItemKind, "delivery">;
+
 export interface Item {
   i: number;
   kind: ItemKind;
@@ -36,8 +38,10 @@ export interface ToolCall {
   toolError?: unknown;
 }
 
+export type ShownItem = Item & { kind: ShownKind };
+
 export interface Transcript {
-  items: Item[];
+  items: ShownItem[];
   total: number;
   name: string;
   role?: string;
@@ -384,7 +388,7 @@ export function parseLines(text: string, run?: string, saveImage?: SaveImage, de
   return parseLog(text, run, saveImage, describe).items;
 }
 
-export function withIncrement(had: Item[], next: { items: Item[]; from?: number }, limit: number): Item[] {
+export function withIncrement(had: ShownItem[], next: { items: ShownItem[]; from?: number }, limit: number): ShownItem[] {
   if (next.from === undefined) return next.items;
   const from = next.from;
   if (next.items.length === 0 && (had[had.length - 1]?.i ?? -1) < from) return had;

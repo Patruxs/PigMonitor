@@ -1,6 +1,6 @@
 // Pure, so `node --test` loads it as is.
 import type { MailMessage } from "./mail.ts";
-import type { Item } from "./transcript.ts";
+import type { Item, ShownItem } from "./transcript.ts";
 
 export interface Me {
   id: string;
@@ -12,8 +12,12 @@ export function latestFrom(messages: MailMessage[], id: string): MailMessage | u
   return messages.filter((m) => m.from === id).sort((a, b) => b.seq - a.seq)[0];
 }
 
-export function mergeMail(items: Item[], messages: MailMessage[], self: string, person: string | undefined): Item[] {
-  const mailItem = (m: MailMessage, at: number): Item => {
+function isShown(item: Item): item is ShownItem {
+  return item.kind !== "delivery";
+}
+
+export function mergeMail(items: Item[], messages: MailMessage[], self: string, person: string | undefined): ShownItem[] {
+  const mailItem = (m: MailMessage, at: number): ShownItem => {
     const ref = `#${m.seq}`;
     if (m.from === person) return { i: 0, kind: "user", at, text: m.body, ref, note: m.held ? "Held" : m.acked_at ? "Read" : "Sent", run: "mail" };
     return { i: 0, kind: "mail", at, text: m.body, from: m.from_name, ...(m.from === self ? { to: m.to_name } : {}), ref, ...(m.reply_seq !== undefined ? { reply: `#${m.reply_seq}` } : {}), run: "mail" };
@@ -43,7 +47,7 @@ export function mergeMail(items: Item[], messages: MailMessage[], self: string, 
     if (!queued || first === deliveries.length) loose.push(m);
     else delivered.set(deliveries[first], [...(delivered.get(deliveries[first]) ?? []), m]);
   }
-  const out: Item[] = [];
+  const out: ShownItem[] = [];
   let next = 0;
   const arrive = () => {
     const m = loose[next++];
@@ -51,13 +55,13 @@ export function mergeMail(items: Item[], messages: MailMessage[], self: string, 
   };
   own.forEach((item, index) => {
     while (next < loose.length && item.at !== undefined && loose[next].created_at < item.at) arrive();
-    if (item.kind !== "delivery") out.push(item);
+    if (isShown(item)) out.push(item);
     for (const m of delivered.get(index) ?? []) out.push(mailItem(m, item.at ?? m.created_at));
   });
   while (next < loose.length) arrive();
   return out;
 }
 
-export function withMail(items: Item[], messages: MailMessage[], self: string, person: string | undefined): Item[] {
+export function withMail(items: Item[], messages: MailMessage[], self: string, person: string | undefined): ShownItem[] {
   return mergeMail(items, messages, self, person).map((item, i) => ({ ...item, i }));
 }
