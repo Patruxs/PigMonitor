@@ -1,7 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { View } from "react-native";
-import { tint } from "./chat.tsx";
-import { SPACING } from "./theme.ts";
+import { SPACING, tint } from "./theme.ts";
 
 export const TREE_STEP = 18;
 const TREE_INK = "77";

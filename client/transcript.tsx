@@ -10,10 +10,14 @@ import type { PiggeryStreamItem } from "../shared/stream.ts";
 import type { TurnPresentation } from "../shared/timeline.ts";
 import { StreamView, type ViewportHandle } from "./stream.tsx";
 import { clockText } from "../shared/view.ts";
-import { Markdown } from "./kit/markdown.tsx";
+import { Markdown } from "./markdown.tsx";
 import { MESSAGE_TEXT } from "./message.tsx";
-import { AVATAR, AVATAR_SM, paint, Panel, Pill, Quiet, RoleAvatar, tint } from "./kit/chat.tsx";
-import { Notice } from "./kit/notice.tsx";
+import { AVATAR, AVATAR_SM } from "./kit/avatar.tsx";
+import { Panel, Quiet } from "./kit/chat.tsx";
+import { Pill } from "./kit/pill.tsx";
+import { tint } from "./kit/theme.ts";
+import { paint, RoleAvatar } from "./piggery/role.tsx";
+import { Notice } from "./piggery/notice.tsx";
 import { SPACING, text } from "./kit/theme.ts";
 import { BUSY_MS, useNow, usePoll } from "./poll.ts";
 

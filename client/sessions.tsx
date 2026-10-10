@@ -8,7 +8,7 @@ import { person } from "../shared/rpc.ts";
 import type { Me } from "../shared/thread.ts";
 import type { Dir, View as PigView } from "../shared/view.ts";
 import { Chat } from "./chat-pane.tsx";
-import { Notice } from "./kit/notice.tsx";
+import { Notice } from "./piggery/notice.tsx";
 import { CHAT_SPLIT_MIN, LIST_MIN_WIDTH, LIST_WIDTH, SPACING, text } from "./kit/theme.ts";
 import { useNative, type Navigation } from "./native.tsx";
 import { QUIET_MS, usePoll } from "./poll.ts";

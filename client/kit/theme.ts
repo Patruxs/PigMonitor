@@ -28,19 +28,6 @@ export const ROW_MIN = 44;
 /** A participant's line: one line, so a team of fifteen stays within a screen. */
 export const ROW_ONE = 36;
 
-/**
- * A line is a table across its width: its columns are shares of it, so they line up down the list
- * whatever the width. The name takes the rest after the tail (role, state, ctx, since), which is a
- * fixed fraction of the line (see row.tsx). NAME_MIN keeps the name legible; STATE_MIN fits "◐ waiting".
- */
-export const SHARE = { name: 3, role: 1.5, state: 1.5, ctx: 1, since: 1 } as const;
-export const NAME_MIN = 120;
-export const STATE_MIN = 72;
-
-/** The width a line needs for the role and ctx columns, or for ctx alone, beside the name, tags, state and time. */
-export const BOTH_MIN = 560;
-export const CTX_MIN = 440;
-
 /** providers-section.tsx:522: the status dot. */
 export const DOT = 8;
 
@@ -71,7 +58,7 @@ export const READABLE = 680;
 /** The key column of a dialog's facts. */
 export const KEY_WIDTH = 96;
 
-type Colour = keyof PluginTheme["colors"];
+export type Colour = keyof PluginTheme["colors"];
 
 const ROLES = {
   /** settings.ts:14 sectionHeaderTitle: project directories, column labels, Events. */
@@ -140,3 +127,7 @@ export const CONTENT_FONT = 15;
 export const CONTENT_LINE = Math.round(CONTENT_FONT * 1.4);
 export const STREAM_METADATA_FONT = 13;
 export const MAX_CONTENT_WIDTH = 820;
+
+export function tint(colour: string, alpha = "22"): string {
+  return /^#[0-9a-fA-F]{6}$/.test(colour) ? `${colour}${alpha}` : colour;
+}

@@ -6,9 +6,8 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import type { MailMessage } from "../shared/mail.ts";
 import { releasable, type StepIns } from "../shared/native.ts";
 import { mail, models, stepIn, THINKING_LEVELS } from "../shared/rpc.ts";
-import { tint } from "./kit/chat.tsx";
 import type { MenuItem } from "./kit/menu.tsx";
-import { ICON_SIZE, RADIUS, SPACING, text } from "./kit/theme.ts";
+import { ICON_SIZE, RADIUS, SPACING, text, tint } from "./kit/theme.ts";
 import { QUIET_MS, usePoll } from "./poll.ts";
 
 export type StepInDialog = "kill" | "model" | "resume" | "release" | null;

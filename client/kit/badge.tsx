@@ -1,14 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Pressable, Text } from "react-native";
-import type { Status } from "../../shared/view.ts";
 import { RADIUS, SPACING, text } from "./theme.ts";
-
-/** A status's colour: working success, waiting warning, gone danger, idle muted (as piggery top). */
-export function statusColour(theme: PluginTheme, status: Status, dim?: boolean): string {
-  if (dim) return theme.colors.foregroundMuted;
-  const c = theme.colors;
-  return { working: c.statusSuccess, idle: c.foregroundMuted, waiting: c.statusWarning, gone: c.statusDanger }[status];
-}
 
 /** A filter chip with its count; the chosen one is filled. */
 export function Chip({ theme, label, count, on, onPress }: { theme: PluginTheme; label: string; count?: number; on: boolean; onPress: () => void }) {
@@ -29,3 +21,5 @@ export function Chip({ theme, label, count, on, onPress }: { theme: PluginTheme;
     </Pressable>
   );
 }
+
+export { statusColour } from "../piggery/status.tsx";
