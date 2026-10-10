@@ -59,8 +59,8 @@ export function heldAgentOf(participant: Pick<ParticipantRecord, "id" | "ref"> |
 
 export type SendTarget = { kind: "prompt"; agentId: string } | { kind: "mail" } | { kind: "error"; message: string };
 
-export function sendTargetOf(route: ChatRoute, reachable: boolean, formerlyLinked = false): SendTarget {
-  if (route.kind !== "open") return formerlyLinked ? { kind: "error", message: "This session's Paseo agent is gone or now belongs to another session, so nothing was sent. Open the session that holds it." } : { kind: "mail" };
+export function sendTargetOf(route: ChatRoute, reachable: boolean, agentNowHeldBy: string | null = null): SendTarget {
+  if (route.kind !== "open") return agentNowHeldBy !== null ? { kind: "error", message: `This session's Paseo agent now belongs to ${agentNowHeldBy}, so nothing was sent. Write to ${agentNowHeldBy} instead.` } : { kind: "mail" };
   return reachable ? { kind: "prompt", agentId: route.agentId } : { kind: "error", message: "This session's Paseo agent can't be reached right now, so nothing was sent." };
 }
 

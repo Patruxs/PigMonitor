@@ -92,7 +92,7 @@ export default function contribute(server: PluginServerContext) {
       return { ok: false as const, code: "failed" as const, error: `Could not read piggery's database: ${messageOf(error)}` };
     }
   });
-  const linker = createLinker({ store: observeOnly ? { load: () => ({ links: [], formerly: [] }), save: () => undefined } : linkStore(path.join(piggeryHome(), "paseo-links.json")) });
+  const linker = createLinker({ store: observeOnly ? { load: () => ({ links: [], previous: [] }), save: () => undefined } : linkStore(path.join(piggeryHome(), "paseo-links.json")) });
   server.handle(paseoLinks, async ({ agents, missing }) => {
     try {
       return { ok: true as const, ...linker.links(agents, db.claudeSessions(await database()), missing) };

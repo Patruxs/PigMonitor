@@ -18,14 +18,24 @@ export interface Link {
   agentId: string;
 }
 
+export interface FormerLink {
+  participantId: string;
+  heldBy: string;
+}
+
 export interface LinkState {
   links: Link[];
-  formerly: string[];
+  formerly: FormerLink[];
+}
+
+export interface StoredLinks {
+  links: Link[];
+  previous: Link[];
 }
 
 export interface LinkStoreIo {
-  load: () => LinkState;
-  save: (state: LinkState) => void;
+  load: () => StoredLinks;
+  save: (state: StoredLinks) => void;
 }
 
 const isLink = (value: unknown): value is Link => typeof (value as Link)?.participantId === "string" && typeof (value as Link)?.agentId === "string";
@@ -63,11 +73,11 @@ export function linkStore(file: string): LinkStoreIo {
     load: () => {
       try {
         const parsed = JSON.parse(readFileSync(file, "utf8")) as unknown;
-        if (Array.isArray(parsed)) return { links: parsed.filter(isLink), formerly: [] };
-        const state = parsed as Partial<LinkState>;
-        return { links: Array.isArray(state.links) ? state.links.filter(isLink) : [], formerly: Array.isArray(state.formerly) ? state.formerly.filter((id): id is string => typeof id === "string") : [] };
+        if (Array.isArray(parsed)) return { links: parsed.filter(isLink), previous: [] };
+        const state = parsed as Partial<StoredLinks>;
+        return { links: Array.isArray(state.links) ? state.links.filter(isLink) : [], previous: Array.isArray(state.previous) ? state.previous.filter(isLink) : [] };
       } catch {
-        return { links: [], formerly: [] };
+        return { links: [], previous: [] };
       }
     },
     save: (state) => {
@@ -82,7 +92,7 @@ export function createLinker({ store, readParent = forkParentOf }: { store: Link
   const ancestry = new Map<string, string[]>();
   const loaded = store.load();
   let links = new Map(loaded.links.map((link) => [link.participantId, link.agentId]));
-  let everLinked = new Set([...loaded.formerly, ...links.keys()]);
+  let lastAgent = new Map([...loaded.previous, ...loaded.links].map((link) => [link.participantId, link.agentId]));
 
   const ancestorsOf = (agent: AgentSession, dirs: string[], knownRefs: Set<string>): string[] => {
     const key = `${agent.agentId}:${agent.sessionId}`;
@@ -109,16 +119,16 @@ export function createLinker({ store, readParent = forkParentOf }: { store: Link
       const exactAgent = new Map<string, string>();
       for (const agent of agents) if (!exactAgent.has(agent.sessionId)) exactAgent.set(agent.sessionId, agent.agentId);
       const next = new Map(links);
-      const claimed = new Set<string>();
+      const holder = new Map<string, string>();
       const exactlyHeld = new Set<string>();
       for (const session of sessions) {
         const agentId = session.ref ? exactAgent.get(session.ref) : undefined;
         if (!agentId) continue;
         next.set(session.id, agentId);
-        claimed.add(agentId);
+        if (!holder.has(agentId)) holder.set(agentId, session.id);
         exactlyHeld.add(session.id);
       }
-      for (const [participantId, agentId] of next) if (!exactlyHeld.has(participantId) && claimed.has(agentId)) next.delete(participantId);
+      for (const [participantId, agentId] of next) if (!exactlyHeld.has(participantId) && holder.has(agentId)) next.delete(participantId);
       const deleted = new Set(missing);
       const forgotten = new Set<string>();
       for (const [participantId, agentId] of next) {
@@ -140,13 +150,18 @@ export function createLinker({ store, readParent = forkParentOf }: { store: Link
           linkedAgents.add(agent.agentId);
         }
       }
-      const nextEver = new Set([...[...everLinked].filter((participantId) => !forgotten.has(participantId)), ...next.keys()]);
-      const changed = nextEver.size !== everLinked.size || next.size !== links.size || [...next].some(([participantId, agentId]) => links.get(participantId) !== agentId);
+      const nextLast = new Map([...lastAgent].filter(([participantId]) => !forgotten.has(participantId)));
+      for (const [participantId, agentId] of next) nextLast.set(participantId, agentId);
+      const changed = nextLast.size !== lastAgent.size || [...nextLast].some(([participantId, agentId]) => lastAgent.get(participantId) !== agentId) || next.size !== links.size || [...next].some(([participantId, agentId]) => links.get(participantId) !== agentId);
       links = next;
-      everLinked = nextEver;
-      const state: LinkState = { links: [...links].map(([participantId, agentId]) => ({ participantId, agentId })), formerly: [...everLinked].filter((participantId) => !links.has(participantId)) };
-      if (changed) store.save(state);
-      return state;
+      lastAgent = nextLast;
+      const asLinks = (map: Map<string, string>) => [...map].map(([participantId, agentId]) => ({ participantId, agentId }));
+      if (changed) store.save({ links: asLinks(links), previous: asLinks(new Map([...lastAgent].filter(([participantId]) => !links.has(participantId)))) });
+      const formerly = [...lastAgent].flatMap(([participantId, agentId]) => {
+        const heldBy = holder.get(agentId);
+        return !links.has(participantId) && heldBy !== undefined && heldBy !== participantId ? [{ participantId, heldBy }] : [];
+      });
+      return { links: asLinks(links), formerly };
     },
   };
 }

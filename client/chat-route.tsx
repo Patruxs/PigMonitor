@@ -26,10 +26,10 @@ interface PaseoListing {
 
 interface Routing extends PaseoListing {
   links: ReadonlyMap<string, string>;
-  formerly: ReadonlySet<string>;
+  formerly: ReadonlyMap<string, string>;
 }
 
-const NO_ROUTING: Routing = { byRef: new Map(), byAgent: new Map(), sessions: [], links: new Map(), formerly: new Set() };
+const NO_ROUTING: Routing = { byRef: new Map(), byAgent: new Map(), sessions: [], links: new Map(), formerly: new Map() };
 
 const VERIFY_TTL_MS = 5 * 60 * 1000;
 const VERIFIED_LIMIT = 200;
@@ -89,7 +89,7 @@ export interface ChatRouting {
   routeOf: (id: string) => ChatRoute;
   participant: (id: string) => ParticipantRecord | undefined;
   paseoBusy: (id: string) => boolean | null;
-  formerlyLinked: (id: string) => boolean;
+  agentNowHeldBy: (id: string) => string | null;
   open: (agentId: string) => void;
   resume: (id: string) => Promise<string | null>;
 }
@@ -135,7 +135,7 @@ export function useChatRouting(ids: string[], selected: string, navigation: Navi
         const listing: PaseoListing = { byRef: listed.byRef, byAgent: new Map([...listed.byAgent, ...checked.listed.map((agent) => [agent.agentId, agent] as const)]), sessions: [...listed.sessions, ...checked.sessions] };
         const r = await callLinks({ agents: listing.sessions, missing: checked.missing });
         if (!r.ok) return r;
-        return { ok: true as const, value: { ...listing, links: new Map(r.links.map((link) => [link.participantId, link.agentId])), formerly: new Set(r.formerly) } as Routing };
+        return { ok: true as const, value: { ...listing, links: new Map(r.links.map((link) => [link.participantId, link.agentId])), formerly: new Map(r.formerly.map((former) => [former.participantId, former.heldBy])) } as Routing };
       } catch (error) {
         return { ok: false as const, code: "failed", error: messageOf(error) };
       }
@@ -149,7 +149,7 @@ export function useChatRouting(ids: string[], selected: string, navigation: Navi
   const heldBy = (id: string) => heldAgentOf(byId.get(id), listing.byRef, links, listing.byAgent);
   return {
     ready: lastKnown.current !== null && lastAgents.current !== null,
-    formerlyLinked: (id) => formerly.has(id) && !links.has(id),
+    agentNowHeldBy: (id) => (links.has(id) ? null : (formerly.get(id) ?? null)),
     canOpen: navigation !== undefined,
     routeOf: (id) => chatRouteOf(byId.get(id), heldBy(id)?.agentId),
     participant: (id) => byId.get(id),

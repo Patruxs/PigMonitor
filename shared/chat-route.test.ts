@@ -67,5 +67,6 @@ test("a message to a session with a Paseo agent is a prompt whatever piggery's s
   assert.deepEqual(sendTargetOf(chatRouteOf(claude({ state: "working" }), "fe6455cd"), true), { kind: "prompt", agentId: "fe6455cd" });
   assert.deepEqual(sendTargetOf(chatRouteOf(claude({ mode: "headless" }), undefined), true), { kind: "mail" });
   assert.equal(sendTargetOf(chatRouteOf(claude({}), "fe6455cd"), false).kind, "error");
-  assert.equal(sendTargetOf(chatRouteOf(claude({ mode: "headless" }), undefined), true, true).kind, "error");
+  assert.equal(sendTargetOf(chatRouteOf(claude({ mode: "headless" }), undefined), true, "tern").kind, "error");
+  assert.deepEqual(sendTargetOf(chatRouteOf(claude({ mode: "headless" }), undefined), true, null), { kind: "mail" });
 });

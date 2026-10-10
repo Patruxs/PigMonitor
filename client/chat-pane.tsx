@@ -157,7 +157,8 @@ function ChatPane({ theme, item, all, me, chat, route, timeline, onSent, onPick,
   };
   const send = async (body: string, images: ImageData[], attachments: AttachmentData[]): Promise<string | null> => {
     const reply = me ? replyTarget(thread, item.row.id) : undefined;
-    const target = sendTargetOf(route, timeline !== null, chat.formerlyLinked(item.row.id));
+    const heldBy = chat.agentNowHeldBy(item.row.id);
+    const target = sendTargetOf(route, timeline !== null, heldBy === null ? null : (all.find((c) => c.row.id === heldBy)?.row.name ?? "another session"));
     if (target.kind === "error") return target.message;
     const failed = target.kind === "prompt" ? await submitToAgent({ paseo, agentId: target.agentId, timeline, body, images, attachments }) : await sendMailTo({ to: item.row.id, body, images, attachments, ...(reply ? { replySeq: reply.seq } : {}) });
     if (failed) return failed;

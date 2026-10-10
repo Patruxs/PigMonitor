@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createLinker, forkParentOf, type Link, type LinkState } from "./links.ts";
+import { createLinker, forkParentOf, type Link, type StoredLinks } from "./links.ts";
 
 function claudeProject(): { dir: string; done: () => void } {
   const dir = mkdtempSync(path.join(tmpdir(), "claude-project-"));
@@ -14,8 +14,8 @@ function claudeProject(): { dir: string; done: () => void } {
 }
 
 function memoryStore(links: Link[] = []) {
-  let saved: LinkState = { links, formerly: [] };
-  return { load: () => saved, save: (state: LinkState) => void (saved = state), saved: () => saved };
+  let saved: StoredLinks = { links, previous: [] };
+  return { load: () => saved, save: (state: StoredLinks) => void (saved = state), saved: () => saved };
 }
 
 test("a Paseo agent whose Claude session forked from a piggery session is linked to that participant with no earlier match, and the link outlives the linker", () => {
@@ -76,7 +76,7 @@ test("a link learned while the session ids match holds after a conversation rewi
   assert.deepEqual(createLinker({ store, readParent: () => null }).links([{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra]), { links: [{ participantId: "tundra", agentId: "fe6455cd" }], formerly: [] });
   assert.deepEqual(createLinker({ store, readParent: () => null }).links([], [tundra]).links, [{ participantId: "tundra", agentId: "fe6455cd" }]);
   const tern = { id: "tern", ref: "c0af857a", transcript: null };
-  assert.deepEqual(createLinker({ store, readParent: () => null }).links([{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra, tern]), { links: [{ participantId: "tern", agentId: "fe6455cd" }], formerly: ["tundra"] });
+  assert.deepEqual(createLinker({ store, readParent: () => null }).links([{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra, tern]), { links: [{ participantId: "tern", agentId: "fe6455cd" }], formerly: [{ participantId: "tundra", heldBy: "tern" }] });
 });
 
 test("the fork parent is found past a first line of any size, and quoted text that mentions forkedFrom is not mistaken for it", () => {
@@ -97,4 +97,14 @@ test("a link to an agent Paseo no longer has is dropped, and the participant is 
   linker.links([{ agentId: "fe6455cd", sessionId: "ac2c96a6", archived: false }], [tundra]);
   assert.deepEqual(linker.links([], [tundra], []).links, [{ participantId: "tundra", agentId: "fe6455cd" }]);
   assert.deepEqual(linker.links([], [tundra], ["fe6455cd"]), { links: [], formerly: [] });
+});
+
+test("a participant stays formerly linked only while another session holds its last agent", () => {
+  const store = memoryStore();
+  const tundra = { id: "tundra", ref: "ac2c96a6", transcript: null };
+  const tern = { id: "tern", ref: "c0af857a", transcript: null };
+  createLinker({ store, readParent: () => null }).links([{ agentId: "fe6455cd", sessionId: "ac2c96a6", archived: false }], [tundra]);
+  const linker = createLinker({ store, readParent: () => null });
+  assert.deepEqual(linker.links([{ agentId: "fe6455cd", sessionId: "c0af857a", archived: false }], [tundra, tern]).formerly, [{ participantId: "tundra", heldBy: "tern" }]);
+  assert.deepEqual(linker.links([{ agentId: "fe6455cd", sessionId: "99999999", archived: false }], [tundra, { ...tern, ref: "77777777" }]).formerly, []);
 });
