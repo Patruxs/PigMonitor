@@ -17,6 +17,7 @@ import {
 } from "../shared/stream-scroll.ts";
 import { hostColours } from "./kit/theme.ts";
 import { useIsCompact } from "./message.tsx";
+import { historyRowAttributes, historyRows, messageRows } from "./find-anchors.ts";
 
 const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 64;
 const AUTO_SCROLL_RESUME_THRESHOLD_PX = 1;
@@ -231,9 +232,9 @@ export function WebViewport(props: ViewportProps) {
     if (!container || !content) return;
     const viewportTop = container.getBoundingClientRect().top;
     const scrollTop = container.scrollTop;
-    const rows = Array.from(content.querySelectorAll<HTMLElement>("[data-history-row-id]"), (element) => {
+    const rows = historyRows(content).map(({ id, element }) => {
       const bounds = element.getBoundingClientRect();
-      return { id: element.dataset.historyRowId as string, top: bounds.top - viewportTop + scrollTop, height: bounds.height };
+      return { id, top: bounds.top - viewportTop + scrollTop, height: bounds.height };
     });
     const shouldAnchor = !followRef.current && jump.current === null;
     if (!shouldAnchor) readingAnchor.reset();
@@ -314,7 +315,7 @@ export function WebViewport(props: ViewportProps) {
 
   const findMessageTop = useCallback((messageId: string): number | null => {
     const container = containerRef.current;
-    return container?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(messageId)}"]`)?.getBoundingClientRect().top ?? null;
+    return messageRows(container, messageId)[0]?.getBoundingClientRect().top ?? null;
   }, []);
 
   const finishJump = useCallback(() => {
@@ -560,7 +561,7 @@ export function WebViewport(props: ViewportProps) {
   }, [viewportRef, forceStick, cancelStick, findMessageTop, startJump, finishJump, onNearBottomChange, setFollow]);
 
   const row = (layout: StreamLayoutItem) => (
-    <div key={layout.item.id} data-history-row-id={layout.item.id} data-message-id={getStreamItemMessageId(layout.item)} style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+    <div key={layout.item.id} {...historyRowAttributes(layout.item.id, getStreamItemMessageId(layout.item))} style={{ display: "flex", flexDirection: "column", width: "100%" }}>
       {renderRow(layout)}
     </div>
   );

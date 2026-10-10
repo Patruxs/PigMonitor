@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
-import type { View } from "react-native";
 import { resolveComposerKey, type ComposerFocus, type ComposerKeyAction } from "../shared/composer.ts";
 import type { DictationStatus } from "../shared/speech.ts";
+import { useChatPaneArea } from "./chat-pane-scope.tsx";
 import { nodeOf } from "./composer-height.ts";
 
 export type KeyChord = { key: string; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean };
@@ -40,8 +40,11 @@ export interface ComposerKeyState {
   isCancelling: boolean;
 }
 
-export function useComposerKeys({ field, root, state, run }: { field: { current: unknown }; root: { current: View | null }; state: ComposerKeyState; run: (action: ComposerKeyAction) => void }): { modeCycle: ModeCycleSlot; inputKey: (chord: KeyChord) => ComposerKeyAction | null } {
+export function useComposerKeys({ field, state, run }: { field: { current: unknown }; state: ComposerKeyState; run: (action: ComposerKeyAction) => void }): { modeCycle: ModeCycleSlot; inputKey: (chord: KeyChord) => ComposerKeyAction | null } {
   const modeCycle = useRef<(() => void) | null>(null);
+  const paneArea = useChatPaneArea();
+  const pane = useRef(paneArea);
+  pane.current = paneArea;
   const keys = useRef({ state, run });
   keys.current = { state, run };
   const resolve = (chord: KeyChord, focus: ComposerFocus) => resolveComposerKey({ key: chord.key, primary: isMac ? chord.metaKey === true && chord.ctrlKey !== true : chord.ctrlKey === true && chord.metaKey !== true, shift: chord.shiftKey === true, alt: chord.altKey === true, focus, ...keys.current.state, canCycleMode: modeCycle.current !== null });
@@ -54,8 +57,7 @@ export function useComposerKeys({ field, root, state, run }: { field: { current:
       if (event.defaultPrevented || event.isComposing) return;
       const input = nodeOf(field);
       if (input !== null && event.target === input) return;
-      const pane = nodeOf(root)?.parentElement;
-      const focus: ComposerFocus = event.target === doc.body || (pane && event.target instanceof Node && pane.contains(event.target)) ? "pane" : "outside";
+      const focus: ComposerFocus = event.target === doc.body || pane.current?.contains(event.target) ? "pane" : "outside";
       const action = resolveRef.current(event, focus);
       if (!action) return;
       if (action !== "interrupt") event.preventDefault();

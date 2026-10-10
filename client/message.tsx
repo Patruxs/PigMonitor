@@ -16,6 +16,7 @@ import { AttachmentFrame, AttachmentLabel, AttachmentThumbnail } from "./attachm
 import { useCompact } from "./kit/platform.ts";
 import { CONTENT_FONT, CONTENT_LINE, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, RADIUS, SPACING, STREAM_METADATA_FONT } from "./kit/theme.ts";
 import { ToolCallDetailsContent } from "./tool-details.tsx";
+import { messageTextProps } from "./find-anchors.ts";
 
 const isWeb = Platform.OS === "web";
 const SELECTABLE = (isWeb ? { userSelect: "text" } : {}) as ViewStyle;
@@ -219,7 +220,7 @@ export function UserMessage({ theme, text, images = [], attachments = [], timest
             </View>
           ) : null}
           {hasText ? (
-            <Text {...MESSAGE_TEXT} selectable style={[{ color: theme.colors.foreground, fontSize: CONTENT_FONT }, isWeb ? { lineHeight: CONTENT_LINE } : null, ANYWHERE]}>
+            <Text {...messageTextProps} selectable style={[{ color: theme.colors.foreground, fontSize: CONTENT_FONT }, isWeb ? { lineHeight: CONTENT_LINE } : null, ANYWHERE]}>
               {text}
             </Text>
           ) : null}
@@ -263,7 +264,6 @@ function capForRender(message: string): { text: string; capped: boolean } {
   return { text: message.slice(0, end), capped: true };
 }
 
-export const MESSAGE_TEXT = { dataSet: { messageText: "true" } } as object;
 
 export function AssistantMessage({ theme, text, phase, spacing = "default", renderFullContent = false }: { theme: PluginTheme; text: string; phase: "streaming" | "complete"; spacing?: AssistantSpacing; renderFullContent?: boolean }) {
   const rendered = useMemo(() => (renderFullContent ? { text, capped: false } : capForRender(text)), [text, renderFullContent]);
@@ -273,7 +273,7 @@ export function AssistantMessage({ theme, text, phase, spacing = "default", rend
   const blocks = useMemo(() => splitMarkdownBlocks(revealed), [revealed]);
   const style: TextStyle = { color: theme.colors.foreground, fontSize: CONTENT_FONT, lineHeight: CONTENT_LINE, flexShrink: 1, minWidth: 0, ...ANYWHERE };
   return (
-    <View {...MESSAGE_TEXT} style={[{ paddingVertical: SPACING[3] }, SELECTABLE, spacing === "compactTop" || spacing === "compactBoth" ? { paddingTop: 0 } : null, spacing === "compactBottom" || spacing === "compactBoth" ? { paddingBottom: 0 } : null]}>
+    <View {...messageTextProps} style={[{ paddingVertical: SPACING[3] }, SELECTABLE, spacing === "compactTop" || spacing === "compactBoth" ? { paddingTop: 0 } : null, spacing === "compactBottom" || spacing === "compactBoth" ? { paddingBottom: 0 } : null]}>
       {blocks.map((block, index) => (
         <View key={`block:${index}`} style={index < blocks.length - 1 ? { marginBottom: 12 } : undefined}>
           <Markdown theme={theme} source={block} style={style} look="assistant" streaming={phase === "streaming" && index === blocks.length - 1} />

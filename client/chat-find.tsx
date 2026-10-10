@@ -9,6 +9,8 @@ import type { StreamItem } from "../shared/stream.ts";
 import { TIMELINE_FETCH_PAGE_SIZE } from "../shared/timeline.ts";
 import { RADIUS, SPACING } from "./kit/theme.ts";
 import type { ViewportHandle } from "./stream-viewport.tsx";
+import { useChatPaneArea } from "./chat-pane-scope.tsx";
+import { FIND_IGNORED_SELECTOR, findWidgetIn, findWidgetProps, historyRowOf, MARKDOWN_BLOCK_SELECTOR, messageRows, messageTextBlocks } from "./find-anchors.ts";
 
 const isWeb = Platform.OS === "web";
 const SelectedMessage = createContext<string | null>(null);
@@ -17,8 +19,6 @@ const FAILURE_TEXT: Record<ChatFindFailure, string> = {
   historyChanged: "The chat changed while searching. Search again.",
   reveal: "Could not show this match. Retry.",
 };
-const BLOCKS = ["p", "pre", "li", "td", "th", "h1", "h2", "h3", "h4", "h5", "h6"].map((tag) => `[data-paseo-markdown-tag="${tag}"]`).join(",");
-const IGNORED = '[data-paseo-markdown-ignore="true"], [aria-hidden="true"], button, [role="button"], svg, script, style';
 const WIDGET_WIDTH = 340;
 const FIELD_HEIGHT = 28;
 const NO_OUTLINE = (isWeb ? { outlineStyle: "none", outlineWidth: 0 } : {}) as TextStyle;
@@ -38,20 +38,15 @@ function isFindShortcut(event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey"
   return primary && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "f";
 }
 
-function findMessageRows(root: HTMLElement | null, messageId: string): HTMLElement[] {
-  if (!root) return [];
-  return Array.from(root.querySelectorAll<HTMLElement>(`[data-message-id="${CSS.escape(messageId)}"]`));
-}
-
 function findRenderedMatches(row: HTMLElement, query: string): Range[] {
   if (!query.trim()) return [];
   const groups = new Map<Element, globalThis.Text[]>();
-  for (const content of row.querySelectorAll<HTMLElement>('[data-message-text="true"]')) {
+  for (const content of messageTextBlocks(row)) {
     const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
     let node: Node | null;
     while ((node = walker.nextNode())) {
-      if (!(node instanceof globalThis.Text) || node.parentElement?.closest(IGNORED)) continue;
-      const block = node.parentElement?.closest(BLOCKS) ?? content;
+      if (!(node instanceof globalThis.Text) || node.parentElement?.closest(FIND_IGNORED_SELECTOR)) continue;
+      const block = node.parentElement?.closest(MARKDOWN_BLOCK_SELECTOR) ?? content;
       const texts = groups.get(block) ?? [];
       texts.push(node);
       groups.set(block, texts);
@@ -82,11 +77,11 @@ function findRenderedMatches(row: HTMLElement, query: string): Range[] {
 }
 
 function findMessageMatches(root: HTMLElement | null, messageId: string, query: string): Range[] {
-  return findMessageRows(root, messageId).flatMap((row) => findRenderedMatches(row, query));
+  return messageRows(root, messageId).flatMap((row) => findRenderedMatches(row, query));
 }
 
 function rowOf(range: Range): HTMLElement | null {
-  return range.startContainer.parentElement?.closest<HTMLElement>("[data-history-row-id]") ?? null;
+  return historyRowOf(range.startContainer);
 }
 
 interface Bindings {
@@ -143,7 +138,7 @@ function createFindViewport(getBindings: () => Bindings, getRoot: () => HTMLElem
             current.viewportRef.current?.scrollToMessage(messageId);
             started = true;
           }
-          const rows = findMessageRows(getRoot(), messageId);
+          const rows = messageRows(getRoot(), messageId);
           if (!rows.some((row) => row.getBoundingClientRect().height)) {
             frame = requestAnimationFrame(poll);
             return;
@@ -161,7 +156,7 @@ function createFindViewport(getBindings: () => Bindings, getRoot: () => HTMLElem
               const selected = row ? findRenderedMatches(row, query)[indexInRow] : undefined;
               if (!selected) return null;
               paint(selected);
-              const widget = getRoot()?.querySelector<HTMLElement>('[data-chat-find-widget="true"]');
+              const widget = findWidgetIn(getRoot());
               const clearance = widget ? widget.getBoundingClientRect().height + 8 : 0;
               return selected.getBoundingClientRect().top - clearance;
             },
@@ -251,6 +246,9 @@ export interface AgentHistory {
 export function ChatFind({ theme, agent, items, viewportRef, revealLoadedMessage, visibleMessageIds, children }: { theme: PluginTheme; agent: AgentHistory | null; items: StreamItem[]; viewportRef: { current: ViewportHandle | null }; revealLoadedMessage: (messageId: string) => boolean; visibleMessageIds: ReadonlySet<string>; children: ReactNode }) {
   const call = useRpc(timelineSearch);
   const input = useRef<TextInput | null>(null);
+  const paneArea = useChatPaneArea();
+  const pane = useRef(paneArea);
+  pane.current = paneArea;
   const root = useRef<HTMLDivElement | null>(null);
   const bindings = useRef<Bindings>({ viewportRef, revealLoadedMessage, visibleMessageIds });
   bindings.current = { viewportRef, revealLoadedMessage, visibleMessageIds };
@@ -310,7 +308,7 @@ export function ChatFind({ theme, agent, items, viewportRef, revealLoadedMessage
       if (event.defaultPrevented || event.isComposing || !isFindShortcut(event)) return;
       const active = document.activeElement;
       const container = root.current;
-      if (active && active !== document.body && container && !container.contains(active) && !container.parentElement?.parentElement?.contains(active)) return;
+      if (active && active !== document.body && container && !container.contains(active) && !pane.current?.contains(active)) return;
       event.preventDefault();
       model.open();
       input.current?.focus();
@@ -333,7 +331,7 @@ export function ChatFind({ theme, agent, items, viewportRef, revealLoadedMessage
       <style>{`::highlight(${highlightName}) { background-color: ${theme.colors.statusWarning}; color: ${theme.colors.surface0}; }`}</style>
       <SelectedMessage.Provider value={state.selectedItemId}>{children}</SelectedMessage.Provider>
       {state.open ? (
-        <View style={{ position: "absolute", top: SPACING[2], right: SPACING[3], zIndex: 10, maxWidth: "100%" }} {...({ dataSet: { chatFindWidget: "true" } } as object)}>
+        <View style={{ position: "absolute", top: SPACING[2], right: SPACING[3], zIndex: 10, maxWidth: "100%" }} {...findWidgetProps}>
           <FindWidget theme={theme} query={state.query} status={status} canNavigate={state.phase === "ready" && state.count > 0} inputRef={input} onQueryChange={model.setQuery} onNext={model.next} onPrevious={model.previous} onClose={close} />
           {state.failure ? (
             <View style={{ flexDirection: "row", alignItems: "center", padding: SPACING[2], backgroundColor: theme.colors.surface1 }}>

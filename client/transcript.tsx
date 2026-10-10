@@ -12,7 +12,7 @@ import { StreamView } from "./stream.tsx";
 import type { ViewportHandle } from "./stream-viewport.tsx";
 import { clockText } from "../shared/view.ts";
 import { Markdown } from "./markdown.tsx";
-import { MESSAGE_TEXT } from "./message.tsx";
+import { messageTextProps } from "./find-anchors.ts";
 import { AVATAR, AVATAR_SM } from "./kit/avatar.tsx";
 import { Panel, Quiet } from "./kit/chat.tsx";
 import { Pill } from "./kit/pill.tsx";
@@ -85,7 +85,7 @@ export function MailIn({ theme, item, role, now }: { theme: PluginTheme; item: I
         now={now}
       />
       <Panel theme={theme} tone={colour}>
-        <View {...MESSAGE_TEXT}>
+        <View {...messageTextProps}>
           <Markdown theme={theme} source={item.text} style={{ ...text(theme, "rowTitle"), lineHeight: BODY_LINE }} />
         </View>
       </Panel>

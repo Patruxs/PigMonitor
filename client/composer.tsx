@@ -254,7 +254,6 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
 
   const keys = useComposerKeys({
     field: input,
-    root,
     state: { dictation: dictation.status, isAgentRunning, isCancelling: isCancellingAgent },
     run: (action) => {
       if (action === "focus-input") return focusInput();

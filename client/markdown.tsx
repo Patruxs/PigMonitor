@@ -6,6 +6,7 @@ import { AttachmentLightbox } from "./kit/lightbox.tsx";
 import { imagesIn, parseMarkdown, type Block, type Inline } from "../shared/markdown.ts";
 import { imageFile } from "../shared/rpc.ts";
 import { RADIUS, SPACING, text } from "./kit/theme.ts";
+import { markdownTagProps } from "./find-anchors.ts";
 
 const IMAGE_MAX_HEIGHT = 400;
 const MARKER_WIDTH = 20;
@@ -93,7 +94,7 @@ function PictureOf({ theme, path, alt, viewer }: { theme: PluginTheme; path: str
 type Look = "plain" | "assistant";
 
 function tag(name: string): object {
-  return { dataSet: { paseoMarkdownTag: name } };
+  return markdownTagProps(name);
 }
 
 interface Styles {

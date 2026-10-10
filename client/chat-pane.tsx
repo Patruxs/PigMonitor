@@ -12,6 +12,7 @@ import { createUserMessage, generateMessageId } from "../shared/stream.ts";
 import { replyTarget, type Me } from "../shared/mail.ts";
 import { FileDropZone } from "./attachments-drop.tsx";
 import { ChatHead } from "./chat-head.tsx";
+import { ChatPaneScope } from "./chat-pane-scope.tsx";
 import { Composer, canAttach } from "./composer.tsx";
 import { SessionContextMeter } from "./context-meter.tsx";
 import { AgentContextMeter, AgentControls } from "./controls.tsx";
@@ -175,6 +176,7 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
   const ended = item.row.status === "gone" && native.kind !== "open";
   return (
     <FileDropZone theme={theme} style={{ flex: 1, minWidth: 0 }}>
+    <ChatPaneScope>
     <KeyboardAvoidingPane>
       <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />
       {timeline ? <OpenStream theme={theme} id={item.row.id} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} onUsage={setLogUsage} />}
@@ -189,6 +191,7 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
       <ResumeDialog theme={theme} name={item.row.name} open={dialog === "resume"} step={target} onClose={() => setDialog(null)} />
       <ReleaseDialog theme={theme} held={held} open={dialog === "release"} step={step} onClose={() => setDialog(null)} />
     </KeyboardAvoidingPane>
+    </ChatPaneScope>
     </FileDropZone>
   );
 }
