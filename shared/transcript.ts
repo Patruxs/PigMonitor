@@ -7,6 +7,7 @@ export type ShownKind = Exclude<ItemKind, "delivery">;
 
 export interface Item {
   i: number;
+  key?: string;
   kind: ItemKind;
   at?: number;
   text: string;

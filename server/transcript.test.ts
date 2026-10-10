@@ -5,6 +5,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { MailReader } from "./mail.ts";
+import { streamOfTranscript } from "../shared/stream-mail.ts";
 import { withIncrement } from "../shared/transcript.ts";
 import { logsDirOf, page, runLogs, TranscriptReader } from "./transcript.ts";
 
@@ -76,7 +77,7 @@ test("TranscriptReader reads a session's harness transcript, its tool calls as P
     assert.ok(r.ok);
     if (r.ok) {
       assert.deepEqual(r.items.map((i) => [i.kind, i.text]), [["user", "hello sup"], ["tool", "Bash"]]);
-      const { i, kind, text, at, run, ...call } = r.items[1];
+      const { i, key, kind, text, at, run, ...call } = r.items[1];
       assert.deepEqual(call, { tool: "Bash", error: true, detail: { type: "shell", command: "false" }, status: "failed", toolError: { type: "tool_result", tool_use_id: "t1", is_error: true, content: "Exit code 1" } });
     }
     const none = reader.read(path.join(dir, "piggery.db"), "NOBODY", undefined, 10);
@@ -185,6 +186,34 @@ test("mail that arrives or is read between two polls is sent from where it lands
     const full = new TranscriptReader(mail).read(db, "X1", undefined, 100, "ME");
     assert.ok(full.ok);
     if (full.ok) assert.deepEqual(shown, full.items);
+  } finally {
+    mail.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a log row keeps its id when mail lands before it, so the row is not remounted", () => {
+  const dir = farm();
+  const mail = new MailReader();
+  try {
+    const db = path.join(dir, "piggery.db");
+    const at = (s: number) => new Date(s * 1000).toISOString();
+    const say = (text: string, s: number) => JSON.stringify({ type: "assistant", timestamp: at(s), message: { role: "assistant", content: [{ type: "text", text }] } });
+    mkdirSync(path.join(dir, "logs", "X1"), { recursive: true });
+    writeFileSync(path.join(dir, "logs", "X1", "RUN1.jsonl"), [say("one", 10), say("two", 20)].join("\n") + "\n");
+    const write = new DatabaseSync(db);
+    write.exec("CREATE TABLE messages (id TEXT PRIMARY KEY, seq INTEGER NOT NULL UNIQUE, team_id TEXT, from_id TEXT NOT NULL, to_id TEXT NOT NULL, kind TEXT, reply_to TEXT, op TEXT, body TEXT NOT NULL, created_at INTEGER NOT NULL, acked_at INTEGER, held_reason TEXT)");
+    const reader = new TranscriptReader(mail);
+    const before = reader.read(db, "X1", undefined, 100, "ME");
+    write.exec("INSERT INTO messages VALUES ('m1', 1, 'T', 'ME', 'X1', NULL, NULL, NULL, 'between', 15000, NULL, NULL)");
+    write.close();
+    const after = reader.read(db, "X1", undefined, 100, "ME", before.ok ? before : undefined);
+    assert.ok(before.ok && after.ok);
+    if (!before.ok || !after.ok) return;
+    const idOf = (items: typeof before.items, text: string) => streamOfTranscript(items).find((row) => "text" in row && row.text === text)?.id;
+    const shown = withIncrement(before.items, after, 100);
+    assert.deepEqual(shown.map((i) => i.text), ["one", "between", "two"]);
+    assert.equal(idOf(shown, "two"), idOf(before.items, "two"));
   } finally {
     mail.close();
     rmSync(dir, { recursive: true, force: true });

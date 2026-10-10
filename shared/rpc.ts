@@ -118,6 +118,7 @@ const ToolCallDetailSchema: z.ZodType<ToolCallDetail, unknown> = z.discriminated
 
 const Item = z.object({
   i: z.number().int(),
+  key: z.string().optional(),
   kind: z.enum(["session", "user", "wake", "assistant", "thinking", "tool", "mail", "turn", "compaction"]),
   at: z.number().optional(),
   text: z.string(),

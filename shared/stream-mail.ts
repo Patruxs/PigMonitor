@@ -4,7 +4,7 @@ import type { Item } from "./transcript.ts";
 const IMAGE_LINE = /^\[image: (\/[^\]\n]+)\]$/;
 
 function keyOf(item: Item): string {
-  return `${item.run ?? ""}:${item.i}`;
+  return item.key ?? `${item.run ?? ""}:${item.i}`;
 }
 
 function splitImages(text: string, key: string): { text: string; images: UserMessageImage[] } {

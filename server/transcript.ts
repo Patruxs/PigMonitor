@@ -51,7 +51,6 @@ export function page(items: Item[], before: number | undefined, limit: number): 
 export class TranscriptReader {
   private logs = new Map<string, Logs>();
   private rev = 0;
-  private keys = new WeakMap<Item, string>();
   private stamps = new WeakMap<Item, number>();
   private readonly mail: MailReader;
   private readonly saveImage: SaveImage | undefined;
@@ -65,9 +64,7 @@ export class TranscriptReader {
     for (const line of text.split("\n")) run.parser.line(line);
     run.parser.stamp();
     for (const i of run.parser.changed) {
-      const item = run.parser.items[i];
-      if (!this.keys.has(item)) this.keys.set(item, randomUUID());
-      this.stamps.set(item, rev);
+      this.stamps.set(run.parser.items[i], rev);
     }
     run.parser.changed.clear();
   }
@@ -113,9 +110,13 @@ export class TranscriptReader {
     return logs;
   }
 
+  private keyOf(item: Item): string {
+    return this.stamps.has(item) || !item.ref ? `${item.run ?? ""}:${item.i}` : `mail:${item.ref}`;
+  }
+
   private shownAs(item: Item): string {
-    const key = this.keys.get(item);
-    return key ? `${key}:${this.stamps.get(item)}` : JSON.stringify(item);
+    const stamp = this.stamps.get(item);
+    return stamp === undefined ? JSON.stringify(item) : `${this.keyOf(item)}:${stamp}`;
   }
 
   read(dbFile: string, id: string, before: number | undefined, limit: number, person?: string, since?: Cursor): TranscriptResult {
@@ -157,7 +158,7 @@ export class TranscriptReader {
       const from = changed === undefined ? undefined : changed < 0 ? merged.length : changed;
       const end = from === undefined && before !== undefined ? Math.max(0, Math.min(before, merged.length)) : merged.length;
       const start = from ?? Math.max(0, end - limit);
-      const items = merged.slice(start, end).map((item, k) => ({ ...item, i: start + k }));
+      const items = merged.slice(start, end).map((item, k) => ({ ...item, i: start + k, key: this.keyOf(item) }));
       return { ok: true, items, total: merged.length, name: who?.name ?? id, role: who?.role ?? undefined, files: files.length, ...(roles ? { roles } : {}), ...(usage ? { usage } : {}), epoch: logs.epoch, rev, ...(from === undefined ? {} : { from }) };
     } catch (error) {
       return { ok: false, code: "failed", error: `Could not read the session log: ${String((error as Error).message ?? error)}` };
