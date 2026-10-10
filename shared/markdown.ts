@@ -36,34 +36,32 @@ export interface ParseOptions {
   streaming?: boolean;
 }
 
-let options: ParseOptions = {};
-
-export function parseMarkdown(source: string, with_: ParseOptions = {}): Block[] {
-  const previous = options;
-  options = with_;
-  try {
-    const blocks = parseBlocks(source.replace(/\r\n?/g, "\n").replace(/\t/g, "    ").split("\n"));
-    return with_.streaming ? streamTail(blocks) : blocks;
-  } finally {
-    options = previous;
-  }
+interface InlineMode {
+  linkify: boolean;
+  tail: boolean;
 }
 
-function streamTail(blocks: Block[]): Block[] {
+export function parseMarkdown(source: string, options: ParseOptions = {}): Block[] {
+  const linkify = options.linkify === true;
+  const blocks = parseBlocks(source.replace(/\r\n?/g, "\n").replace(/\t/g, "    ").split("\n"), linkify);
+  return options.streaming ? streamTail(blocks, linkify) : blocks;
+}
+
+function streamTail(blocks: Block[], linkify: boolean): Block[] {
   const last = blocks[blocks.length - 1];
   if (!last) return blocks;
   const head = blocks.slice(0, -1);
-  if (last.kind === "paragraph" || last.kind === "heading") return [...head, { ...last, inlines: reparseTail(last.inlines) }];
-  if (last.kind === "list" && last.items.length > 0) return [...head, { ...last, items: [...last.items.slice(0, -1), streamTail(last.items[last.items.length - 1])] }];
-  if (last.kind === "quote") return [...head, { ...last, blocks: streamTail(last.blocks) }];
+  if (last.kind === "paragraph" || last.kind === "heading") return [...head, { ...last, inlines: reparseTail(last.inlines, linkify) }];
+  if (last.kind === "list" && last.items.length > 0) return [...head, { ...last, items: [...last.items.slice(0, -1), streamTail(last.items[last.items.length - 1], linkify)] }];
+  if (last.kind === "quote") return [...head, { ...last, blocks: streamTail(last.blocks, linkify) }];
   return blocks;
 }
 
 const rawOf = new WeakMap<Inline[], string>();
 
-function reparseTail(inlines: Inline[]): Inline[] {
+function reparseTail(inlines: Inline[], linkify: boolean): Inline[] {
   const raw = rawOf.get(inlines);
-  return raw === undefined ? inlines : parseInline(raw, true);
+  return raw === undefined ? inlines : parseInline(raw, { linkify, tail: true });
 }
 
 function indentOf(line: string): number {
@@ -78,7 +76,7 @@ function startsBlock(line: string): boolean {
   return FENCE.test(line) || HEADING.test(line) || RULE.test(line) || QUOTE.test(line) || LIST_ITEM.test(line);
 }
 
-function parseBlocks(lines: string[]): Block[] {
+function parseBlocks(lines: string[], linkify: boolean): Block[] {
   const blocks: Block[] = [];
   let at = 0;
   while (at < lines.length) {
@@ -104,7 +102,7 @@ function parseBlocks(lines: string[]): Block[] {
     }
     const heading = HEADING.exec(line);
     if (heading) {
-      blocks.push({ kind: "heading", level: heading[1].length, inlines: parseInline(heading[2]) });
+      blocks.push({ kind: "heading", level: heading[1].length, inlines: parseInline(heading[2], { linkify, tail: false }) });
       at++;
       continue;
     }
@@ -120,19 +118,19 @@ function parseBlocks(lines: string[]): Block[] {
         quoted.push(inner ? inner[1] : lines[at]);
         at++;
       }
-      blocks.push({ kind: "quote", blocks: parseBlocks(quoted) });
+      blocks.push({ kind: "quote", blocks: parseBlocks(quoted, linkify) });
       continue;
     }
     if (LIST_ITEM.test(line)) {
-      at = parseList(lines, at, blocks);
+      at = parseList(lines, at, blocks, linkify);
       continue;
     }
     if (line.includes("|") && at + 1 < lines.length && TABLE_DIVIDER.test(lines[at + 1]) && lines[at + 1].includes("-")) {
-      const head = cellsOf(line);
+      const head = cellsOf(line, linkify);
       at += 2;
       const rows: Inline[][][] = [];
       while (at < lines.length && !blank(lines[at]) && lines[at].includes("|")) {
-        rows.push(cellsOf(lines[at]));
+        rows.push(cellsOf(lines[at], linkify));
         at++;
       }
       blocks.push({ kind: "table", head, rows });
@@ -144,17 +142,17 @@ function parseBlocks(lines: string[]): Block[] {
       paragraph.push(lines[at].trim());
       at++;
     }
-    blocks.push({ kind: "paragraph", inlines: parseInline(paragraph.join("\n")) });
+    blocks.push({ kind: "paragraph", inlines: parseInline(paragraph.join("\n"), { linkify, tail: false }) });
   }
   return blocks;
 }
 
-function cellsOf(line: string): Inline[][] {
+function cellsOf(line: string, linkify: boolean): Inline[][] {
   const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
-  return trimmed.split(/(?<!\\)\|/).map((cell) => parseInline(cell.trim().replace(/\\\|/g, "|")));
+  return trimmed.split(/(?<!\\)\|/).map((cell) => parseInline(cell.trim().replace(/\\\|/g, "|"), { linkify, tail: false }));
 }
 
-function parseList(lines: string[], from: number, blocks: Block[]): number {
+function parseList(lines: string[], from: number, blocks: Block[], linkify: boolean): number {
   const first = LIST_ITEM.exec(lines[from]) as RegExpExecArray;
   const baseIndent = first[1].length;
   const ordered = /\d/.test(first[2]);
@@ -190,7 +188,7 @@ function parseList(lines: string[], from: number, blocks: Block[]): number {
     afterBlank = false;
     at++;
   }
-  blocks.push({ kind: "list", ordered, start: ordered ? Number.parseInt(first[2], 10) : 1, items: items.map(parseBlocks) });
+  blocks.push({ kind: "list", ordered, start: ordered ? Number.parseInt(first[2], 10) : 1, items: items.map((item) => parseBlocks(item, linkify)) });
   return at;
 }
 
@@ -211,17 +209,17 @@ function closingOf(source: string, marker: string, from: number): number {
   return -1;
 }
 
-function matchEmphasis(rest: string, previous: string): Match | undefined {
+function matchEmphasis(rest: string, previous: string, mode: InlineMode): Match | undefined {
   const marker = rest.startsWith("**") || rest.startsWith("__") ? rest.slice(0, 2) : rest[0];
   if (marker[0] === "_" && WORD.test(previous)) return undefined;
   if (/\s/.test(rest[marker.length] ?? " ")) return undefined;
   const end = closingOf(rest, marker, marker.length + 1);
   if (end === -1) return undefined;
-  const children = parseInline(rest.slice(marker.length, end));
+  const children = parseInline(rest.slice(marker.length, end), { linkify: mode.linkify, tail: false });
   return { node: marker.length === 2 ? { kind: "bold", children } : { kind: "italic", children }, length: end + marker.length };
 }
 
-function matchInline(rest: string, previous: string): Match | undefined {
+function matchInline(rest: string, previous: string, mode: InlineMode): Match | undefined {
   const head = rest[0];
   if (head === "\\" && /[\\`*_[\]()#+\-.!>~|]/.test(rest[1] ?? "")) return { node: { kind: "text", text: rest[1] }, length: 2 };
   if (head === "`") {
@@ -239,12 +237,12 @@ function matchInline(rest: string, previous: string): Match | undefined {
     const attached = markedImage(rest);
     if (attached) return { node: { kind: "image", path: attached.path, alt: "" }, length: attached.length };
     const link = /^\[([^\]\n]+)\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/.exec(rest);
-    if (link) return { node: isImagePath(link[2]) && link[1] === link[2] ? { kind: "image", path: link[2], alt: "" } : { kind: "link", href: link[2], children: parseInline(link[1]) }, length: link[0].length };
+    if (link) return { node: isImagePath(link[2]) && link[1] === link[2] ? { kind: "image", path: link[2], alt: "" } : { kind: "link", href: link[2], children: parseInline(link[1], { linkify: mode.linkify, tail: false }) }, length: link[0].length };
   }
-  if (head === "*" || head === "_") return matchEmphasis(rest, previous);
+  if (head === "*" || head === "_") return matchEmphasis(rest, previous, mode);
   if (head === "~" && rest.startsWith("~~") && !/\s/.test(rest[2] ?? " ")) {
     const end = rest.indexOf("~~", 3);
-    if (end !== -1 && !/\s/.test(rest[end - 1])) return { node: { kind: "strike", children: parseInline(rest.slice(2, end)) }, length: end + 2 };
+    if (end !== -1 && !/\s/.test(rest[end - 1])) return { node: { kind: "strike", children: parseInline(rest.slice(2, end), { linkify: mode.linkify, tail: false }) }, length: end + 2 };
   }
   if (head === "/" && (previous === "" || /[\s(["']/.test(previous))) {
     const path = BARE_IMAGE_PATH.exec(rest);
@@ -265,9 +263,7 @@ function matchUrl(rest: string, previous: string): Match | undefined {
   return { node: { kind: "link", href: /^www\./i.test(url) ? `http://${url}` : url, children: [{ kind: "text", text: url }] }, length: url.length };
 }
 
-let streamingTail = false;
-
-function matchStreaming(rest: string, previous: string): Match | undefined {
+function matchStreaming(rest: string, previous: string, mode: InlineMode): Match | undefined {
   const head = rest[0];
   if (head === "`") {
     const ticks = /^`+/.exec(rest)![0];
@@ -280,7 +276,7 @@ function matchStreaming(rest: string, previous: string): Match | undefined {
   if (head === "*" || head === "_" || head === "~") {
     const marker = /^(\*{1,3}|_{1,3}|~~)/.exec(rest)?.[1];
     if (!marker || /\s/.test(rest[marker.length] ?? " ") || (head === "_" && WORD.test(previous))) return undefined;
-    const children = parseInline(rest.slice(marker.length), true);
+    const children = parseInline(rest.slice(marker.length), { linkify: mode.linkify, tail: true });
     const node: Inline = head === "~" ? { kind: "strike", children } : marker.length === 1 ? { kind: "italic", children } : marker.length === 2 ? { kind: "bold", children } : { kind: "bold", children: [{ kind: "italic", children }] };
     return { node, length: rest.length };
   }
@@ -292,29 +288,23 @@ function matchStreaming(rest: string, previous: string): Match | undefined {
   return undefined;
 }
 
-export function parseInline(source: string, tail = false): Inline[] {
-  const outer = streamingTail;
-  streamingTail = tail;
-  try {
-    const parsed = parseInlineRun(source);
-    if (!tail) rawOf.set(parsed, source);
-    return parsed;
-  } finally {
-    streamingTail = outer;
-  }
+export function parseInline(source: string, mode: InlineMode = { linkify: false, tail: false }): Inline[] {
+  const parsed = parseInlineRun(source, mode);
+  if (!mode.tail) rawOf.set(parsed, source);
+  return parsed;
 }
 
-function parseInlineRun(source: string): Inline[] {
+function parseInlineRun(source: string, mode: InlineMode): Inline[] {
   const out: Inline[] = [];
   let plain = "";
   let at = 0;
   while (at < source.length) {
     const rest = source.slice(at);
     const previous = source[at - 1] ?? "";
-    let match = SPECIAL.has(source[at]) ? matchInline(rest, previous) : undefined;
-    if (match?.node.kind === "text" && streamingTail && source[at] === "`") match = undefined;
-    if (!match && options.linkify && (source[at] === "h" || source[at] === "H" || source[at] === "w" || source[at] === "W")) match = matchUrl(rest, previous);
-    if (!match && streamingTail && SPECIAL.has(source[at])) match = matchStreaming(rest, previous);
+    let match = SPECIAL.has(source[at]) ? matchInline(rest, previous, mode) : undefined;
+    if (match?.node.kind === "text" && mode.tail && source[at] === "`") match = undefined;
+    if (!match && mode.linkify && (source[at] === "h" || source[at] === "H" || source[at] === "w" || source[at] === "W")) match = matchUrl(rest, previous);
+    if (!match && mode.tail && SPECIAL.has(source[at])) match = matchStreaming(rest, previous, mode);
     if (!match) {
       plain += source[at];
       at++;
