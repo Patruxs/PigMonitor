@@ -4,10 +4,11 @@
 // for drawing (a path match for a workspace, `piggery tail` text, clock times). No imports, so the app,
 // the daemon and `node --test` all load it as is.
 
-/** The `ps --view` version this plugin reads; another one is refused (Go bumps it on an incompatible change only). */
 export const VIEW_VERSION = 1;
 
 export type Status = "working" | "idle" | "waiting" | "gone";
+
+export type UnixMs = number;
 export type Tone = "muted" | "warning" | "danger";
 export type Kind = "member" | "solo" | "team" | "gone";
 
@@ -59,10 +60,9 @@ export interface Row {
   turns?: string;
   unacked: number;
   age?: string;
-  /** Unix ms: when it joined or was spawned, since when it is in `state`, when its latest turn ended. */
-  created_at?: number;
-  state_since?: number;
-  last_turn_end?: number;
+  created_at?: UnixMs;
+  state_since?: UnixMs;
+  last_turn_end?: UnixMs;
   since?: string;
   cwd?: string;
   actions?: Actions;

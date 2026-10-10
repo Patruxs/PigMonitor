@@ -34,7 +34,6 @@ export function foldsOf(values: StoredFolds | null | undefined): Folds {
 export const teamOpen = (f: Folds, id: string, byDefault: boolean): boolean => f.teams[id] ?? byDefault;
 export const goneOpen = (f: Folds, id: string): boolean => f.gone[id] ?? false;
 
-/** Set a team open or closed; choosing its default forgets the entry. */
 export function setTeam(f: Folds, id: string, open: boolean, byDefault: boolean): Folds {
   const { [id]: _, ...rest } = f.teams;
   return { ...f, teams: open === byDefault ? rest : { ...rest, [id]: open } };

@@ -1,5 +1,3 @@
-// The plugin's two RPCs and its one setting, shared by the daemon side and the app. Both RPCs only
-// read: they run the piggery CLI with --no-start, so looking never starts a piggery daemon.
 import { defineRpc, defineSettings } from "@getpaseo/plugin";
 import { z } from "zod";
 import { TAIL_KINDS } from "./view.ts";
@@ -10,10 +8,6 @@ import { Transcript } from "./transcript.ts";
 import { UsageReportEntry } from "./usage-schema.ts";
 import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./speech.ts";
 
-/**
- * Why piggery gave nothing: not installed at that path, daemon not running, a piggery older (no
- * `ps --view`) or newer (another view version) than this plugin, or another failure.
- */
 const Failure = z.object({ ok: z.literal(false), code: z.enum(["missing", "down", "older", "newer", "failed", "nodb", "nolog", "denied"]), error: z.string() });
 
 /**
@@ -53,10 +47,6 @@ export const person = defineRpc({
   output: z.union([z.object({ ok: z.literal(true), person: z.object({ id: z.string(), name: z.string() }).nullable() }), Failure]),
 });
 
-/**
- * Mail from the person to a participant (by id), as the daemon's own send verb: its gate rules apply,
- * so a member of a team that is not its gate is refused with the gate to write to instead.
- */
 export const MAX_IMAGES = 8;
 
 export const Image = z.object({ data: z.string().min(1), mimeType: z.string().regex(/^image\//) });
