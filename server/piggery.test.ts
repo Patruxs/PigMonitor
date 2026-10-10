@@ -42,10 +42,10 @@ test("piggery's failures are told apart: not installed, daemon down, too old for
 
 test("tail --view is read only at the version this plugin speaks", async () => {
   const at = (doc: string) => fakeBin(`echo '${doc}'`);
-  const fakes = [at('{"version":0,"lines":[]}'), at('{"version":2,"lines":[]}'), at('{"version":1,"lines":[{"kind":"text","text":"hi"}]}'), at("not json")];
+  const fakes = [at('{"version":0,"lines":[]}'), at('{"version":2,"lines":[]}'), at('{"version":1,"lines":[{"kind":"text","text":"hi"}]}'), at("not json"), at('{"version":1,"lines":[{"kind":"shout","text":"hi"}]}')];
   try {
     const results = await Promise.all(fakes.map((f) => tailView(f.bin, "w1", 5)));
-    assert.deepEqual(results.map((r) => (r.ok ? r.lines : r.code)), ["older", "newer", [{ kind: "text", text: "hi" }], "failed"]);
+    assert.deepEqual(results.map((r) => (r.ok ? r.lines : r.code)), ["older", "newer", [{ kind: "text", text: "hi" }], "failed", "failed"]);
   } finally {
     for (const f of fakes) f.done();
   }
@@ -58,18 +58,21 @@ test("a step-in becomes piggery's own verb; a model change needs a model or a th
   assert.equal(stepInArgs({ verb: "model", id: "w1" }), null);
 });
 
-test("models are asked over piggery's admin socket with its admin token", async () => {
+test("models are asked over piggery's admin socket with its admin token, and an answer in another shape is refused", async () => {
   const home = mkdtempSync(path.join(tmpdir(), "fake-home-"));
   writeFileSync(path.join(home, "admin.token"), "secret\n");
   let asked: unknown;
+  let answer: unknown = { models: ["a/b", "c/d"] };
   const daemon = net.createServer((sock) => sock.on("data", (chunk) => {
     asked = JSON.parse(chunk.toString("utf8"));
-    sock.write(JSON.stringify({ id: "1", ok: true, result: { models: ["a/b", "c/d"] } }) + "\n");
+    sock.write(JSON.stringify({ id: "1", ok: true, result: answer }) + "\n");
   }));
   await new Promise<void>((resolve) => daemon.listen(path.join(home, "piggery.sock"), resolve));
   try {
     assert.deepEqual(await listModels(home, "w1"), { ok: true, models: ["a/b", "c/d"] });
     assert.deepEqual(asked, { id: "1", verb: "models", admin_token: "secret", args: { target: "w1" } });
+    answer = { models: "a/b" };
+    assert.equal((await listModels(home, "w1")).ok, false);
     const none = mkdtempSync(path.join(tmpdir(), "fake-home-"));
     assert.equal((await listModels(none, "w1")).ok, false);
     rmSync(none, { recursive: true, force: true });

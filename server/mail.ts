@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { z } from "zod";
 import type { MailFilter, MailMessage, MailPage, MailTeam } from "../shared/mail.ts";
 import type { Session } from "../shared/native.ts";
 import { piggeryHome } from "./piggery.ts";
@@ -11,31 +12,23 @@ export function pickDatabase(setting: string): string {
   return setting.trim() || path.join(piggeryHome(), "piggery.db");
 }
 
-interface Raw {
-  id: string;
-  seq: number;
-  team_id: string | null;
-  from_id: string;
-  to_id: string;
-  kind: string | null;
-  op: string | null;
-  reply_to: string | null;
-  reply_seq: number | null;
-  body: string;
-  created_at: number;
-  acked_at: number | null;
-  held_reason: string | null;
-  from_name: string | null;
-  from_role: string | null;
-  to_name: string | null;
-  to_role: string | null;
-}
+const text = z.string();
+const maybeText = z.string().nullable();
+const maybeNumber = z.number().nullable();
 
-interface RawTeam {
-  id: string;
-  name: string;
-  root_cwd: string;
-  closed_at: number | null;
+const RawRow = z.object({ id: text, seq: z.number(), team_id: maybeText, from_id: text, to_id: text, kind: maybeText, op: maybeText, reply_to: maybeText, reply_seq: maybeNumber, body: text, created_at: z.number(), acked_at: maybeNumber, held_reason: maybeText, from_name: maybeText, from_role: maybeText, to_name: maybeText, to_role: maybeText });
+type Raw = z.infer<typeof RawRow>;
+
+const RawTeamRow = z.object({ id: text, name: text, root_cwd: text, closed_at: maybeNumber });
+
+const ParticipantRow = z.object({ id: text, name: text, role: maybeText, harness: maybeText, transcript: maybeText, team_id: maybeText });
+
+const SessionRow = z.object({ id: text, ref: maybeText, harness: maybeText, mode: maybeText, cwd: text, state: text, team_closed: z.number() });
+
+const TeammateRow = z.object({ name: text, role: text });
+
+function rowsOf<T>(schema: z.ZodType<T>, rows: unknown[]): T[] {
+  return rows.map((row) => schema.parse(row));
 }
 
 const SELECT = `
@@ -89,14 +82,7 @@ function toMessage(r: Raw): MailMessage {
   return m;
 }
 
-export interface Participant {
-  id: string;
-  name: string;
-  role: string | null;
-  harness: string | null;
-  transcript: string | null;
-  team_id: string | null;
-}
+export type Participant = z.infer<typeof ParticipantRow>;
 
 export class MailReader {
   private db: DatabaseSync | null = null;
@@ -138,27 +124,26 @@ export class MailReader {
 
   participant(file: string, id: string): Participant | null {
     if (!existsSync(file)) return null;
-    const row = this.open(file).prepare("SELECT id, name, role, harness, transcript, team_id FROM participants WHERE id = ?").get(id) as unknown as Participant | undefined;
-    return row ?? null;
+    const row = this.open(file).prepare("SELECT id, name, role, harness, transcript, team_id FROM participants WHERE id = ?").get(id);
+    return row === undefined ? null : ParticipantRow.parse(row);
   }
 
   involving(file: string, id: string): MailMessage[] {
     if (!existsSync(file)) return [];
-    const rows = this.open(file).prepare(`${SELECT} WHERE m.from_id = ? OR m.to_id = ? ORDER BY m.seq`).all(id, id) as unknown as Raw[];
-    return rows.map(toMessage);
+    return rowsOf(RawRow, this.open(file).prepare(`${SELECT} WHERE m.from_id = ? OR m.to_id = ? ORDER BY m.seq`).all(id, id)).map(toMessage);
   }
 
   sessions(file: string, ids: string[]): Session[] {
     if (!existsSync(file) || ids.length === 0) return [];
     const rows = this.open(file)
       .prepare(`SELECT p.id, COALESCE(p.session_ref, p.harness_ref) AS ref, p.harness, p.mode, p.cwd, p.state, t.closed_at IS NOT NULL AS team_closed FROM participants p LEFT JOIN teams t ON t.id = p.team_id WHERE p.id IN (${placeholders(ids.length)})`)
-      .all(...ids) as unknown as (Omit<Session, "gone" | "teamClosed"> & { team_closed: number })[];
-    return rows.map(({ team_closed, ...r }) => ({ ...r, gone: r.state === "gone", teamClosed: team_closed === 1 }));
+      .all(...ids);
+    return rowsOf(SessionRow, rows).map(({ team_closed, ...r }) => ({ ...r, gone: r.state === "gone", teamClosed: team_closed === 1 }));
   }
 
   teammates(file: string, teamId: string): Record<string, string> {
     if (!existsSync(file)) return {};
-    const rows = this.open(file).prepare("SELECT name, role FROM participants WHERE team_id = ? AND role IS NOT NULL ORDER BY created_at").all(teamId) as unknown as { name: string; role: string }[];
+    const rows = rowsOf(TeammateRow, this.open(file).prepare("SELECT name, role FROM participants WHERE team_id = ? AND role IS NOT NULL ORDER BY created_at").all(teamId));
     const out: Record<string, string> = {};
     for (const r of rows) out[r.name] = r.role;
     return out;
@@ -166,13 +151,14 @@ export class MailReader {
 
   private query(db: DatabaseSync, filter: MailFilter): MailResult {
     const { sql, params } = whereOf(filter);
-    const rows = db.prepare(`${SELECT}${sql} ORDER BY m.seq DESC LIMIT ?`).all(...params, filter.limit) as unknown as Raw[];
+    const rows = rowsOf(RawRow, db.prepare(`${SELECT}${sql} ORDER BY m.seq DESC LIMIT ?`).all(...params, filter.limit));
     const messages = rows.map(toMessage);
     const teamIds = [...new Set(messages.map((m) => m.team).filter((t): t is string => t !== undefined))];
     const teams: Record<string, MailTeam> = {};
     if (teamIds.length > 0) {
-      const found = db.prepare(`SELECT id, name, root_cwd, closed_at FROM teams WHERE id IN (${placeholders(teamIds.length)})`).all(...teamIds) as unknown as RawTeam[];
-      for (const t of found) teams[t.id] = { id: t.id, name: t.name, dir: t.root_cwd, ...(t.closed_at !== null ? { closed: t.closed_at } : {}) };
+      const found = db.prepare(`SELECT id, name, root_cwd, closed_at FROM teams WHERE id IN (${placeholders(teamIds.length)})`).all(...teamIds);
+      const teamRows = rowsOf(RawTeamRow, found);
+      for (const t of teamRows) teams[t.id] = { id: t.id, name: t.name, dir: t.root_cwd, ...(t.closed_at !== null ? { closed: t.closed_at } : {}) };
     }
     return { ok: true, messages, teams };
   }

@@ -82,3 +82,24 @@ test("a missing database is said, not thrown", () => {
   assert.equal(r.ok, false);
   if (!r.ok) assert.equal(r.code, "nodb");
 });
+
+test("a row in a shape this plugin does not read is said, not passed on", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "piggery-mail-"));
+  const file = path.join(dir, "piggery.db");
+  const db = new DatabaseSync(file);
+  db.exec(`
+    CREATE TABLE teams (id TEXT PRIMARY KEY, name TEXT, root_cwd TEXT, closed_at INTEGER);
+    CREATE TABLE participants (id TEXT PRIMARY KEY, name TEXT, role TEXT, team_id TEXT);
+    CREATE TABLE messages (id TEXT PRIMARY KEY, seq INTEGER, team_id TEXT, from_id TEXT, to_id TEXT, kind TEXT, reply_to TEXT, op TEXT, body TEXT, created_at INTEGER, acked_at INTEGER, held_reason TEXT);
+    INSERT INTO messages VALUES ('m1', 1, NULL, 'a', 'b', NULL, NULL, NULL, NULL, 100, NULL, NULL);
+  `);
+  db.close();
+  const reader = new MailReader();
+  try {
+    const r = reader.read(file, { limit: 10 });
+    assert.equal(r.ok ? "ok" : r.code, "failed");
+  } finally {
+    reader.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

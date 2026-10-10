@@ -4,7 +4,8 @@ import { execFile } from "node:child_process";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
-import { TAIL_VERSION, type TailKind } from "../shared/view.ts";
+import { z } from "zod";
+import { TAIL_KINDS, TAIL_VERSION } from "../shared/view.ts";
 import { adminCall, type AdminResult } from "./admin.ts";
 
 export type Result = { ok: true; out: string } | { ok: false; code: "missing" | "down" | "older" | "failed"; error: string };
@@ -58,26 +59,30 @@ type Failed = { ok: false; code: "missing" | "down" | "older" | "newer" | "faile
 export async function snapshotView(bin: string, dir: string | undefined): Promise<{ ok: true; view: Record<string, unknown>; dir: string | undefined } | Failed> {
   const r = await runPiggery(bin, ["ps", "--view"]);
   if (!r.ok) return r;
-  try {
-    const view = JSON.parse(r.out) as Record<string, unknown>;
-    return { ok: true, view, dir: dir === undefined ? undefined : await realDir(dir) };
-  } catch {
-    return { ok: false, code: "failed", error: "piggery ps --view did not print JSON." };
-  }
+  const view = View.safeParse(parsedJson(r.out));
+  if (!view.success) return { ok: false, code: "failed", error: "piggery ps --view did not print JSON." };
+  return { ok: true, view: view.data, dir: dir === undefined ? undefined : await realDir(dir) };
 }
 
-export type TailLine = { kind: TailKind; text: string; rest?: string };
+const TailLine = z.object({ kind: z.enum(TAIL_KINDS), text: z.string(), rest: z.string().optional() });
+
+export type TailLine = z.infer<typeof TailLine>;
+
+const TailDoc = z.object({ version: z.number(), lines: z.array(TailLine) });
+
+const View = z.record(z.string(), z.unknown());
+
+const Models = z.object({ models: z.array(z.string()).optional() }).nullable().optional();
 
 export async function tailView(bin: string, id: string, lines: number): Promise<{ ok: true; lines: TailLine[] } | Failed> {
   const r = await runPiggery(bin, ["tail", id, "-n", String(lines), "--view"]);
   if (!r.ok) return r;
-  try {
-    const doc = JSON.parse(r.out);
-    if (doc.version < TAIL_VERSION) return { ok: false, code: "older", error: `piggery speaks tail --view version ${doc.version}; this plugin reads ${TAIL_VERSION}. Update piggery.` };
-    if (doc.version > TAIL_VERSION) return { ok: false, code: "newer", error: `piggery speaks tail --view version ${doc.version}; this plugin reads ${TAIL_VERSION}. Run piggery setup paseo to update the plugin, then reload the Paseo app.` };
-    if (Array.isArray(doc.lines)) return { ok: true, lines: doc.lines as TailLine[] };
-  } catch {}
-  return { ok: false, code: "failed", error: "piggery tail --view did not print JSON." };
+  const doc = parsedJson(r.out);
+  const version = z.object({ version: z.number() }).safeParse(doc);
+  if (version.success && version.data.version < TAIL_VERSION) return { ok: false, code: "older", error: `piggery speaks tail --view version ${version.data.version}; this plugin reads ${TAIL_VERSION}. Update piggery.` };
+  if (version.success && version.data.version > TAIL_VERSION) return { ok: false, code: "newer", error: `piggery speaks tail --view version ${version.data.version}; this plugin reads ${TAIL_VERSION}. Run piggery setup paseo to update the plugin, then reload the Paseo app.` };
+  const tail = TailDoc.safeParse(doc);
+  return tail.success ? { ok: true, lines: tail.data.lines } : { ok: false, code: "failed", error: "piggery tail --view did not print JSON." };
 }
 
 export async function abort(bin: string, id: string): Promise<{ ok: true } | Failed> {
@@ -101,6 +106,14 @@ export async function runStepIn(bin: string, input: StepIn): Promise<{ ok: true;
 }
 
 export async function listModels(home: string, id: string): Promise<{ ok: true; models: string[] } | Exclude<AdminResult<unknown>, { ok: true }>> {
-  const r = await adminCall<{ models?: string[] }>(home, "models", { target: id });
+  const r = await adminCall(home, "models", { target: id }, Models);
   return r.ok ? { ok: true, models: r.value?.models ?? [] } : r;
+}
+
+function parsedJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }

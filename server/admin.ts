@@ -1,12 +1,13 @@
 import { readFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
+import type { ZodType } from "zod";
 
 const TIMEOUT_MS = 8000;
 
 export type AdminResult<T> = { ok: true; value: T } | { ok: false; code: "down" | "failed"; error: string };
 
-export async function adminCall<T>(dir: string, verb: string, args: unknown): Promise<AdminResult<T>> {
+export async function adminCall<T>(dir: string, verb: string, args: unknown, reply: ZodType<T>): Promise<AdminResult<T>> {
   let token: string;
   try {
     token = (await readFile(path.join(dir, "admin.token"), "utf8")).trim();
@@ -29,9 +30,10 @@ export async function adminCall<T>(dir: string, verb: string, args: unknown): Pr
       const end = buf.indexOf("\n");
       if (end < 0) return;
       try {
-        const reply = JSON.parse(buf.slice(0, end)) as { ok?: boolean; result?: T; error?: { message?: string } };
-        if (reply.error) return finish({ ok: false, code: "failed", error: reply.error.message ?? `piggery refused ${verb}.` });
-        finish({ ok: true, value: reply.result as T });
+        const frame = JSON.parse(buf.slice(0, end)) as { result?: unknown; error?: { message?: string } };
+        if (frame.error) return finish({ ok: false, code: "failed", error: frame.error.message ?? `piggery refused ${verb}.` });
+        const parsed = reply.safeParse(frame.result);
+        finish(parsed.success ? { ok: true, value: parsed.data } : { ok: false, code: "failed", error: `piggery answered ${verb} in a shape this plugin does not read.` });
       } catch {
         finish({ ok: false, code: "failed", error: `piggery's answer to ${verb} was not JSON.` });
       }
