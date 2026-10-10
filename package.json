@@ -4,12 +4,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON shared/*.test.ts server/*.test.ts",
-    "check": "npm run typecheck && npm run test"
+    "bundle": "node scripts/check-bundle.mjs",
+    "check": "npm run typecheck && npm run test && npm run bundle"
   },
   "devDependencies": {
     "@getpaseo/plugin": "0.11.2",
     "@types/node": "22.20.5",
     "@types/react": "19.2.18",
+    "esbuild": "0.25.12",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "typescript": "5.9.3",
