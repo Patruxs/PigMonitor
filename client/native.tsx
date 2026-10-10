@@ -105,7 +105,7 @@ export interface Stop {
   onStop: () => Promise<string | null>;
 }
 
-export function useStop(id: string, native: Native, working: boolean): Stop | undefined {
+export function useStop(id: string, native: Native, abortable: boolean): Stop | undefined {
   const paseo = usePaseo();
   const callStop = useRpc(stop);
   const [bump, setBump] = useState(0);
@@ -125,7 +125,7 @@ export function useStop(id: string, native: Native, working: boolean): Stop | un
   );
   if (native.kind === "resume") return undefined;
   return {
-    running: native.kind === "open" ? agentRunning === true : working,
+    running: native.kind === "open" ? agentRunning === true : abortable,
     onStop: async () => {
       const r = await callStop({ id, ...(agentId ? { agentId } : {}) });
       setBump((n) => n + 1);

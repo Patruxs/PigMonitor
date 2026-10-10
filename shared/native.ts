@@ -31,3 +31,7 @@ export function agentsBySession(entries: { agent: { id: string; provider: string
   }
   return out;
 }
+
+export function abortable(state: string): boolean {
+  return state === "working" || state === "awaiting_permission";
+}

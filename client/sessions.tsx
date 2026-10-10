@@ -20,7 +20,7 @@ import { BUSY_MS, QUIET_MS, usePoll } from "./poll.ts";
 import { Composer, canAttach } from "./composer.tsx";
 import { FileDropZone } from "./attachments-drop.tsx";
 import { AgentContextMeter, AgentControls } from "./controls.tsx";
-import { NativeLink, useNative, useStop, type Navigation, type NativeChat } from "./native.tsx";
+import { NativeLink, useNative, useStop, type Navigation, type NativeChat, type Stop } from "./native.tsx";
 import { MailStream } from "./transcript.tsx";
 import { StreamView, type ViewportHandle } from "./stream.tsx";
 import { useAgentTimeline, type AgentTimeline } from "./timeline.ts";
@@ -28,7 +28,7 @@ import { RewindMenu } from "./rewind.tsx";
 import { useHasComposerTracks } from "./tracks.tsx";
 import { createUserMessage, generateMessageId } from "../shared/stream.ts";
 import { ResizeHandle, clampWidth, useSavedListWidth } from "./resize.tsx";
-import type { Native } from "../shared/native.ts";
+import { abortable, type Native } from "../shared/native.ts";
 import { useProjectActions, type ProjectActions } from "./project.tsx";
 
 export interface Conversation {
@@ -590,17 +590,35 @@ function gateOf(item: Conversation, all: Conversation[]): Conversation | undefin
   return gates.find((c) => c.row.status !== "gone") ?? gates[0];
 }
 
-function ThroughGate({ theme, gate, onPick }: { theme: PluginTheme; gate: Conversation | undefined; onPick: (id: string) => void }) {
+function StopTurn({ theme, stop }: { theme: PluginTheme; stop: Stop }) {
+  const toast = useToast();
+  const [stopping, setStopping] = useState(false);
+  const press = async () => {
+    setStopping(true);
+    const failed = await stop.onStop();
+    if (failed) toast.error(failed);
+    setStopping(false);
+  };
+  return (
+    <Pressable onPress={() => void press()} disabled={stopping} accessibilityRole="button" accessibilityLabel={stopping ? "Canceling agent" : "Stop agent"} style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[3], paddingVertical: SPACING[1.5], borderRadius: RADIUS.md, borderWidth: 1, borderColor: theme.colors.statusDanger, backgroundColor: hoveredOf(state) ? tint(theme.colors.statusDanger) : "transparent", opacity: stopping ? 0.5 : 1 })}>
+      <Icon name={stopping ? "Loader" : "Square"} size={12} color={theme.colors.statusDanger} />
+      <Text style={[text(theme, "label"), { color: theme.colors.statusDanger }]}>Stop</Text>
+    </Pressable>
+  );
+}
+
+function ThroughGate({ theme, gate, stop, onPick }: { theme: PluginTheme; gate: Conversation | undefined; stop: Stop | undefined; onPick: (id: string) => void }) {
   const words = gate ? `You talk to this team through ${gate.row.name}${gate.row.role ? ` (${gate.row.role})` : ""}` : "This team has no gate you can write to";
   return (
-    <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface0, paddingHorizontal: SPACING[4], paddingVertical: SPACING[3] }}>
-      <Pressable onPress={gate ? () => onPick(gate.row.id) : undefined} disabled={!gate} accessibilityRole={gate ? "button" : undefined} style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING[1.5] }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[3], borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface0, paddingHorizontal: SPACING[4], paddingVertical: SPACING[3] }}>
+      <Pressable onPress={gate ? () => onPick(gate.row.id) : undefined} disabled={!gate} accessibilityRole={gate ? "button" : undefined} style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING[1.5] }}>
         <Icon name="DoorOpen" size={12} color={theme.colors.foregroundMuted} />
-        <Text style={text(theme, "label")} numberOfLines={1}>
+        <Text style={[text(theme, "label"), { flexShrink: 1 }]} numberOfLines={1}>
           {words}
         </Text>
         {gate ? <Icon name="ChevronRight" size={12} color={theme.colors.foregroundMuted} /> : null}
       </Pressable>
+      {stop?.running ? <StopTurn theme={theme} stop={stop} /> : null}
     </View>
   );
 }
@@ -654,7 +672,7 @@ function Chat({ theme, item, all, me, chat, onSent, onPick, onBack, onInfo }: { 
 }
 
 function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick, onBack, onInfo }: { theme: PluginTheme; item: Conversation; all: Conversation[]; me: Me | null; chat: NativeChat; native: Native; timeline: AgentTimeline | null; onSent: () => void; onPick: (id: string) => void; onBack?: () => void; onInfo: () => void }) {
-  const stop = useStop(item.row.id, native, item.row.status === "working");
+  const stop = useStop(item.row.id, native, abortable(item.row.state));
   const [bump, setBump] = useState(0);
   const call = useRpc(sendMail);
   const writable = item.row.kind === "solo" || item.row.gate === true;
@@ -696,7 +714,7 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
       {writable ? (
         <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={native.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} stop={stop} agent={native.kind === "open" && timeline ? { agentId: native.agentId, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />
       ) : (
-        <ThroughGate theme={theme} gate={gateOf(item, all)} onPick={onPick} />
+        <ThroughGate theme={theme} gate={gateOf(item, all)} stop={stop} onPick={onPick} />
       )}
     </KeyboardAvoidingPane>
     </FileDropZone>

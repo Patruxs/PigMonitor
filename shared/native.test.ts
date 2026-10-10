@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { nativeOf, type Session } from "./native.ts";
+import { abortable, nativeOf, type Session } from "./native.ts";
 
 const claude = (over: Partial<Session>): Session => ({ id: "p", ref: "s1", harness: "claude", mode: "interactive", cwd: "/w", gone: false, ...over });
 
@@ -11,4 +11,8 @@ test("a session opens its Paseo agent when one exists, and only an ended claude 
   assert.equal(nativeOf(claude({}), undefined).kind, "mail");
   assert.equal(nativeOf(claude({ mode: "headless" }), undefined).kind, "mail");
   assert.equal(nativeOf(claude({ gone: true, harness: "pi" }), undefined).kind, "mail");
+});
+
+test("piggery can stop a turn that is running or waiting on a permission, not a queued, starting, parked, idle or gone one", () => {
+  assert.deepEqual(["working", "awaiting_permission", "requested", "starting", "parked", "idle", "gone"].filter(abortable), ["working", "awaiting_permission"]);
 });
