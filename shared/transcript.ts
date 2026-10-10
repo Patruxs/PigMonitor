@@ -12,8 +12,6 @@ export interface Item {
   at?: number;
   text: string;
   tool?: string;
-  input?: string;
-  result?: string;
   error?: boolean;
   from?: string;
   to?: string;
@@ -121,23 +119,6 @@ export function usageOf(reading: ContextReading): Usage | undefined {
   return { contextWindowUsedTokens: reading.used.tokens, ...(max ? { contextWindowMaxTokens: max } : {}) };
 }
 
-export function inputText(input: unknown): string {
-  if (input === undefined || input === null) return "";
-  if (typeof input === "string") return input.trim();
-  if (typeof input !== "object") return String(input);
-  const o = input as Record<string, unknown>;
-  const keys = Object.keys(o);
-  if (keys.length === 0) return "";
-  const main = ["command", "cmd", "prompt", "text", "query", "pattern", "file_path", "path", "description", "task", "to", "target"].find((k) => typeof o[k] === "string");
-  const parts = keys.map((k) => {
-    const v = o[k];
-    const s = typeof v === "string" ? v : JSON.stringify(v);
-    return `${k}=${s}`;
-  });
-  const ordered = main ? [`${o[main] as string}`, ...parts.filter((p) => !p.startsWith(`${main}=`))] : parts;
-  return ordered.join("\n").trim();
-}
-
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
 function blocksOf(content: unknown[]): Block[] {
@@ -162,7 +143,6 @@ export interface Mail {
   ref?: string;
   from?: string;
   reply?: string;
-  at?: string;
   redelivered?: boolean;
   body: string;
 }
@@ -176,7 +156,7 @@ export function mailsIn(text: string): Mail[] {
     const ar = /(\w+)="([^"]*)"/g;
     let a: RegExpExecArray | null;
     while ((a = ar.exec(m[1])) !== null) attrs[a[1]] = a[2];
-    out.push({ ref: attrs.id, from: attrs.sender ?? attrs.from, reply: attrs.reply_to, at: attrs.at, ...(attrs.redelivered === "true" ? { redelivered: true } : {}), body: m[2].trim() });
+    out.push({ ref: attrs.id, from: attrs.sender ?? attrs.from, reply: attrs.reply_to, ...(attrs.redelivered === "true" ? { redelivered: true } : {}), body: m[2].trim() });
   }
   return out;
 }
@@ -199,12 +179,12 @@ export class Parser {
   private open = new Map<string, { item: Item; name: string; input: unknown }>();
   private readonly run: string | undefined;
   private readonly saveImage: SaveImage | undefined;
-  private readonly describe: DescribeTool | undefined;
+  private readonly describe: DescribeTool;
   private cwd: string | undefined;
   private spent = 0;
   private began: string | undefined;
 
-  constructor(run?: string, saveImage?: SaveImage, describe?: DescribeTool) {
+  constructor(run: string | undefined, saveImage: SaveImage | undefined, describe: DescribeTool) {
     this.run = run;
     this.saveImage = saveImage;
     this.describe = describe;
@@ -301,7 +281,7 @@ export class Parser {
       else if (b.type === "thinking" && b.thinking?.trim()) this.push({ kind: "thinking", at, text: b.thinking.trim() });
       else if (b.type === "tool_use") {
         const name = b.name ?? "tool";
-        const item = this.push({ kind: "tool", at, text: name, tool: b.name, ...(this.describe ? this.describe(name, b.input, undefined, this.cwd) : { input: inputText(b.input) }) });
+        const item = this.push({ kind: "tool", at, text: name, tool: b.name, ...this.describe(name, b.input, undefined, this.cwd) });
         if (b.id) this.open.set(b.id, { item, name, input: b.input });
       }
     }
@@ -325,8 +305,7 @@ export class Parser {
           const { item } = call;
           this.changed.add(item.i);
           if (b.is_error) item.error = true;
-          if (this.describe) Object.assign(item, this.describe(call.name, call.input, b, this.cwd));
-          else item.result = text.trim();
+          Object.assign(item, this.describe(call.name, call.input, b, this.cwd));
           const sent = !b.is_error && call.name.endsWith("__send") ? /^sent (#\d+)$/.exec(text.trim()) : null;
           if (sent) item.ref = sent[1];
           this.open.delete(b.tool_use_id);
@@ -384,16 +363,6 @@ function stampUntimed(items: Item[]): Item[] {
     else last = item.at;
   }
   return items;
-}
-
-export function parseLog(text: string, run?: string, saveImage?: SaveImage, describe?: DescribeTool): { items: Item[]; context: ContextReading } {
-  const p = new Parser(run, saveImage, describe);
-  for (const line of text.split("\n")) p.line(line);
-  return { items: stampUntimed(p.items), context: p.context };
-}
-
-export function parseLines(text: string, run?: string, saveImage?: SaveImage, describe?: DescribeTool): Item[] {
-  return parseLog(text, run, saveImage, describe).items;
 }
 
 export function withIncrement(had: ShownItem[], next: { items: ShownItem[]; from?: number }, limit: number): ShownItem[] {

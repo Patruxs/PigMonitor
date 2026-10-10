@@ -45,12 +45,12 @@ export function streamOfTranscript(items: Item[]): StreamItem[] {
         out.push({ kind: "thought", id: `thought:${key}`, text: item.text, timestamp, status: "ready" });
         break;
       case "tool": {
-        const status = item.status ?? (item.result === undefined ? "running" : item.error ? "failed" : "completed");
+        const status = item.status ?? "running";
         out.push({
           kind: "tool_call",
           id: `tool:${key}`,
           timestamp,
-          payload: { source: "agent", data: { provider: "claude", callId: key, name: item.tool ?? item.text, status, error: status === "failed" ? (item.toolError ?? item.result ?? null) : null, detail: item.detail ?? { type: "unknown", input: item.input ?? null, output: item.result ?? null } } },
+          payload: { source: "agent", data: { provider: "claude", callId: key, name: item.tool ?? item.text, status, error: status === "failed" ? (item.toolError ?? null) : null, detail: item.detail ?? { type: "unknown", input: null, output: null } } },
         });
         break;
       }

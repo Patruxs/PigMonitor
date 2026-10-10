@@ -65,7 +65,7 @@ test("a reader scrolled up keeps the same row in view when older history is prep
 });
 
 test("a piggery tool row carries the parsed Claude detail and status when the transcript has them", () => {
-  const [call] = streamOfTranscript([{ i: 1, kind: "tool", at: 0, text: "Bash", tool: "Bash", input: "command=ls", result: "a", detail: { type: "shell", command: "ls", output: "a" }, status: "completed" }]);
+  const [call] = streamOfTranscript([{ i: 1, kind: "tool", at: 0, text: "Bash", tool: "Bash", detail: { type: "shell", command: "ls", output: "a" }, status: "completed" }]);
   assert.equal(call.kind === "tool_call" && call.payload.data.detail.type, "shell");
   assert.equal(call.kind === "tool_call" && call.payload.data.status, "completed");
 });

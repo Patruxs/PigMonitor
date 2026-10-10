@@ -61,7 +61,3 @@ export function mergeMail(items: Item[], messages: MailMessage[], self: string, 
   while (next < loose.length) arrive();
   return out;
 }
-
-export function withMail(items: Item[], messages: MailMessage[], self: string, person: string | undefined): ShownItem[] {
-  return mergeMail(items, messages, self, person).map((item, i) => ({ ...item, i }));
-}

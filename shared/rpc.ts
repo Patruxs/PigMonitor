@@ -123,8 +123,6 @@ const Item = z.object({
   at: z.number().optional(),
   text: z.string(),
   tool: z.string().optional(),
-  input: z.string().optional(),
-  result: z.string().optional(),
   error: z.boolean().optional(),
   from: z.string().optional(),
   to: z.string().optional(),
