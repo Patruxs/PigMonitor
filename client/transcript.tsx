@@ -64,8 +64,8 @@ function Message({ avatar, colour, children }: { avatar: ReactNode; colour: stri
   );
 }
 
-function MailIn({ theme, item, role, now }: { theme: PluginTheme; item: Item; role: string | undefined; now: number }) {
-  const from = item.from ?? "mail";
+function MailBubble({ theme, mail, at, role, now }: { theme: PluginTheme; mail: PiggeryStreamItem["source"]; at: number; role: string | undefined; now: number }) {
+  const from = mail.from ?? "mail";
   const colour = paint(theme, role, from);
   return (
     <Message colour={colour} avatar={<RoleAvatar theme={theme} name={from} role={role} id={from} />}>
@@ -76,24 +76,24 @@ function MailIn({ theme, item, role, now }: { theme: PluginTheme; item: Item; ro
         tags={
           <>
             {role ? <Pill theme={theme} label={role} colour={colour} filled /> : null}
-            <Pill theme={theme} label={item.ref ? `mail ${item.ref}` : "mail"} icon="Mail" />
-            {item.to ? <Pill theme={theme} label={`to ${item.to}`} icon="Send" /> : null}
-            {item.reply ? <Pill theme={theme} label={`re ${item.reply}`} icon="Reply" /> : null}
+            <Pill theme={theme} label={mail.ref ? `mail ${mail.ref}` : "mail"} icon="Mail" />
+            {mail.to ? <Pill theme={theme} label={`to ${mail.to}`} icon="Send" /> : null}
+            {mail.reply ? <Pill theme={theme} label={`re ${mail.reply}`} icon="Reply" /> : null}
           </>
         }
-        at={item.at}
+        at={at}
         now={now}
       />
       <Panel theme={theme} tone={colour}>
         <View {...messageTextProps}>
-          <Markdown theme={theme} source={item.text} style={{ ...text(theme, "rowTitle"), lineHeight: BODY_LINE }} />
+          <Markdown theme={theme} source={mail.text} style={{ ...text(theme, "rowTitle"), lineHeight: BODY_LINE }} />
         </View>
       </Panel>
     </Message>
   );
 }
 
-export function MailStream({ theme, id, refresh, working, workingSince, cwd, viewportRef, onUsage }: { theme: PluginTheme; id: string; refresh?: number; working: boolean; workingSince?: number; cwd?: string; viewportRef?: { current: ViewportHandle | null }; onUsage?: (usage: Usage | null) => void }) {
+export function LogStream({ theme, id, refresh, working, workingSince, cwd, viewportRef, onUsage }: { theme: PluginTheme; id: string; refresh?: number; working: boolean; workingSince?: number; cwd?: string; viewportRef?: { current: ViewportHandle | null }; onUsage?: (usage: Usage | null) => void }) {
   const [limit, setLimit] = useState(PAGE);
   const now = useNow(30000);
   const { value: fresh, error } = useTranscript(id, limit, refresh);
@@ -117,7 +117,7 @@ export function MailStream({ theme, id, refresh, working, workingSince, cwd, vie
       if (source.kind === "run-start") return <Quiet theme={theme} icon="Play" label={`Session started${source.text ? ` · ${source.text}` : ""}`} />;
       if (source.kind === "wake") return <Quiet theme={theme} icon="Bell" label={source.text} />;
       if (source.kind === "turn-end") return null;
-      return <MailIn theme={theme} item={{ i: 0, kind: "mail", at: item.timestamp.getTime(), text: source.text, from: source.from, to: source.to, ref: source.ref, reply: source.reply }} role={source.from ? value?.roles?.[source.from] : undefined} now={now} />;
+      return <MailBubble theme={theme} mail={source} at={item.timestamp.getTime()} role={source.from ? value?.roles?.[source.from] : undefined} now={now} />;
     },
     [theme, value, now],
   );

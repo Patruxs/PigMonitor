@@ -29,7 +29,7 @@ import { StreamView } from "./stream.tsx";
 import type { ViewportHandle } from "./stream-viewport.tsx";
 import { useAgentTimeline, type AgentTimeline } from "./timeline.ts";
 import { useHasComposerTracks } from "./tracks.tsx";
-import { MailStream } from "./transcript.tsx";
+import { LogStream } from "./transcript.tsx";
 
 function useThread(me: Me | null, id: string, bump: number): MailMessage[] {
   const call = useRpc(mail);
@@ -168,7 +168,7 @@ function ChatPane({ theme, item, all, me, chat, route, timeline, onSent, onPick,
     <ChatPaneScope>
     <KeyboardAvoidingPane>
       <ChatHead theme={theme} item={item} route={route} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />
-      {timeline ? <OpenStream theme={theme} id={item.row.id} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={turn.active} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} onUsage={setLogUsage} />}
+      {timeline ? <OpenStream theme={theme} id={item.row.id} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <LogStream theme={theme} id={item.row.id} refresh={bump} working={turn.active} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} onUsage={setLogUsage} />}
       {step.note ? <StepInNotice theme={theme} note={step.note} onDismiss={step.dismiss} /> : null}
       {writable ? (
         <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, route, me)} controls={route.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={route.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={route.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={route.agentId} isCompactLayout={isCompactLayout} /> : ({ isCompactLayout }) => <SessionContextMeter theme={theme} usage={logUsage} status={turn.meterStatus} isCompactLayout={isCompactLayout} />} stop={stop} agent={route.kind === "open" && timeline ? { agentId: route.agentId, participantId: item.row.id, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />

@@ -6,7 +6,7 @@ import { Text, useWindowDimensions, View } from "react-native";
 import { tail } from "../shared/rpc.ts";
 import { turnOf } from "../shared/chat-route.ts";
 import { type Detail, type Row, type TailKind, type View as PigView } from "../shared/view.ts";
-import { MailStream } from "./transcript.tsx";
+import { LogStream } from "./transcript.tsx";
 import { Pill } from "./kit/pill.tsx";
 import { paint, RoleAvatar } from "./piggery/role.tsx";
 import { StatusPill } from "./piggery/status.tsx";
@@ -20,7 +20,7 @@ import { BUSY_MS, usePoll } from "./poll.ts";
 export type Index = Map<string, Row>;
 
 /** What the dialog shows: a row's (or a team line's) Overview, or the tail of its session. */
-export type Step = { kind: "detail"; id: string } | { kind: "tail"; id: string } | { kind: "transcript"; id: string };
+export type DialogPage = { kind: "detail"; id: string } | { kind: "tail"; id: string } | { kind: "transcript"; id: string };
 
 const TAIL_COLOUR: Record<TailKind, keyof PluginTheme["colors"]> = {
   tool: "accent",
@@ -37,16 +37,16 @@ const TAIL_COLOUR: Record<TailKind, keyof PluginTheme["colors"]> = {
  * so a second one would darken the screen while the first fades; the content changes in place instead,
  * and Back returns to the step before.
  */
-const STEP_ICON: Record<Step["kind"], string> = { detail: "Info", tail: "Terminal", transcript: "MessagesSquare" };
+const STEP_ICON: Record<DialogPage["kind"], string> = { detail: "Info", tail: "Terminal", transcript: "MessagesSquare" };
 
 export function DetailDialog({ theme, view, index, root, onClose }: { theme: PluginTheme; view: PigView; index: Index; root: string | null; onClose: () => void }) {
-  const [trail, setTrail] = useState<Step[]>([]);
+  const [trail, setTrail] = useState<DialogPage[]>([]);
   const [rootFor, setRootFor] = useState<string | null>(root);
   if (rootFor !== root) {
     setRootFor(root);
     setTrail([]);
   }
-  const steps: Step[] = root === null ? [] : [{ kind: "detail", id: root }, ...trail];
+  const steps: DialogPage[] = root === null ? [] : [{ kind: "detail", id: root }, ...trail];
   const top = steps[steps.length - 1];
   const previous = steps[steps.length - 2];
   const nameOf = (id: string) => view.details[id]?.title ?? index.get(id)?.name ?? "";
@@ -82,7 +82,7 @@ function SessionStream({ theme, id, row }: { theme: PluginTheme; id: string; row
   const { height } = useWindowDimensions();
   return (
     <View style={{ height: Math.max(320, Math.round(height * 0.7)), marginHorizontal: -SPACING[4] }}>
-      <MailStream theme={theme} id={id} working={row ? turnOf(row).active : false} workingSince={row?.state_since} />
+      <LogStream theme={theme} id={id} working={row ? turnOf(row).active : false} workingSince={row?.state_since} />
     </View>
   );
 }
