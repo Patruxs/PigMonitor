@@ -127,3 +127,29 @@ export const AVATAR_LG = 36;
 
 /** A conversation row's least height: two lines (name, preview) with room around them. */
 export const ROW_CHAT = 60;
+
+function channels(colour: string): [number, number, number] | null {
+  const hex = /^#([0-9a-f]{6})/i.exec(colour)?.[1];
+  if (!hex) return null;
+  return [0, 2, 4].map((at) => Number.parseInt(hex.slice(at, at + 2), 16)) as [number, number, number];
+}
+
+export function mix(from: string, to: string, amount: number): string {
+  const a = channels(from);
+  const b = channels(to);
+  if (!a || !b) return from;
+  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+}
+
+export function hostColours(theme: PluginTheme) {
+  return {
+    surface3: mix(theme.colors.surface2, theme.colors.foreground, 0.1),
+    foregroundExtraMuted: mix(theme.colors.foregroundMuted, theme.colors.surface0, 0.3),
+    borderAccent: mix(theme.colors.border, theme.colors.foreground, 0.04),
+  };
+}
+
+export const CONTENT_FONT = 15;
+export const CONTENT_LINE = Math.round(CONTENT_FONT * 1.4);
+export const STREAM_METADATA_FONT = 13;
+export const MAX_CONTENT_WIDTH = 820;

@@ -1,176 +1,546 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { Icon } from "@getpaseo/plugin/client/react-native";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Image, Pressable, Text, TextInput, View, type NativeSyntheticEvent, type PressableStateCallbackType, type TextStyle } from "react-native";
-import { MAX_IMAGES, type ImageData } from "../shared/rpc.ts";
-import { ICON_SIZE, RADIUS, SPACING, text } from "./kit/theme.ts";
+import { openExternalUrl, useRpc } from "@getpaseo/plugin/client";
+import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ActivityIndicator, Pressable, Text, TextInput, useWindowDimensions, View, type LayoutChangeEvent, type NativeSyntheticEvent, type PressableStateCallbackType, type TextInputSelectionChangeEventData, type TextStyle } from "react-native";
+import { MAX_UPLOAD_BYTES } from "../shared/attach.ts";
+import {
+  editQueuedComposerMessage,
+  MIN_INPUT_HEIGHT,
+  queueComposerMessage,
+  resolveMaxInputHeight,
+  resolvePrimaryActionKind,
+  sendQueuedComposerMessageNow,
+  splitAttachmentsForSubmit,
+  submitAgentInput,
+  toggleForgeAttachment,
+  type ComposerAttachment,
+  type ImageMetadata,
+  type QueuedComposerMessage,
+} from "../shared/composer.ts";
+import { MAX_IMAGES, upload, type AttachmentData, type ForgeItemData, type ImageData } from "../shared/rpc.ts";
+import { generateMessageId } from "../shared/stream.ts";
+import { AttachmentTray, canAttach, chooseFiles, clipboardImageFiles, readBase64, readImageFiles, type PendingFile } from "./attachments.tsx";
+import { useFileDrop } from "./attachments-drop.tsx";
+import { ForgeGlyph, ForgePicker, useForgeAutoAttach } from "./attachments-forge.tsx";
+import { AutocompletePopover, useAgentAutocomplete } from "./autocomplete.tsx";
+import { clearDraft, readDraft, saveDraft } from "./drafts.ts";
+import { AttachmentLightbox } from "./kit/lightbox.tsx";
+import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
+import { CONTENT_FONT, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, SPACING, text } from "./kit/theme.ts";
+import { queueWriter, useQueuedMessages } from "./queue.ts";
+import { registerComposerRestore, restoreComposerTextIfEmpty } from "./rewind.tsx";
+import type { AgentTimeline } from "./timeline.ts";
+import { ComposerTracks } from "./tracks.tsx";
 
-export type Picked = ImageData & { key: string; uri: string };
+export { canAttach };
 
+export interface ComposerAgent {
+  agentId: string;
+  timeline: AgentTimeline;
+  open?: (agentId: string) => void;
+}
+
+const BUTTON = 28;
+const QUEUE_BUTTON = 32;
 const BOX_RADIUS = 16;
-const THUMB = 56;
-const ROUND = 32;
-const STOP_GLYPH = 10;
-const NO_OUTLINE = { outlineStyle: "none", outlineWidth: 0 } as unknown as TextStyle;
+const CANCEL_RED = "#dc2626";
+const ERROR_RED = "#ef4444";
+const COMPACT_FORM_FACTOR_WIDTH = 500;
+const DESKTOP_BREAKPOINT = 720;
+const GENERIC_FILE_MIME_TYPE = "application/octet-stream";
+const NO_OUTLINE = { outlineStyle: "none", outlineWidth: 0, outlineColor: "transparent" } as unknown as TextStyle;
+const MIRRORED_STYLES = ["fontFamily", "fontSize", "fontWeight", "fontStyle", "fontVariant", "lineHeight", "letterSpacing", "wordSpacing", "textTransform", "textIndent", "whiteSpace", "wordWrap", "overflowWrap", "wordBreak", "tabSize", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft"] as const;
 
-const dom = globalThis as { document?: Document; FileReader?: typeof FileReader };
-export const canAttach = dom.document !== undefined && dom.FileReader !== undefined;
+const dom = globalThis as { document?: Document; window?: Window; navigator?: Navigator };
+const isWeb = dom.document !== undefined;
+const isMac = /Mac|iPhone|iPad/.test(dom.navigator?.platform ?? "");
+const FOCUS_HINT = isMac ? "⌘L to focus" : "Ctrl+L to focus";
+const DESKTOP_PLACEHOLDER = "Message the agent, tag @files, or use /commands and /skills";
+const MOBILE_PLACEHOLDER = "Message, @files, /commands";
 
-function readImage(file: Blob): Promise<Picked | null> {
-  return new Promise((resolve) => {
-    if (!dom.FileReader || !file.type.startsWith("image/")) return resolve(null);
-    const reader = new dom.FileReader();
-    reader.onload = () => {
-      const uri = String(reader.result ?? "");
-      const comma = uri.indexOf(",");
-      if (comma < 0) return resolve(null);
-      resolve({ key: `${Date.now()}-${Math.random().toString(36).slice(2)}`, uri, data: uri.slice(comma + 1), mimeType: file.type });
-    };
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
-
-async function readImages(files: Blob[]): Promise<Picked[]> {
-  const read = await Promise.all(files.map(readImage));
-  return read.filter((p): p is Picked => p !== null);
-}
-
-function chooseImages(): Promise<Picked[]> {
-  return new Promise((resolve) => {
-    const doc = dom.document;
-    if (!doc) return resolve([]);
-    const input = doc.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.multiple = true;
-    input.onchange = () => void readImages(Array.from(input.files ?? [])).then(resolve);
-    input.click();
-  });
-}
-
-type Draft = { text: string; images: Picked[] };
-const drafts = new Map<string, Draft>();
+type KeyPressEvent = NativeSyntheticEvent<{ key: string; shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean; isComposing?: boolean; keyCode?: number }>;
 
 function hoveredOf(state: PressableStateCallbackType): boolean {
   return (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;
 }
 
-function Thumb({ theme, image, onRemove }: { theme: PluginTheme; image: Picked; onRemove: () => void }) {
+function nodeOf(ref: { current: unknown }): HTMLElement | null {
+  const node = ref.current as HTMLElement | null;
+  return node && typeof node.addEventListener === "function" ? node : null;
+}
+
+function focusWithRetries(focus: () => void, isFocused: () => boolean, deferInitialAttempt: boolean): () => void {
+  let cancelled = false;
+  const deadline = Date.now() + 1500;
+  const tick = () => {
+    if (cancelled) return;
+    focus();
+    if (isFocused() || Date.now() >= deadline) return;
+    requestAnimationFrame(() => requestAnimationFrame(tick));
+  };
+  if (deferInitialAttempt) requestAnimationFrame(tick);
+  else tick();
+  return () => {
+    cancelled = true;
+  };
+}
+
+function useComposerHeight(textareaRef: { current: unknown }, value: string, maxHeight: number): { height: number; scrollEnabled: boolean; reset: () => void } {
+  const [height, setHeight] = useState(MIN_INPUT_HEIGHT);
+  const mirrorRef = useRef<HTMLTextAreaElement | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const measure = useCallback(
+    (next: string) => {
+      const mirror = mirrorRef.current;
+      const source = nodeOf(textareaRef);
+      const win = dom.window;
+      if (!mirror || !source || !win || source.clientWidth <= 0) return;
+      const computed = win.getComputedStyle(source);
+      for (const property of MIRRORED_STYLES) mirror.style[property] = computed[property];
+      mirror.style.width = `${source.clientWidth}px`;
+      mirror.value = next.endsWith("\n") ? `${next} ` : next;
+      const bounded = Math.max(MIN_INPUT_HEIGHT, Math.min(maxHeight, mirror.scrollHeight));
+      setHeight((had) => (Math.abs(had - bounded) < 1 ? had : bounded));
+    },
+    [maxHeight, textareaRef],
+  );
+  useEffect(() => {
+    const doc = dom.document;
+    if (!doc) return;
+    const mirror = doc.createElement("textarea");
+    mirror.setAttribute("aria-hidden", "true");
+    mirror.setAttribute("tabindex", "-1");
+    mirror.readOnly = true;
+    mirror.rows = 1;
+    Object.assign(mirror.style, { position: "absolute", top: "0", left: "0", visibility: "hidden", pointerEvents: "none", overflow: "hidden", border: "0", margin: "0", resize: "none", zIndex: "-1", boxSizing: "border-box" });
+    doc.body.appendChild(mirror);
+    mirrorRef.current = mirror;
+    measure(valueRef.current);
+    return () => {
+      mirror.remove();
+      mirrorRef.current = null;
+    };
+  }, [measure]);
+  useLayoutEffect(() => measure(value), [value, measure]);
+  useEffect(() => {
+    const source = nodeOf(textareaRef);
+    if (!source || typeof ResizeObserver === "undefined") return;
+    let previousWidth = source.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (Math.abs(source.clientWidth - previousWidth) < 1) return;
+      previousWidth = source.clientWidth;
+      measure(valueRef.current);
+    });
+    observer.observe(source);
+    return () => observer.disconnect();
+  }, [measure, textareaRef]);
+  return { height: isWeb ? height : MIN_INPUT_HEIGHT, scrollEnabled: height >= maxHeight, reset: () => setHeight(MIN_INPUT_HEIGHT) };
+}
+
+function QueuedMessageRow({ theme, item, onEdit, onSendNow }: { theme: PluginTheme; item: QueuedComposerMessage; onEdit: () => void; onSendNow: () => void }) {
   return (
-    <View style={{ width: THUMB, height: THUMB }}>
-      <Image source={{ uri: image.uri }} style={{ width: THUMB, height: THUMB, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: theme.colors.border }} resizeMode="cover" accessibilityLabel="Attached image" />
-      <Pressable onPress={onRemove} accessibilityRole="button" accessibilityLabel="Remove image" hitSlop={SPACING[1]} style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface2, borderWidth: 1, borderColor: theme.colors.border }}>
-        <Icon name="X" size={11} color={theme.colors.foreground} />
-      </Pressable>
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: SPACING[3], paddingVertical: SPACING[2], backgroundColor: theme.colors.surface1, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, gap: SPACING[2] }}>
+      <Text style={{ flex: 1, color: theme.colors.foreground, fontSize: 14 }} numberOfLines={2} ellipsizeMode="tail">
+        {item.text}
+      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
+        <Pressable onPress={onEdit} accessibilityRole="button" accessibilityLabel="Edit queued message" style={{ width: QUEUE_BUTTON, height: QUEUE_BUTTON, borderRadius: QUEUE_BUTTON / 2, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface2 }}>
+          <Icon name="Pencil" size={ICON_SIZE.sm} color={theme.colors.foreground} />
+        </Pressable>
+        <Pressable onPress={onSendNow} accessibilityRole="button" accessibilityLabel="Send queued message now" style={{ width: QUEUE_BUTTON, height: QUEUE_BUTTON, borderRadius: QUEUE_BUTTON / 2, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.accent }}>
+          <Icon name="ArrowUp" size={ICON_SIZE.sm} color={theme.colors.accentForeground} />
+        </Pressable>
+      </View>
     </View>
   );
 }
 
-export function Composer({ theme, placeholder, disabled, hint, controls, draftKey, stop, onSend }: { theme: PluginTheme; placeholder: string; disabled?: boolean; hint?: string; controls?: ReactNode; draftKey?: string; stop?: { running: boolean; onStop: () => Promise<string | null> }; onSend: (body: string, images: ImageData[]) => Promise<string | null> }) {
-  const [draft, setDraft] = useState(() => (draftKey === undefined ? "" : drafts.get(draftKey)?.text ?? ""));
-  const [images, setImages] = useState<Picked[]>(() => (draftKey === undefined ? [] : drafts.get(draftKey)?.images ?? []));
-  const [busy, setBusy] = useState(false);
-  const [stopping, setStopping] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function Composer({ theme, placeholder, disabled = false, hint, controls, trailing, draftKey, cwd, stop, agent, onSend }: { theme: PluginTheme; placeholder: string; disabled?: boolean; hint?: string; controls?: ReactNode | ((layout: { isCompactLayout: boolean }) => ReactNode); trailing?: ReactNode | ((layout: { isCompactLayout: boolean }) => ReactNode); draftKey?: string; cwd?: string; stop?: { running: boolean; onStop: () => Promise<string | null> }; agent?: ComposerAgent; onSend: (body: string, images: ImageData[], attachments: AttachmentData[]) => Promise<string | null> }) {
+  const initial = useMemo(() => (draftKey === undefined ? { text: "", attachments: [] } : readDraft(draftKey)), []);
+  const [value, setValue] = useState(initial.text);
+  const [cursor, setCursor] = useState(initial.text.length);
+  const [attachments, setAttachments] = useState<ComposerAttachment[]>(initial.attachments);
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [localCancelling, setLocalCancelling] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [lightboxUri, setLightboxUri] = useState<string | undefined>(undefined);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isCompactFormFactor = windowWidth < DESKTOP_BREAKPOINT;
+  const [isCompactLayout, setIsCompactLayout] = useState(isCompactFormFactor);
   const input = useRef<TextInput>(null);
-  const add = (more: Picked[]) => setImages((had) => [...had, ...more].slice(0, MAX_IMAGES));
+  const root = useRef<View>(null);
+  const nextPendingFileId = useRef(0);
+  const drainInFlight = useRef(false);
+  const toast = useToast();
+  const callUpload = useRpc(upload);
+  const maxInputHeight = resolveMaxInputHeight(windowHeight);
+  const composerHeight = useComposerHeight(input, value, maxInputHeight);
+  const agentId = agent?.agentId;
+  const timeline = agent?.timeline;
+  const queuedMessages = useQueuedMessages(agentId);
+  const isAgentRunning = timeline ? timeline.turn.isActive : stop?.running === true;
+  const isCancellingAgent = timeline ? timeline.turn.isCancelling || localCancelling : localCancelling;
+  const isUploadingFile = pendingFiles.length > 0;
+  const isSubmitLoading = isProcessing || isUploadingFile;
+  const hasSendableContent = value.trim().length > 0 || attachments.length > 0;
+  const onQueue = agentId !== undefined;
+
   useEffect(() => {
-    const node = input.current as unknown as HTMLElement | null;
-    if (!canAttach || !node?.addEventListener) return;
-    const onPaste = (e: Event) => {
-      const items = Array.from((e as ClipboardEvent).clipboardData?.items ?? []);
-      const files = items.filter((i) => i.kind === "file" && i.type.startsWith("image/")).map((i) => i.getAsFile()).filter((f): f is File => f !== null);
-      if (files.length === 0) return;
-      e.preventDefault();
-      void readImages(files).then(add);
-    };
-    node.addEventListener("paste", onPaste);
-    return () => node.removeEventListener("paste", onPaste);
+    if (draftKey !== undefined) saveDraft(draftKey, { text: value, attachments });
+  }, [draftKey, value, attachments]);
+
+  const focusInput = useCallback(() => {
+    if (!isWeb) return;
+    focusWithRetries(
+      () => input.current?.focus(),
+      () => nodeOf(input) !== null && dom.document?.activeElement === nodeOf(input),
+      false,
+    );
   }, []);
+
   useEffect(() => {
     if (draftKey === undefined) return;
-    if (draft.length === 0 && images.length === 0) drafts.delete(draftKey);
-    else drafts.set(draftKey, { text: draft, images });
-  }, [draftKey, draft, images]);
-  const body = draft.trim();
-  const hasContent = body.length > 0 || images.length > 0;
-  const canSend = hasContent && !busy && !disabled;
-  const running = stop?.running === true;
-  const halt = async () => {
-    if (!stop || stopping) return;
-    setStopping(true);
-    setError(null);
-    const failed = await stop.onStop();
-    setStopping(false);
-    if (failed) setError(failed);
+    return registerComposerRestore(draftKey, (restored) => {
+      setValue((current) => {
+        const next = restoreComposerTextIfEmpty(current, restored);
+        setCursor(next.length);
+        return next;
+      });
+      focusInput();
+    });
+  }, [draftKey, focusInput]);
+
+  useEffect(() => {
+    const hasFinePointer = dom.window?.matchMedia?.("(pointer: fine)").matches ?? false;
+    if (!isWeb || isCompactFormFactor || !hasFinePointer) return;
+    return focusWithRetries(
+      () => input.current?.focus(),
+      () => nodeOf(input) !== null && dom.document?.activeElement === nodeOf(input),
+      true,
+    );
+  }, []);
+
+  const replaceText = useCallback((next: string) => {
+    setValue(next);
+    setCursor(next.length);
+  }, []);
+
+  const forgeAutoAttach = useForgeAutoAttach({ text: value, cwd, attachments, setAttachments });
+
+  const autocomplete = useAgentAutocomplete({ text: value, cursor, agentId, cwd, setText: replaceText, onApplied: focusInput });
+
+  const addImages = useCallback((images: ImageMetadata[]) => {
+    if (images.length === 0) return;
+    setAttachments((prev) => {
+      const room = MAX_IMAGES - prev.filter((a) => a.kind === "image").length;
+      return [...prev, ...images.slice(0, Math.max(0, room)).map((metadata) => ({ kind: "image" as const, metadata }))];
+    });
+  }, []);
+
+  const uploadSelectedFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+      const placeholders = files.map((file) => ({ id: nextPendingFileId.current++, fileName: file.name }));
+      setPendingFiles((pending) => [...pending, ...placeholders]);
+      try {
+        const prepared: { fileName: string; mimeType: string; data: string }[] = [];
+        for (const file of files) {
+          if (file.size > MAX_UPLOAD_BYTES) throw new Error(`${file.name} is too large (max ${MAX_UPLOAD_BYTES / 1024 / 1024}MB)`);
+          prepared.push({ fileName: file.name, mimeType: file.type || GENERIC_FILE_MIME_TYPE, data: await readBase64(file) });
+        }
+        const uploaded: ComposerAttachment[] = [];
+        for (const file of prepared) {
+          const r = await callUpload(file);
+          if (!r.ok) throw new Error(r.error || "Upload failed.");
+          uploaded.push({ kind: "file", attachment: r.file });
+        }
+        setAttachments((prev) => [...prev, ...uploaded]);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to upload file");
+      } finally {
+        setPendingFiles((pending) => pending.filter((entry) => !placeholders.includes(entry)));
+      }
+    },
+    [callUpload, toast],
+  );
+
+  useFileDrop({ onFiles: addImages, onGenericFiles: (files) => void uploadSelectedFiles(files) }, { disabled: isSubmitLoading });
+
+  useEffect(() => {
+    const node = nodeOf(input);
+    if (!canAttach || !node) return;
+    let disposed = false;
+    const onPaste = (event: Event) => {
+      if (disabled) return;
+      const files = clipboardImageFiles((event as ClipboardEvent).clipboardData);
+      if (files.length === 0) return;
+      event.preventDefault();
+      void readImageFiles(files).then((images) => !disposed && addImages(images));
+    };
+    node.addEventListener("paste", onPaste);
+    return () => {
+      disposed = true;
+      node.removeEventListener("paste", onPaste);
+    };
+  }, [disabled, addImages]);
+
+  const submitMessage = useCallback(
+    async (message: string, outgoing: ComposerAttachment[]) => {
+      const wire = splitAttachmentsForSubmit(outgoing);
+      const failed = await onSend(message, wire.images, wire.attachments);
+      if (failed) throw new Error(failed);
+    },
+    [onSend],
+  );
+
+  const sendMessageWithContent = useCallback(
+    async (message: string, outgoing: ComposerAttachment[], forceSend?: boolean) => {
+      await submitAgentInput({
+        message,
+        attachments: outgoing,
+        forceSend,
+        isAgentRunning,
+        canSubmit: true,
+        queueMessage: ({ message: queuedText, attachments: queuedAttachments }) => agentId && queueComposerMessage({ agentId, id: generateMessageId(), text: queuedText, attachments: queuedAttachments, queue: queueWriter }),
+        submitMessage: ({ message: submitText, attachments: submitAttachments }) => submitMessage(submitText, submitAttachments),
+        clearDraft: (lifecycle) => draftKey !== undefined && clearDraft(draftKey, lifecycle),
+        setUserInput: replaceText,
+        setAttachments,
+        setSendError,
+        setIsProcessing,
+      });
+    },
+    [isAgentRunning, agentId, submitMessage, draftKey, replaceText],
+  );
+
+  const handleSendMessage = () => {
+    const trimmed = value.trim();
+    if (!trimmed && attachments.length === 0) return;
+    void sendMessageWithContent(trimmed, attachments, isAgentRunning || undefined);
+    composerHeight.reset();
   };
-  const submit = async () => {
-    if (!canSend) return;
-    setBusy(true);
-    setError(null);
-    const failed = await onSend(body, images.map(({ data, mimeType }) => ({ data, mimeType })));
-    setBusy(false);
-    if (failed) return setError(failed);
-    if (draftKey !== undefined && drafts.get(draftKey)?.text === draft && drafts.get(draftKey)?.images === images) drafts.delete(draftKey);
-    setDraft("");
-    setImages([]);
+
+  const handleQueueMessage = () => {
+    if (!agentId) return;
+    const trimmed = value.trim();
+    if (!trimmed && attachments.length === 0) return;
+    const queued = queueComposerMessage({ agentId, id: generateMessageId(), text: trimmed, attachments, queue: queueWriter });
+    if (!queued) return;
+    replaceText("");
+    setAttachments([]);
+    composerHeight.reset();
   };
-  const onKey = (e: NativeSyntheticEvent<{ key: string; shiftKey?: boolean }>) => {
-    if (e.nativeEvent.key === "Enter" && !e.nativeEvent.shiftKey) {
-      (e as unknown as { preventDefault?: () => void }).preventDefault?.();
-      void submit();
-    }
+
+  const handleEditQueuedMessage = (id: string) => {
+    if (!agentId) return;
+    const result = editQueuedComposerMessage({ agentId, messageId: id, queue: queueWriter });
+    if (!result) return;
+    replaceText(result.text);
+    setAttachments(result.attachments);
   };
-  const round = (on: boolean) => (state: PressableStateCallbackType) => ({ width: ROUND, height: ROUND, borderRadius: ROUND / 2, alignItems: "center" as const, justifyContent: "center" as const, backgroundColor: on ? theme.colors.accent : state.pressed ? theme.colors.surface2 : hoveredOf(state) ? theme.colors.surface2 : "transparent" });
+
+  const handleSendQueuedNow = async (id: string) => {
+    if (!agentId) return;
+    const result = await sendQueuedComposerMessageNow({ agentId, messageId: id, queue: queueWriter, submitMessage: ({ text: queuedText, attachments: queuedAttachments }) => submitMessage(queuedText, queuedAttachments) });
+    if (result.status === "failed") setSendError(result.errorMessage);
+  };
+
+  const drainable = timeline ? timeline.agent !== null && timeline.agent.status !== "running" && !timeline.turn.isActive : false;
+  useEffect(() => {
+    if (!agentId || !drainable || drainInFlight.current) return;
+    const next = queueWriter.read(agentId)[0];
+    if (!next) return;
+    drainInFlight.current = true;
+    void sendQueuedComposerMessageNow({ agentId, messageId: next.id, queue: queueWriter, submitMessage: ({ text: queuedText, attachments: queuedAttachments }) => submitMessage(queuedText, queuedAttachments) })
+      .then((result) => {
+        if (result.status === "failed") console.error("[PigMonitor] failed to drain queued agent message", { agentId, error: result.errorMessage });
+      })
+      .finally(() => {
+        drainInFlight.current = false;
+      });
+  }, [agentId, drainable, queuedMessages, submitMessage]);
+
+  const handleCancelAgent = useCallback(() => {
+    if (!stop || !isAgentRunning || isCancellingAgent) return;
+    const requestId = Date.now();
+    timeline?.cancelling(requestId);
+    setLocalCancelling(true);
+    void stop
+      .onStop()
+      .then((failed) => {
+        if (failed && failed.trim().length > 0) toast.error(failed);
+      })
+      .finally(() => {
+        timeline?.cancelling(null);
+        setLocalCancelling(false);
+      });
+    input.current?.focus();
+  }, [stop, isAgentRunning, isCancellingAgent, timeline, toast]);
+
+  useEffect(() => {
+    const doc = dom.document;
+    if (!doc) return;
+    const inPane = (target: EventTarget | null) => {
+      if (target === doc.body || target === null) return true;
+      const pane = nodeOf(root)?.parentElement;
+      return pane !== null && pane !== undefined && target instanceof Node && pane.contains(target);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !inPane(event.target)) return;
+      if (event.key === "Escape") {
+        handleCancelAgent();
+        return;
+      }
+      const focusChord = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+      if (focusChord && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "l") {
+        event.preventDefault();
+        focusInput();
+      }
+    };
+    doc.addEventListener("keydown", onKeyDown);
+    return () => doc.removeEventListener("keydown", onKeyDown);
+  }, [handleCancelAgent, focusInput]);
+
+  const pickImage = async () => addImages(await readImageFiles(await chooseFiles("image/*")));
+  const pickFile = async () => uploadSelectedFiles(await chooseFiles(null));
+  const toggleForgeItem = (item: ForgeItemData) =>
+    setAttachments((prev) => {
+      const existing = prev.find((a) => (a.kind === "forge_issue" || a.kind === "forge_change_request") && a.item.kind === item.kind && a.item.number === item.number);
+      if (existing) forgeAutoAttach.markForgeAttachmentRemoved(existing);
+      return toggleForgeAttachment(prev, item);
+    });
+  const removeAttachment = (index: number) => {
+    forgeAutoAttach.markForgeAttachmentRemoved(attachments[index]);
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+  const openAttachment = (attachment: ComposerAttachment) => {
+    if (attachment.kind === "image") return setLightboxUri(attachment.metadata.dataUrl);
+    if (attachment.kind === "file") return;
+    void openExternalUrl(attachment.item.url);
+  };
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const closeLightbox = useCallback(() => setLightboxUri(undefined), []);
+  const menuItems: MenuItem[] = [
+    { id: "image", label: "Add image", icon: <Icon name="Image" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => void pickImage() },
+    { id: "github", label: "Add issue or PR", icon: <ForgeGlyph size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => setPickerOpen(true) },
+    { id: "file", label: "Upload file", icon: <Icon name="Paperclip" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => void pickFile() },
+  ];
+
+  const onKeyPress = (event: KeyPressEvent) => {
+    if (!isWeb) return;
+    const native = event.nativeEvent;
+    if (native.isComposing || native.keyCode === 229) return;
+    if (autocomplete.onKeyPress({ key: native.key, preventDefault: () => event.preventDefault() })) return;
+    if (native.key !== "Enter" || isCompactFormFactor || native.shiftKey) return;
+    if (disabled || isSubmitLoading) return;
+    event.preventDefault();
+    if ((native.metaKey || native.ctrlKey) && isAgentRunning && onQueue) return handleQueueMessage();
+    handleSendMessage();
+  };
+
+  const onSelectionChange = (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => setCursor(event.nativeEvent.selection?.start ?? 0);
+
+  const onInputAreaLayout = (event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    if (!Number.isFinite(width) || width <= 0) return;
+    const below = width < COMPACT_FORM_FACTOR_WIDTH;
+    setIsCompactLayout((was) => (was === below ? was : below));
+  };
+
+  const primaryAction = resolvePrimaryActionKind({ hasSendableContent, isAgentRunning, isSubmitLoading });
+  const canPressLoadingButton = isSubmitLoading && isAgentRunning;
+  const isSendButtonDisabled = disabled || (!canPressLoadingButton && isSubmitLoading);
+  const sendLabel = canPressLoadingButton ? "Interrupt agent" : isAgentRunning ? "Send and steer" : "Send message";
+  const wide = !isCompactFormFactor;
+  const controlsContent = typeof controls === "function" ? controls({ isCompactLayout }) : controls;
+  const trailingContent = typeof trailing === "function" ? trailing({ isCompactLayout }) : trailing;
+  const showFocusHint = isWeb && !isInputFocused && !value;
+  const messagePlaceholder = agent ? (isWeb && !isCompactLayout ? DESKTOP_PLACEHOLDER : MOBILE_PLACEHOLDER) : placeholder;
+  const footerHint = agent ? undefined : hint;
+
   return (
-    <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface0, paddingHorizontal: SPACING[4], paddingTop: SPACING[3], paddingBottom: SPACING[3], gap: SPACING[1.5] }}>
-      {error ? <Text style={text(theme, "label", "statusDanger")}>{error}</Text> : null}
-      <View style={{ borderRadius: BOX_RADIUS, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface1, paddingHorizontal: SPACING[2], paddingTop: SPACING[2], paddingBottom: SPACING[1.5], gap: SPACING[1.5], opacity: disabled ? 0.6 : 1 }}>
-        {images.length > 0 ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACING[2], paddingHorizontal: SPACING[1], paddingTop: SPACING[1] }}>
-            {images.map((image) => (
-              <Thumb key={image.key} theme={theme} image={image} onRemove={() => setImages((had) => had.filter((h) => h.key !== image.key))} />
+    <View ref={root} style={{ position: "relative", flexShrink: 1, alignItems: "center", width: "100%", paddingHorizontal: SPACING[4], paddingBottom: SPACING[4] }} onLayout={onInputAreaLayout}>
+      {agentId && timeline ? <ComposerTracks theme={theme} agentId={agentId} items={timeline.tail.concat(timeline.head)} onOpenAgent={agent?.open} /> : null}
+      <AttachmentLightbox theme={theme} uri={lightboxUri} onClose={closeLightbox} />
+      <View style={{ flexShrink: 1, width: "100%", maxWidth: MAX_CONTENT_WIDTH, gap: SPACING[3], opacity: disabled ? 0.6 : 1 }}>
+        {queuedMessages.length > 0 ? (
+          <View style={{ gap: SPACING[2] }}>
+            {queuedMessages.map((item) => (
+              <QueuedMessageRow key={item.id} theme={theme} item={item} onEdit={() => handleEditQueuedMessage(item.id)} onSendNow={() => void handleSendQueuedNow(item.id)} />
             ))}
           </View>
         ) : null}
-        <TextInput
-          ref={input}
-          value={draft}
-          onChangeText={setDraft}
-          onKeyPress={onKey}
-          editable={!disabled && !busy}
-          multiline
-          blurOnSubmit={false}
-          placeholder={placeholder}
-          placeholderTextColor={theme.colors.foregroundMuted}
-          accessibilityLabel={placeholder}
-          style={[text(theme, "rowTitle"), { minHeight: 24, maxHeight: 200, paddingHorizontal: SPACING[1], paddingVertical: SPACING[1], lineHeight: 22, borderWidth: 0 }, NO_OUTLINE]}
-        />
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          {canAttach ? (
-            <Pressable onPress={() => void chooseImages().then(add)} disabled={disabled || busy || images.length >= MAX_IMAGES} accessibilityRole="button" accessibilityLabel="Attach images" style={round(false)}>
-              <Icon name="Plus" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />
-            </Pressable>
-          ) : null}
-          <View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center" }}>{controls}</View>
-          {running ? (
-            <Pressable onPress={() => void halt()} disabled={stopping} accessibilityRole="button" accessibilityLabel="Stop" style={(state) => ({ width: ROUND, height: ROUND, borderRadius: ROUND / 2, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.statusDanger, opacity: state.pressed || hoveredOf(state) ? 0.85 : 1 })}>
-              {stopping ? <Icon name="Loader" size={ICON_SIZE.md} color={theme.colors.surface0} /> : <View style={{ width: STOP_GLYPH, height: STOP_GLYPH, borderRadius: 2, backgroundColor: theme.colors.surface0 }} />}
-            </Pressable>
-          ) : null}
-          {!running || hasContent ? (
-            <Pressable onPress={() => void submit()} disabled={!canSend} accessibilityRole="button" accessibilityLabel="Send" style={(state) => ({ ...round(canSend)(state), marginLeft: running ? SPACING[1] : 0 })}>
-              <Icon name={busy ? "Loader" : "ArrowUp"} size={ICON_SIZE.md} color={canSend ? theme.colors.surface0 : theme.colors.foregroundMuted} />
-            </Pressable>
-          ) : null}
+        {sendError ? (
+          <Text accessibilityRole="alert" style={{ color: ERROR_RED, fontSize: 14 }}>
+            {sendError}
+          </Text>
+        ) : null}
+        <View style={{ position: "relative", flexShrink: 1, width: "100%", gap: SPACING[3] }}>
+          <AutocompletePopover theme={theme} autocomplete={autocomplete} />
+          <View style={{ flexShrink: 1, gap: SPACING[3], backgroundColor: theme.colors.surface1, borderWidth: 1, borderColor: hostColours(theme).borderAccent, borderRadius: BOX_RADIUS, paddingTop: wide ? SPACING[4] : SPACING[2], paddingBottom: wide ? SPACING[3] : SPACING[2], paddingHorizontal: wide ? SPACING[4] : SPACING[3] }}>
+            <AttachmentTray theme={theme} attachments={attachments} pendingFiles={pendingFiles} disabled={false} onOpen={openAttachment} onRemove={removeAttachment} />
+            <View style={{ flexShrink: 1, position: "relative" }}>
+              <TextInput
+                ref={input}
+                value={value}
+                onChangeText={setValue}
+                onKeyPress={onKeyPress}
+                onSelectionChange={onSelectionChange}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
+                editable={!disabled}
+                multiline
+                scrollEnabled={composerHeight.scrollEnabled}
+                blurOnSubmit={false}
+                placeholder={messagePlaceholder}
+                placeholderTextColor={theme.colors.foregroundMuted}
+                accessibilityLabel="Message agent..."
+                style={[{ flexShrink: 1, width: "100%", color: theme.colors.foreground, fontSize: CONTENT_FONT, fontWeight: "400", lineHeight: CONTENT_FONT * 1.4, height: composerHeight.height, minHeight: MIN_INPUT_HEIGHT, maxHeight: maxInputHeight, padding: 0, borderWidth: 0 }, NO_OUTLINE]}
+              />
+              {showFocusHint ? (
+                <Text style={{ position: "absolute", top: 0, right: 0, fontSize: 12, color: theme.colors.foregroundMuted, opacity: 0.5, pointerEvents: "none" }}>{FOCUS_HINT}</Text>
+              ) : null}
+            </View>
+            <View style={{ flexShrink: 0, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginHorizontal: -6 }}>
+              <View style={{ minWidth: 0, flexShrink: 1, flexGrow: 1, flexDirection: "row", alignItems: "flex-end" }}>
+                {canAttach ? (
+                  <AnchoredMenu theme={theme} open={menuOpen} label="Add attachment" items={menuItems} onClose={closeMenu}>
+                    <Pressable onPress={() => setMenuOpen((was) => !was)} disabled={disabled} accessibilityRole="button" accessibilityLabel="Add attachment" style={(state) => ({ width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, alignItems: "center", justifyContent: "center", backgroundColor: hoveredOf(state) ? theme.colors.surface2 : "transparent", opacity: disabled ? 0.5 : 1 })}>
+                      {(state) => <Icon name="Plus" size={ICON_SIZE.md} color={hoveredOf(state) ? theme.colors.foreground : theme.colors.foregroundMuted} />}
+                    </Pressable>
+                  </AnchoredMenu>
+                ) : null}
+                {controlsContent}
+              </View>
+              <View style={{ flexShrink: 0, flexDirection: "row", alignItems: "center", gap: SPACING[1] }}>
+                {trailingContent}
+                {primaryAction === "active" ? (
+                  <Pressable onPress={handleCancelAgent} disabled={isCancellingAgent} accessibilityRole="button" accessibilityLabel={isCancellingAgent ? "Canceling agent" : "Stop agent"} style={{ width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, backgroundColor: CANCEL_RED, alignItems: "center", justifyContent: "center", marginLeft: SPACING[1], opacity: isCancellingAgent ? 0.5 : 1 }}>
+                    {isCancellingAgent ? <ActivityIndicator size="small" color="white" /> : <View style={{ width: 11, height: 11, borderRadius: 2, backgroundColor: "white" }} />}
+                  </Pressable>
+                ) : null}
+                {primaryAction === "send" ? (
+                  <Pressable onPress={canPressLoadingButton ? handleCancelAgent : handleSendMessage} disabled={isSendButtonDisabled} accessibilityRole="button" accessibilityLabel={sendLabel} style={{ width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, backgroundColor: theme.colors.accent, alignItems: "center", justifyContent: "center", marginLeft: SPACING[1], opacity: isSendButtonDisabled ? 0.5 : 1 }}>
+                    {isSubmitLoading ? <ActivityIndicator size="small" color={theme.colors.accentForeground} /> : <Icon name="ArrowUp" size={ICON_SIZE.md} color={theme.colors.accentForeground} />}
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          </View>
+          <ForgePicker theme={theme} open={pickerOpen} cwd={cwd} attachments={attachments} onToggle={toggleForgeItem} onOpenChange={setPickerOpen} />
         </View>
+        {footerHint ? (
+          <Text style={[text(theme, "label"), { paddingHorizontal: SPACING[3] }]} numberOfLines={2}>
+            {footerHint}
+          </Text>
+        ) : null}
       </View>
-      {hint ? (
-        <Text style={[text(theme, "label"), { paddingHorizontal: SPACING[3] }]} numberOfLines={2}>
-          {hint}
-        </Text>
-      ) : null}
     </View>
   );
 }

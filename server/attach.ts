@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { ImageData } from "../shared/rpc.ts";
+import { forgeOf, MAX_UPLOAD_BYTES } from "../shared/attach.ts";
+import type { AttachmentData, ImageData } from "../shared/rpc.ts";
 
 export const ATTACH_ROOT = "/tmp/piggery-attach";
 
@@ -25,4 +26,30 @@ export function bodyWithImages(body: string, files: string[]): string {
   if (files.length === 0) return body;
   const lines = files.map((f) => `[image: ${f}]`);
   return [body.trim(), ...lines].filter(Boolean).join("\n");
+}
+
+export function attachmentText(attachment: AttachmentData): string {
+  if (attachment.type === "uploaded_file") return [`Uploaded file: ${attachment.fileName}`, `Path: ${attachment.path}`, `MIME: ${attachment.mimeType}`, `Size: ${attachment.size} bytes`].join("\n");
+  const forge = forgeOf(attachment.forge);
+  const heading = attachment.type === "forge_change_request" ? `${forge.displayName} ${forge.changeRequestAbbrev} ${forge.changeRequestNumberPrefix}${attachment.number}: ${attachment.title}` : `${forge.displayName} Issue #${attachment.number}: ${attachment.title}`;
+  const lines = [heading, attachment.url];
+  if (attachment.projectPath) lines.push(`Project: ${attachment.projectPath}`);
+  if (attachment.type === "forge_change_request" && attachment.baseRefName) lines.push(`Base: ${attachment.baseRefName}`);
+  if (attachment.type === "forge_change_request" && attachment.headRefName) lines.push(`Head: ${attachment.headRefName}`);
+  if (attachment.body) lines.push("", attachment.body);
+  return lines.join("\n");
+}
+
+export function bodyWithAttachments(body: string, attachments: AttachmentData[]): string {
+  if (attachments.length === 0) return body;
+  return [body.trim(), ...attachments.map(attachmentText)].filter(Boolean).join("\n\n");
+}
+
+function decodedSize(base64: string): number {
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
+}
+
+export function uploadTooLarge(fileName: string, base64: string): string | null {
+  return decodedSize(base64) > MAX_UPLOAD_BYTES ? `${fileName} is too large (max ${MAX_UPLOAD_BYTES / 1024 / 1024}MB)` : null;
 }

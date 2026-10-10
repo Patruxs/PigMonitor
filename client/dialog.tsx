@@ -2,10 +2,10 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
-import { Text, View } from "react-native";
+import { Text, useWindowDimensions, View } from "react-native";
 import { tail } from "../shared/rpc.ts";
 import { type Detail, type Row, type TailKind, type View as PigView } from "../shared/view.ts";
-import { TranscriptView } from "./transcript.tsx";
+import { MailStream } from "./transcript.tsx";
 import { Pill, RoleAvatar, StatusPill, paint } from "./kit/chat.tsx";
 import { PressRow } from "./kit/press.tsx";
 import { Rows } from "./kit/rows.tsx";
@@ -63,7 +63,7 @@ export function DetailDialog({ theme, view, index, root, onClose }: { theme: Plu
           {top?.kind === "tail" ? (
             <Tail theme={theme} id={top.id} />
           ) : top?.kind === "transcript" ? (
-            <TranscriptView theme={theme} id={top.id} embedded />
+            <SessionStream theme={theme} id={top.id} row={row} />
           ) : detail ? (
             <Overview theme={theme} detail={detail} row={row} onTail={() => top && setTrail((t) => [...t, { kind: "tail", id: top.id }])} onTranscript={() => top && setTrail((t) => [...t, { kind: "transcript", id: top.id }])} />
           ) : root !== null ? (
@@ -72,6 +72,15 @@ export function DetailDialog({ theme, view, index, root, onClose }: { theme: Plu
         </View>
       </Modal.Content>
     </Modal>
+  );
+}
+
+function SessionStream({ theme, id, row }: { theme: PluginTheme; id: string; row: Row | undefined }) {
+  const { height } = useWindowDimensions();
+  return (
+    <View style={{ height: Math.max(320, Math.round(height * 0.7)), marginHorizontal: -SPACING[4] }}>
+      <MailStream theme={theme} id={id} working={row?.status === "working"} workingSince={row?.state_since} />
+    </View>
   );
 }
 

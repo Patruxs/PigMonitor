@@ -32,7 +32,9 @@ function farm(): string {
   const say = (text: string) => JSON.stringify({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text }] } });
   writeFileSync(path.join(dir, "logs", "P1", "RUN1.jsonl"), `${say("first run")}\n`);
   writeFileSync(path.join(dir, "logs", "P1", "RUN2.jsonl"), `${say("second run")}\n${say("still second")}\n`);
-  writeFileSync(path.join(dir, "session.jsonl"), `${JSON.stringify({ type: "user", message: { role: "user", content: "hello sup" } })}\n`);
+  const bash = { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "t1", name: "Bash", input: { command: "false" } }] } };
+  const failed = { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", is_error: true, content: "Exit code 1" }] } };
+  writeFileSync(path.join(dir, "session.jsonl"), [{ type: "user", message: { role: "user", content: "hello sup" } }, bash, failed].map((e) => `${JSON.stringify(e)}\n`).join(""));
   return dir;
 }
 
@@ -64,14 +66,18 @@ test("TranscriptReader joins a worker's runs in order and names it from the data
   }
 });
 
-test("TranscriptReader reads a session's harness transcript, and says when there is no log", () => {
+test("TranscriptReader reads a session's harness transcript, its tool calls as Paseo details only, and says when there is no log", () => {
   const dir = farm();
   const mail = new MailReader();
   try {
     const reader = new TranscriptReader(mail);
     const r = reader.read(path.join(dir, "piggery.db"), "S1", undefined, 10);
     assert.ok(r.ok);
-    if (r.ok) assert.deepEqual(r.items.map((i) => [i.kind, i.text]), [["user", "hello sup"]]);
+    if (r.ok) {
+      assert.deepEqual(r.items.map((i) => [i.kind, i.text]), [["user", "hello sup"], ["tool", "Bash"]]);
+      const { i, kind, text, at, run, ...call } = r.items[1];
+      assert.deepEqual(call, { tool: "Bash", error: true, detail: { type: "shell", command: "false" }, status: "failed", toolError: { type: "tool_result", tool_use_id: "t1", is_error: true, content: "Exit code 1" } });
+    }
     const none = reader.read(path.join(dir, "piggery.db"), "NOBODY", undefined, 10);
     assert.equal(none.ok, false);
     if (!none.ok) assert.equal(none.code, "nolog");

@@ -1,3 +1,5 @@
+import type { ToolCallDetail } from "./tool-call.ts";
+
 export type ItemKind = "session" | "user" | "wake" | "assistant" | "thinking" | "tool" | "mail" | "turn";
 
 export interface Item {
@@ -14,6 +16,17 @@ export interface Item {
   reply?: string;
   run?: string;
   note?: string;
+  detail?: ToolCallDetail;
+  status?: ToolCallStatus;
+  toolError?: unknown;
+}
+
+export type ToolCallStatus = "running" | "completed" | "failed" | "canceled";
+
+export interface ToolCall {
+  detail: ToolCallDetail;
+  status: ToolCallStatus;
+  toolError?: unknown;
 }
 
 export interface Transcript {
@@ -41,6 +54,10 @@ interface Block {
 }
 
 export type SaveImage = (data: string, mimeType: string) => string | undefined;
+
+export type ToolResultBlock = Block;
+
+export type DescribeTool = (name: string, input: unknown, result: ToolResultBlock | undefined, cwd: string | undefined) => ToolCall;
 
 interface Entry {
   type?: string;
@@ -122,13 +139,16 @@ const stamp = (e: Entry): number | undefined => {
 
 export class Parser {
   readonly items: Item[] = [];
-  private open = new Map<string, Item>();
+  private open = new Map<string, { item: Item; name: string; input: unknown }>();
   private readonly run: string | undefined;
   private readonly saveImage: SaveImage | undefined;
+  private readonly describe: DescribeTool | undefined;
+  private cwd: string | undefined;
 
-  constructor(run?: string, saveImage?: SaveImage) {
+  constructor(run?: string, saveImage?: SaveImage, describe?: DescribeTool) {
     this.run = run;
     this.saveImage = saveImage;
+    this.describe = describe;
   }
 
   private push(item: Omit<Item, "i">): Item {
@@ -152,6 +172,7 @@ export class Parser {
 
   entry(e: Entry): void {
     if (e.isSidechain) return;
+    if (!this.cwd && e.cwd) this.cwd = e.cwd;
     const at = stamp(e);
     if (e.type === "system" && e.subtype === "init") {
       this.push({ kind: "session", at, text: [e.model, e.cwd].filter(Boolean).join(" · ") });
@@ -182,8 +203,9 @@ export class Parser {
       if (b.type === "text" && b.text?.trim()) this.push({ kind: "assistant", at, text: b.text.trim() });
       else if (b.type === "thinking" && b.thinking?.trim()) this.push({ kind: "thinking", at, text: b.thinking.trim() });
       else if (b.type === "tool_use") {
-        const item = this.push({ kind: "tool", at, text: b.name ?? "tool", tool: b.name, input: inputText(b.input) });
-        if (b.id) this.open.set(b.id, item);
+        const name = b.name ?? "tool";
+        const item = this.push({ kind: "tool", at, text: name, tool: b.name, ...(this.describe ? this.describe(name, b.input, undefined, this.cwd) : { input: inputText(b.input) }) });
+        if (b.id) this.open.set(b.id, { item, name, input: b.input });
       }
     }
   }
@@ -200,10 +222,12 @@ export class Parser {
       else if (b.type === "image") images.push(b);
       else if (b.type === "tool_result" && b.tool_use_id) {
         const text = contentText(b.content);
-        const item = this.open.get(b.tool_use_id);
-        if (item) {
-          item.result = text.trim();
+        const call = this.open.get(b.tool_use_id);
+        if (call) {
+          const { item } = call;
           if (b.is_error) item.error = true;
+          if (this.describe) Object.assign(item, this.describe(call.name, call.input, b, this.cwd));
+          else item.result = text.trim();
           this.open.delete(b.tool_use_id);
         }
         this.mails(text, at);
@@ -245,8 +269,8 @@ export class Parser {
   }
 }
 
-export function parseLines(text: string, run?: string, saveImage?: SaveImage): Item[] {
-  const p = new Parser(run, saveImage);
+export function parseLines(text: string, run?: string, saveImage?: SaveImage, describe?: DescribeTool): Item[] {
+  const p = new Parser(run, saveImage, describe);
   for (const line of text.split("\n")) p.line(line);
   return p.items;
 }

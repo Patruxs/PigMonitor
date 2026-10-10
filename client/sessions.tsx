@@ -1,11 +1,11 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal, ScrollView, useToast } from "@getpaseo/plugin/client/react-native";
-import { useRef, useState } from "react";
-import { Pressable, Text, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent, type PressableStateCallbackType, type ScrollView as NativeScrollView } from "react-native";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import { Pressable, Text, TextInput, View, type PressableStateCallbackType } from "react-native";
 import { basenameOf } from "../shared/events.ts";
 import type { MailMessage } from "../shared/mail.ts";
-import { mail, person, sendMail, type ImageData } from "../shared/rpc.ts";
+import { mail, person, sendMail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { itemsOfThread, latestFrom, type Me } from "../shared/thread.ts";
 import { briefAgo, type Dir, type Row, type Status, type View as PigView } from "../shared/view.ts";
 import { Chip, statusColour } from "./kit/badge.tsx";
@@ -17,9 +17,15 @@ import { TreeGuides, treeIndent, treeSpotsOf, type TreeSpot } from "./kit/tree.t
 import { AVATAR_LG, ICON_SIZE, LIST_MIN_WIDTH, LIST_WIDTH, RADIUS, ROW_CHAT, SPACING, CHAT_SPLIT_MIN, text, ROW_MIN } from "./kit/theme.ts";
 import { BUSY_MS, QUIET_MS, usePoll } from "./poll.ts";
 import { Composer, canAttach } from "./composer.tsx";
-import { AgentPills } from "./pills.tsx";
+import { FileDropZone } from "./attachments-drop.tsx";
+import { AgentContextMeter, AgentControls } from "./controls.tsx";
 import { NativeLink, useNative, useStop, type Navigation, type NativeChat } from "./native.tsx";
-import { TranscriptView } from "./transcript.tsx";
+import { MailStream } from "./transcript.tsx";
+import { StreamView, type ViewportHandle } from "./stream.tsx";
+import { useAgentTimeline, type AgentTimeline } from "./timeline.ts";
+import { RewindMenu } from "./rewind.tsx";
+import { useHasComposerTracks } from "./tracks.tsx";
+import { createUserMessage, generateMessageId } from "../shared/stream.ts";
 import { ResizeHandle, clampWidth, useSavedListWidth } from "./resize.tsx";
 import type { Native } from "../shared/native.ts";
 import { useProjectActions, type ProjectActions } from "./project.tsx";
@@ -57,7 +63,6 @@ const STATUS_ORDER: Record<Status, number> = { waiting: 0, working: 1, idle: 2, 
 const SOLO_KEY = "";
 const BAR = 3;
 const RING_GAP = 3;
-const PINNED_SLACK = 40;
 const PARENT_REACH = (ROW_CHAT - AVATAR_LG) / 2 + 3;
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
@@ -539,67 +544,101 @@ function ThroughGate({ theme, gate, onPick }: { theme: PluginTheme; gate: Conver
   );
 }
 
-function hintOf(item: Conversation, native: Native, me: Me | null): string {
-  const keys = canAttach ? "Enter sends · paste or + adds images" : "Enter sends";
-  if (native.kind === "open") return `Goes to ${item.row.name}'s own Paseo chat · ${keys}`;
+function hintOf(item: Conversation, native: Native, me: Me | null): string | undefined {
+  if (native.kind === "open") return undefined;
+  const keys = canAttach ? "Enter sends · paste images or + to attach" : "Enter sends";
   const why = native.kind === "mail" ? ` (${native.why})` : "";
   const who = me ? `you write as ${me.name}` : "your first message joins piggery as a solo session of yours";
-  return `Piggery mail to ${item.row.name}${why} · ${who} · images go as file paths · ${keys}`;
+  return `Piggery mail to ${item.row.name}${why} · ${who} · attachments go as file paths and links · ${keys}`;
+}
+
+function OpenStream({ theme, timeline, cwd, draftKey, viewportRef }: { theme: PluginTheme; timeline: AgentTimeline; cwd: string; draftKey: string; viewportRef: { current: ViewportHandle | null } }) {
+  const composerTracks = useHasComposerTracks(timeline.agentId);
+  return (
+    <StreamView
+      theme={theme}
+      streamKey={timeline.agentId}
+      tail={timeline.tail}
+      head={timeline.head}
+      turn={timeline.turn}
+      cwd={timeline.agent?.cwd ?? cwd}
+      permissions={timeline.permissions}
+      pendingClientMessageIds={timeline.pendingClientMessageIds}
+      history={{ hasOlder: timeline.hasOlder, isLoadingOlder: timeline.isLoadingOlder, progressKey: timeline.progressKey, loadOlder: timeline.loadOlder }}
+      syncError={timeline.error ? { message: timeline.error, onRetry: timeline.retry } : null}
+      onRespond={timeline.respond}
+      viewportRef={viewportRef}
+      outline={{ agentId: timeline.agentId, epoch: timeline.epoch, fetchPromptWindow: timeline.jumpToPrompt }}
+      composerTracks={composerTracks}
+      renderUserActions={(message) => (message.messageId ? <RewindMenu theme={theme} capabilities={timeline.agent?.capabilities} agentId={timeline.agentId} messageId={message.messageId} rewoundText={message.text} draftKey={draftKey} onRewound={timeline.refetchTail} /> : null)}
+    />
+  );
+}
+
+function OpenChat({ agentId, children }: { agentId: string; children: (timeline: AgentTimeline) => ReactNode }) {
+  const timeline = useAgentTimeline(agentId);
+  return <>{children(timeline)}</>;
 }
 
 function Chat({ theme, item, all, me, chat, onSent, onPick, onBack, onInfo }: { theme: PluginTheme; item: Conversation; all: Conversation[]; me: Me | null; chat: NativeChat; onSent: () => void; onPick: (id: string) => void; onBack?: () => void; onInfo: () => void }) {
   const native = chat.of(item.row.id);
+  if (native.kind === "open") {
+    return (
+      <OpenChat key={native.agentId} agentId={native.agentId}>
+        {(timeline) => <ChatPane theme={theme} item={item} all={all} me={me} chat={chat} native={native} timeline={timeline} onSent={onSent} onPick={onPick} onBack={onBack} onInfo={onInfo} />}
+      </OpenChat>
+    );
+  }
+  return <ChatPane theme={theme} item={item} all={all} me={me} chat={chat} native={native} timeline={null} onSent={onSent} onPick={onPick} onBack={onBack} onInfo={onInfo} />;
+}
+
+function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick, onBack, onInfo }: { theme: PluginTheme; item: Conversation; all: Conversation[]; me: Me | null; chat: NativeChat; native: Native; timeline: AgentTimeline | null; onSent: () => void; onPick: (id: string) => void; onBack?: () => void; onInfo: () => void }) {
   const stop = useStop(item.row.id, native, item.row.status === "working");
   const [bump, setBump] = useState(0);
   const call = useRpc(sendMail);
   const writable = item.row.kind === "solo" || item.row.gate === true;
   const thread = useThread(me, item.row.id, bump);
-  const extra = me ? itemsOfThread(thread, me) : [];
-  const scroll = useRef<NativeScrollView>(null);
-  const pinned = useRef(true);
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    pinned.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - PINNED_SLACK;
-  };
+  const extra = useMemo(() => (me ? itemsOfThread(thread, me) : []), [thread, me]);
+  const viewportRef = useRef<ViewportHandle | null>(null);
   const sent = () => {
-    pinned.current = true;
+    viewportRef.current?.scrollToBottom();
     setBump((n) => n + 1);
     onSent();
   };
-  const send = async (body: string, images: ImageData[]): Promise<string | null> => {
-    if (native.kind === "open") {
-      const failed = await chat.send(native.agentId, body, images);
-      if (!failed) sent();
-      return failed;
+  const send = async (body: string, images: ImageData[], attachments: AttachmentData[]): Promise<string | null> => {
+    if (native.kind === "open" && timeline) {
+      const clientMessageId = generateMessageId();
+      const message = createUserMessage({ clientMessageId, text: body, timestamp: new Date(), ...(timeline.turn.isActive && timeline.turn.turnId ? { turnId: timeline.turn.turnId } : {}), images: images.map((image, index) => ({ id: `${clientMessageId}:${index}`, uri: `data:${image.mimeType};base64,${image.data}`, mimeType: image.mimeType })), attachments });
+      try {
+        await timeline.submit(message, async () => {
+          const failed = await chat.send(native.agentId, body, images, attachments, clientMessageId);
+          if (failed) throw new Error(failed);
+        });
+      } catch (failure) {
+        return failure instanceof Error ? failure.message : String(failure);
+      }
+      sent();
+      return null;
     }
     const reply = me ? latestFrom(thread, item.row.id) : undefined;
-    const r = await call({ to: item.row.id, body, ...(images.length > 0 ? { images } : {}), ...(reply ? { reply_to: `#${reply.seq}` } : {}) });
+    const r = await call({ to: item.row.id, body, ...(images.length > 0 ? { images } : {}), ...(attachments.length > 0 ? { attachments } : {}), ...(reply ? { reply_to: `#${reply.seq}` } : {}) });
     if (!r.ok) return r.code === "denied" && r.gate_name ? `${r.error} Write to ${r.gate_name} instead.` : r.error;
     sent();
     return null;
   };
   const ended = item.row.status === "gone" && native.kind !== "open";
   return (
+    <FileDropZone theme={theme} style={{ flex: 1, minWidth: 0 }}>
     <View style={{ flex: 1, minWidth: 0 }}>
       <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} onBack={onBack} onInfo={onInfo} />
-      <ScrollView
-        ref={scroll}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: SPACING[2], paddingBottom: SPACING[6] }}
-        onScroll={onScroll}
-        scrollEventThrottle={100}
-        onContentSizeChange={() => {
-          if (pinned.current) scroll.current?.scrollToEnd({ animated: false });
-        }}
-      >
-        <TranscriptView theme={theme} id={item.row.id} extra={extra} hideFrom={me?.name} />
-      </ScrollView>
+      {timeline ? <OpenStream theme={theme} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} extra={extra} hideFrom={me?.name} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} />}
       {writable ? (
-        <Composer key={item.row.id} draftKey={item.row.id} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? <AgentPills theme={theme} agentId={native.agentId} /> : undefined} stop={stop} onSend={send} />
+        <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={native.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} stop={stop} agent={native.kind === "open" && timeline ? { agentId: native.agentId, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />
       ) : (
         <ThroughGate theme={theme} gate={gateOf(item, all)} onPick={onPick} />
       )}
     </View>
+    </FileDropZone>
   );
 }
 

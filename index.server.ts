@@ -3,11 +3,11 @@ import { piggeryPath } from "./server/installed.ts";
 import { MailReader, pickDatabase } from "./server/mail.ts";
 import { pickBin, realDir, runPiggery } from "./server/piggery.ts";
 import { Person } from "./server/person.ts";
-import { configureAgent, resumeInPaseo, stopAgent } from "./server/paseo.ts";
-import { ATTACH_ROOT, bodyWithImages, saveImages } from "./server/attach.ts";
+import { checkoutRemoteUrl, configureAgent, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
+import { ATTACH_ROOT, bodyWithAttachments, bodyWithImages, saveImages, uploadTooLarge } from "./server/attach.ts";
 import { TranscriptReader } from "./server/transcript.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
-import { agentConfig, imageFile, mail, person, resume, sendMail, sessions, settings, snapshot, stop, tail, transcript, viewSettings } from "./shared/rpc.ts";
+import { agentConfig, usageReports, checkoutRemote, dirSuggest, forgeSearch, imageFile, mail, person, resume, sendMail, sessions, settings, snapshot, stop, tail, timelinePrompts, rewind, timelineSearch, transcript, upload, viewSettings } from "./shared/rpc.ts";
 import { TAIL_VERSION } from "./shared/view.ts";
 
 export default function contribute(server: PluginServerContext) {
@@ -66,14 +66,14 @@ export default function contribute(server: PluginServerContext) {
     const who = me.current(await database());
     return { ok: true as const, person: who ? { id: who.id, name: who.name } : null };
   });
-  server.handle(sendMail, async ({ images, ...input }) => {
+  server.handle(sendMail, async ({ images, attachments, ...input }) => {
     let files: string[];
     try {
       files = await saveImages(ATTACH_ROOT, input.to, images ?? []);
     } catch (error) {
       return { ok: false as const, code: "failed" as const, error: `Could not save the image: ${String((error as Error).message ?? error)}` };
     }
-    const body = bodyWithImages(input.body, files);
+    const body = bodyWithAttachments(bodyWithImages(input.body, files), attachments ?? []);
     if (!body) return { ok: false as const, code: "failed" as const, error: "Nothing to send." };
     return me.send(await database(), { ...input, body });
   });
@@ -84,7 +84,19 @@ export default function contribute(server: PluginServerContext) {
       return { ok: false as const, code: "failed" as const, error: `Could not read piggery's database: ${String((error as Error).message ?? error)}` };
     }
   });
-  server.handle(agentConfig, async ({ agentId, field, value }) => configureAgent(agentId, field, value));
+  server.handle(upload, async ({ fileName, mimeType, data }) => {
+    const tooLarge = uploadTooLarge(fileName, data);
+    if (tooLarge) return { ok: false as const, code: "failed" as const, error: tooLarge };
+    return uploadFile(fileName, mimeType, data);
+  });
+  server.handle(forgeSearch, async ({ cwd, query }) => searchForge(cwd, query));
+  server.handle(dirSuggest, async ({ cwd, query }) => suggestEntries(cwd, query));
+  server.handle(checkoutRemote, async ({ cwd }) => checkoutRemoteUrl(cwd));
+  server.handle(timelinePrompts, async ({ agentId }) => listTimelinePrompts(agentId));
+  server.handle(rewind, async ({ agentId, messageId, mode }) => rewindAgent(agentId, messageId, mode));
+  server.handle(timelineSearch, async ({ agentId, query, cursor }) => searchTimeline(agentId, query, cursor));
+  server.handle(agentConfig, async ({ agentId, field, featureId, value }) => configureAgent(agentId, field, value, featureId));
+  server.handle(usageReports, async (options) => listUsageReports(options));
   server.handle(stop, async ({ id, agentId }) => {
     if (agentId) return stopAgent(agentId);
     const r = await runPiggery(await bin(), ["abort", id]);

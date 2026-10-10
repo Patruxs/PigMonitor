@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { parseLines, type Item, type SaveImage, type Transcript } from "../shared/transcript.ts";
 import type { MailReader, Participant } from "./mail.ts";
+import { claudeToolCall } from "./tool-detail.ts";
 
 export type TranscriptResult = ({ ok: true } & Transcript) | { ok: false; code: "nodb" | "failed" | "nolog"; error: string };
 
@@ -42,7 +43,7 @@ export class TranscriptReader {
     const st = statSync(file);
     const had = this.cache.get(file);
     if (had && had.size === st.size && had.mtime === st.mtimeMs) return had.items;
-    const items = parseLines(readFileSync(file, "utf8"), run, this.saveImage);
+    const items = parseLines(readFileSync(file, "utf8"), run, this.saveImage, claudeToolCall);
     this.cache.set(file, { size: st.size, mtime: st.mtimeMs, items });
     return items;
   }

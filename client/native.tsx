@@ -4,7 +4,7 @@ import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { agentsBySession, nativeOf, type Native, type Session } from "../shared/native.ts";
-import { resume, sessions, stop, type ImageData } from "../shared/rpc.ts";
+import { resume, sessions, stop, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { SPACING, text } from "./kit/theme.ts";
 import { BUSY_MS, QUIET_MS, usePoll } from "./poll.ts";
 
@@ -37,7 +37,7 @@ export interface NativeChat {
   of: (id: string) => Native;
   open: (agentId: string) => void;
   resume: (id: string) => Promise<string | null>;
-  send: (agentId: string, body: string, images: ImageData[]) => Promise<string | null>;
+  send: (agentId: string, body: string, images: ImageData[], attachments: AttachmentData[], messageId?: string) => Promise<string | null>;
 }
 
 export function useNative(ids: string[], selected: string, navigation: Navigation, serverId: string | undefined): NativeChat {
@@ -88,9 +88,10 @@ export function useNative(ids: string[], selected: string, navigation: Navigatio
       setBump((n) => n + 1);
       return null;
     },
-    send: async (agentId, body, images) => {
+    send: async (agentId, body, images, attachments, messageId) => {
       try {
-        await paseo.agents.ref(agentId).send(body, images.length > 0 ? { images } : undefined);
+        const options = { ...(messageId ? { messageId } : {}), activeTurnBehavior: "steer", images, attachments };
+        await paseo.agents.ref(agentId).send(body, options as Parameters<ReturnType<typeof paseo.agents.ref>["send"]>[1]);
         return null;
       } catch (error) {
         return `Paseo did not take the message: ${messageOf(error)}`;
