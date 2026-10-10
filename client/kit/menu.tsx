@@ -114,7 +114,7 @@ export function AnchoredPopover({ theme, open, label, role, onClose, onSheetDism
   );
 }
 
-export function AnchoredMenu({ theme, open, label, items, drop, onClose, children }: { theme: PluginTheme; open: boolean; label: string; items: MenuItem[]; drop?: Drop; onClose: () => void; children: ReactNode }) {
+export function AnchoredMenu({ theme, open, label, items, note, drop, onClose, children }: { theme: PluginTheme; open: boolean; label: string; items: MenuItem[]; note?: string; drop?: Drop; onClose: () => void; children: ReactNode }) {
   const sheet = useSheetPresentation();
   const itemHeight = sheet ? MENU_ITEM_HEIGHT.sheet : MENU_ITEM_HEIGHT.popover;
   const selectionAwaitingDismiss = useRef<(() => void) | null>(null);
@@ -123,7 +123,7 @@ export function AnchoredMenu({ theme, open, label, items, drop, onClose, childre
     selectionAwaitingDismiss.current = null;
     select?.();
   };
-  const panel = items.map((item) => (
+  const rows = items.map((item) => (
     <Pressable
       key={item.id}
       accessibilityRole="menuitem"
@@ -142,6 +142,14 @@ export function AnchoredMenu({ theme, open, label, items, drop, onClose, childre
       </SheetText>
     </Pressable>
   ));
+  const panel = note ? (
+    <>
+      {rows}
+      <SheetText style={[text(theme, "label"), { marginHorizontal: SPACING[1], paddingHorizontal: SPACING[2], paddingVertical: SPACING[2] }]}>{note}</SheetText>
+    </>
+  ) : (
+    rows
+  );
   return (
     <AnchoredPopover theme={theme} open={open} label={label} role="menu" onClose={onClose} onSheetDismiss={runSelectionAwaitingDismiss} panel={panel} minWidth={MENU_MIN_WIDTH} offset={MENU_OFFSET} drop={drop}>
       {children}

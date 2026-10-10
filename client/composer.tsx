@@ -14,6 +14,7 @@ import {
   submitAgentInput,
   type ComposerAttachment,
   } from "../shared/composer.ts";
+import { attachmentChoices, type AttachmentChoiceId } from "../shared/attachment-menu.ts";
 import { type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { withTranscript } from "../shared/speech.ts";
 import { generateMessageId } from "../shared/stream.ts";
@@ -51,6 +52,7 @@ const NO_OUTLINE = { outlineStyle: "none", outlineWidth: 0, outlineColor: "trans
 
 const dom = globalThis as { document?: Document; window?: Window; navigator?: Navigator };
 const isWeb = dom.document !== undefined;
+const PLUGINS_CANNOT_ATTACH = "Paseo's mobile app doesn't let plugins attach photos or files yet";
 const DESKTOP_PLACEHOLDER = "Message the agent, tag @files, or use /commands and /skills";
 const MOBILE_PLACEHOLDER = "Message, @files, /commands";
 
@@ -277,10 +279,16 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
   };
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const closeLightbox = useCallback(() => setLightboxUri(undefined), []);
-  const imageMenuItem: MenuItem = { id: "image", label: "Add image", icon: <Icon name="Image" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => void intake.pickImage() };
-  const forgeMenuItem: MenuItem = { id: "github", label: "Add issue or PR", icon: <ForgeGlyph size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => setPickerOpen(true) };
-  const fileMenuItem: MenuItem = { id: "file", label: "Upload file", icon: <Icon name="Paperclip" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => void intake.pickFile() };
-  const menuItems: MenuItem[] = canAttach ? [imageMenuItem, forgeMenuItem, fileMenuItem] : [forgeMenuItem];
+  const menuIcon = (name: string) => <Icon name={name} size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />;
+  const menuEntries: Record<AttachmentChoiceId, Omit<MenuItem, "id" | "disabled">> = {
+    image: { label: "Add image", icon: menuIcon("Image"), onSelect: () => void intake.pickImage() },
+    "paste-image": { label: "Paste image", icon: menuIcon("ClipboardPaste"), onSelect: () => undefined },
+    github: { label: "Add issue or PR", icon: <ForgeGlyph size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => setPickerOpen(true) },
+    file: { label: "Upload file", icon: menuIcon("Paperclip"), onSelect: () => void intake.pickFile() },
+  };
+  const choices = attachmentChoices(!isWeb, canAttach);
+  const menuItems: MenuItem[] = choices.map((choice) => ({ id: choice.id, ...menuEntries[choice.id], disabled: !choice.enabled }));
+  const menuNote = choices.some((choice) => !choice.enabled) ? PLUGINS_CANNOT_ATTACH : undefined;
 
   const onKeyPress = (event: KeyPressEvent) => {
     if (!isWeb) return;
@@ -366,7 +374,7 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
             </View>
             <View style={{ flexShrink: 0, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginHorizontal: -6 }}>
               <View style={{ minWidth: 0, flexShrink: 1, flexGrow: 1, flexDirection: "row", alignItems: "flex-end" }}>
-                <AnchoredMenu theme={theme} open={menuOpen} label="Add attachment" items={menuItems} onClose={closeMenu}>
+                <AnchoredMenu theme={theme} open={menuOpen} label="Add attachment" items={menuItems} note={menuNote} onClose={closeMenu}>
                   <Pressable onPress={() => setMenuOpen((was) => !was)} disabled={disabled} accessibilityRole="button" accessibilityLabel="Add attachment" style={(state) => ({ width: BUTTON, height: BUTTON, borderRadius: BUTTON / 2, alignItems: "center", justifyContent: "center", backgroundColor: hoveredOf(state) ? theme.colors.surface2 : "transparent", opacity: disabled ? 0.5 : 1 })}>
                     {(state) => <Icon name="Plus" size={ICON_SIZE.md} color={hoveredOf(state) ? theme.colors.foreground : theme.colors.foregroundMuted} />}
                   </Pressable>
