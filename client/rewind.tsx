@@ -4,7 +4,8 @@ import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { rewind } from "../shared/rpc.ts";
-import { RADIUS, SPACING } from "./kit/theme.ts";
+import { ConfirmDialog } from "./kit/confirm.tsx";
+import { RADIUS, SPACING, text } from "./kit/theme.ts";
 
 export type RewindMode = "conversation" | "files" | "both";
 
@@ -14,10 +15,10 @@ export interface RewindCapabilities {
   supportsRewindBoth?: boolean;
 }
 
-const MODES: { mode: RewindMode; label: string; icon: string; flag: keyof RewindCapabilities }[] = [
-  { mode: "conversation", label: "Rewind conversation", icon: "MessageSquare", flag: "supportsRewindConversation" },
-  { mode: "files", label: "Rewind files", icon: "FileText", flag: "supportsRewindFiles" },
-  { mode: "both", label: "Rewind conversation and files", icon: "Layers", flag: "supportsRewindBoth" },
+const MODES: { mode: RewindMode; label: string; icon: string; flag: keyof RewindCapabilities; effect: string }[] = [
+  { mode: "conversation", label: "Rewind conversation", icon: "MessageSquare", flag: "supportsRewindConversation", effect: "The agent forgets everything from this message on, and the message goes back into your composer." },
+  { mode: "files", label: "Rewind files", icon: "FileText", flag: "supportsRewindFiles", effect: "Files the agent changed from this message on go back to how they were. The conversation stays." },
+  { mode: "both", label: "Rewind conversation and files", icon: "Layers", flag: "supportsRewindBoth", effect: "The agent forgets everything from this message on, its file changes since then are undone, and the message goes back into your composer." },
 ];
 
 const MODAL_FONT = { fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' };
@@ -44,6 +45,7 @@ export function RewindMenu({ theme, capabilities, agentId, messageId, rewoundTex
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<RewindMode | null>(null);
+  const [confirming, setConfirming] = useState<RewindMode | null>(null);
   const [place, setPlace] = useState<{ right: number; top: number } | null>(null);
   const anchor = useRef<View>(null);
   const items = capabilities ? MODES.filter((item) => capabilities[item.flag]) : [];
@@ -78,9 +80,14 @@ export function RewindMenu({ theme, capabilities, agentId, messageId, rewoundTex
       toast.error(failure instanceof Error ? failure.message : "Failed to rewind agent");
     } finally {
       setPending(null);
-      setOpen(false);
+      setConfirming(null);
     }
   };
+  const ask = (mode: RewindMode) => {
+    setOpen(false);
+    setConfirming(mode);
+  };
+  const asked = MODES.find((item) => item.mode === confirming);
   return (
     <View ref={anchor} style={{ alignSelf: "center", position: "relative" }}>
       <Pressable onPress={toggle} disabled={locked} accessibilityRole="button" accessibilityLabel="Rewind to this message" style={{ padding: SPACING[1], alignItems: "center", justifyContent: "center", opacity: locked ? 0.5 : 1 }}>
@@ -94,7 +101,7 @@ export function RewindMenu({ theme, capabilities, agentId, messageId, rewoundTex
           </View>
           <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: SPACING[1] }} />
           {items.map((item) => (
-            <Pressable key={item.mode} accessibilityRole="menuitem" disabled={locked && pending !== item.mode} onPress={() => void select(item.mode)} style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: 32, marginHorizontal: SPACING[1], paddingHorizontal: SPACING[2], borderRadius: RADIUS.md, opacity: locked && pending !== item.mode ? 0.5 : 1, backgroundColor: hoveredOf(state) || state.pressed ? theme.colors.surface2 : "transparent" })}>
+            <Pressable key={item.mode} accessibilityRole="menuitem" disabled={locked && pending !== item.mode} onPress={() => ask(item.mode)} style={(state) => ({ flexDirection: "row", alignItems: "center", gap: SPACING[2], minHeight: 32, marginHorizontal: SPACING[1], paddingHorizontal: SPACING[2], borderRadius: RADIUS.md, opacity: locked && pending !== item.mode ? 0.5 : 1, backgroundColor: hoveredOf(state) || state.pressed ? theme.colors.surface2 : "transparent" })}>
               {pending === item.mode ? <ActivityIndicator size={16} color={theme.colors.foreground} /> : <Icon name={item.icon} size={16} color={theme.colors.foreground} />}
               <Text style={{ color: theme.colors.foreground, fontSize: 14, ...MODAL_FONT }} numberOfLines={1}>
                 {item.label}
@@ -103,6 +110,10 @@ export function RewindMenu({ theme, capabilities, agentId, messageId, rewoundTex
           ))}
         </View>
       </Modal>
+      <ConfirmDialog theme={theme} title={asked ? `${asked.label}?` : ""} icon="Undo2" tone="danger" confirmLabel={asked?.label ?? "Rewind"} busy={locked} open={asked !== undefined} onConfirm={() => asked && void select(asked.mode)} onClose={() => !locked && setConfirming(null)}>
+        <Text style={text(theme, "rowTitle")}>{asked?.effect}</Text>
+        <Text style={text(theme, "meta")}>This can't be undone.</Text>
+      </ConfirmDialog>
     </View>
   );
 }
