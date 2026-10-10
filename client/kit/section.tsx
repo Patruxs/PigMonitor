@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 import { ICON_SIZE, SPACING, text } from "./theme.ts";
 
-/** A section's heading: a 14px icon beside the 13px semibold title, then what the caller adds (a count). */
 export function SectionTitle({ theme, icon, title, children }: { theme: PluginTheme; icon: string; title: string; children?: ReactNode }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[4], paddingVertical: SPACING[2] }}>

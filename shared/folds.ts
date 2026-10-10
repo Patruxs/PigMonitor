@@ -1,15 +1,8 @@
-// What the user chose in the surface, remembered by Paseo (the plugin's "pigmonitor-view" host setting;
-// not piggery top's): the folds that differ from piggery's defaults, keyed by team id, and the tab. Ids
-// of teams that are gone from piggery are dropped when saving. No imports, so `node --test` loads it as is.
-
 export type SurfaceTab = "overview" | "graph" | "sessions";
 
 export interface Folds {
-  /** A team's open state, when the user chose one other than ps --view's default for it. */
   teams: Record<string, boolean>;
-  /** Teams whose gone-members line the user expanded (the default is folded). */
   gone: Record<string, boolean>;
-  /** The surface's tab. */
   tab: SurfaceTab;
   hidden: Record<string, boolean>;
 }
@@ -26,7 +19,6 @@ function tabOf(stored: string | undefined): SurfaceTab {
 
 export const NO_FOLDS: Folds = { teams: {}, gone: {}, tab: "overview", hidden: {} };
 
-/** Folds as the host stored them, tolerating a missing or odd document. */
 export function foldsOf(values: StoredFolds | null | undefined): Folds {
   return { teams: { ...values?.teams }, gone: { ...values?.gone }, tab: tabOf(values?.tab), hidden: { ...values?.hidden } };
 }
@@ -55,7 +47,6 @@ export function setHidden(f: Folds, path: string, hidden: boolean): Folds {
 
 export const showAll = (f: Folds): Folds => ({ ...f, hidden: {} });
 
-/** Only the entries of teams that still exist. */
 export function prune(f: Folds, ids: Iterable<string>): Folds {
   const live = new Set(ids);
   const keep = <T>(m: Record<string, T>) => Object.fromEntries(Object.entries(m).filter(([id]) => live.has(id) || id.startsWith("solo:")));

@@ -11,10 +11,6 @@ interface Option {
   count?: number;
 }
 
-/**
- * One filter as one control, however many options there are: its label and the chosen option on a
- * bordered button; pressing it lists the options in the host's dialog, the chosen one ticked.
- */
 export function Select({ theme, label, value, options, onPick }: { theme: PluginTheme; label: string; value: string; options: Option[]; onPick: (value: string) => void }) {
   const [open, setOpen] = useState(false);
   const chosen = options.find((o) => o.value === value);
@@ -44,11 +40,6 @@ export function Select({ theme, label, value, options, onPick }: { theme: Plugin
   );
 }
 
-/**
- * One filter that keeps several options on at once: its label and how many are on, on a bordered
- * button; pressing it lists the options in the host's dialog, each with a tick to toggle, and a row
- * to turn them all on or off.
- */
 export function MultiSelect({ theme, label, values, options, onChange }: { theme: PluginTheme; label: string; values: string[]; options: Option[]; onChange: (values: string[]) => void }) {
   const [open, setOpen] = useState(false);
   const on = new Set(values);

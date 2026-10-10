@@ -1,5 +1,3 @@
-// Runs the piggery CLI: execFile (no shell), a timeout, and always --no-start so a read never starts
-// a piggery daemon.
 import { execFile } from "node:child_process";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -12,7 +10,6 @@ export type Result = { ok: true; out: string } | { ok: false; code: "missing" | 
 
 const TIMEOUT_MS = 5000;
 
-/** The binary to run: the user's setting, else the piggery that installed the plugin, else PATH. */
 export function pickBin(setting: string, installedByPiggery: string): string {
   return setting.trim() || installedByPiggery.trim() || "piggery";
 }
@@ -43,7 +40,6 @@ export function runPiggery(bin: string, args: string[], timeoutMs = TIMEOUT_MS):
   });
 }
 
-/** A directory as piggery records it, symlinks resolved; as given when it cannot be resolved. */
 export async function realDir(dir: string): Promise<string> {
   try {
     return await realpath(dir);

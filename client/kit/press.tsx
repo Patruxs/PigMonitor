@@ -1,6 +1,3 @@
-// One pressable row for everything that opens or folds something: it moves one surface step on hover
-// and one more on press (the progress plugin's rowTint, progress/client/row.tsx), instantly, with no
-// animation, so reduced motion has nothing to turn off.
 import type { PluginTheme } from "@getpaseo/plugin";
 import type { ReactNode } from "react";
 import { Pressable, type PressableStateCallbackType, type ViewStyle } from "react-native";

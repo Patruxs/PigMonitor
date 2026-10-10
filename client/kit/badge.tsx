@@ -3,7 +3,6 @@ import { Pressable, Text } from "react-native";
 import { hovered } from "./press.tsx";
 import { RADIUS, SPACING, text } from "./theme.ts";
 
-/** A filter chip with its count; the chosen one is filled. */
 export function Chip({ theme, label, count, on, onPress }: { theme: PluginTheme; label: string; count?: number; on: boolean; onPress: () => void }) {
   return (
     <Pressable

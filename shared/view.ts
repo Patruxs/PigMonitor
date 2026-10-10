@@ -1,9 +1,3 @@
-// What `piggery ps --view` prints (internal/view, Go): the rows, their order, groups, words, counts,
-// default folds, tabs and the actions allowed on each. The plugin reads it and draws it; nothing here
-// decides what to show. Only the types of that document, the check of its version, and pure helpers
-// for drawing (a path match for a workspace, `piggery tail` text, clock times). No imports, so the app,
-// the daemon and `node --test` all load it as is.
-
 import { ageLong, clock24 } from "./format.ts";
 
 export const VIEW_VERSION = 1;
@@ -18,14 +12,12 @@ export interface Summary {
   teams: number;
   working: number;
   idle: number;
-  /** Participants that wait on a permission or are queued: what needs the user. */
   waiting?: number;
   held: number;
   unacked: number;
 }
 
 export interface Tab {
-  /** "" is All, else a team id or the Closed key; opaque. */
   key: string;
   label: string;
   count: number;
@@ -39,7 +31,6 @@ export interface Actions {
 
 export interface Row {
   kind: Kind;
-  /** Opaque (a team line's and a gone line's begin with a NUL): never parsed. */
   id: string;
   team?: string;
   depth: number;
@@ -52,9 +43,7 @@ export interface Row {
   state_text: string;
   status: Status;
   dim?: boolean;
-  /** A team line's or gone line's default fold: whether its members are listed. */
   open?: boolean;
-  /** Listed only when the team's gone line is open. */
   folded?: boolean;
   harness?: string;
   model?: string;
@@ -73,7 +62,6 @@ export interface Row {
 
 export interface Head {
   id: string;
-  /** The key of this team's detail in `details`. */
   detail: string;
   name: string;
   template?: string;
@@ -93,9 +81,7 @@ export interface Block {
 export interface Dir {
   path: string;
   label: string;
-  /** Where it sorts: live, sleeping, gone (every unit all gone) or closed (only closed teams). */
   bucket?: "live" | "sleeping" | "gone" | "closed";
-  /** A client that folds starts this directory folded (gone and closed ones). Only `board.dirs` carries it. */
   folded?: boolean;
   blocks: Block[];
 }
@@ -105,13 +91,11 @@ export interface List {
   any_cwd?: boolean;
 }
 
-/** A Board column: a status and the word that titles it (not the state text of one of its rows). */
 export interface Column {
   status: Status;
   word: string;
 }
 
-/** What the Board draws from: its columns in order, and every directory (open teams, every closed team, solos) in one list. */
 export interface BoardView {
   columns: Column[];
   dirs: Dir[];
@@ -158,7 +142,6 @@ export interface Daemon {
   version?: string;
   version_notes?: string[];
   version_mismatch?: boolean;
-  /** The notice top shows for installs that need `piggery setup --outdated`; "" or absent when none. */
   outdated?: string;
 }
 
@@ -177,7 +160,6 @@ export interface View {
 
 export type ReadView = { ok: true; view: View } | { ok: false; code: "older" | "newer" | "failed"; error: string };
 
-/** The document as `ps --view` printed it, when it is the version this plugin reads. */
 export function readView(doc: Record<string, unknown> | null | undefined): ReadView {
   const version = doc?.version;
   if (typeof version !== "number") {
@@ -192,17 +174,12 @@ export function readView(doc: Record<string, unknown> | null | undefined): ReadV
   return { ok: true, view: doc as unknown as View };
 }
 
-/** Whether a directory piggery lists is the workspace's, inside it, or around it. */
 export function related(path: string, dir: string): boolean {
   const a = path.replace(/\/+$/, "");
   const b = dir.replace(/\/+$/, "");
   return a === b || b.startsWith(a + "/") || a.startsWith(b + "/");
 }
 
-/**
- * `piggery tail --view`: one JSON document, a version then `lines` as top shows them. A line's `text`
- * reads as top draws it, glyphs included; `rest` (tool lines only) is the arguments, drawn muted after it.
- */
 export const TAIL_VERSION = 1;
 export const TAIL_KINDS = ["text", "tool", "result", "error", "warning", "rule", "user"] as const;
 export type TailKind = (typeof TAIL_KINDS)[number];

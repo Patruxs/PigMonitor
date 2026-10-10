@@ -166,12 +166,6 @@ class Socket {
   }
 }
 
-/**
- * The person behind Paseo as one piggery participant: a solo session the daemon names, kept across
- * restarts in paseo-person.json in piggery's home. It joins on the first send (or at start, when it
- * already has an identity), sends mail by the daemon's own verbs, and reads its inbox when woken so
- * replies count as read.
- */
 export class Person {
   private socket: Socket | null = null;
   private identity: Identity | null = null;
@@ -193,7 +187,6 @@ export class Person {
     return this.identity;
   }
 
-  /** Connects now when an identity is saved already, so wakes are answered; otherwise waits for the first send. */
   warm(home: string): void {
     if (this.current(home)) void this.ensure(home).catch((e: DaemonError) => this.log(`piggery person: ${e.message ?? e}`));
   }
@@ -266,7 +259,6 @@ export class Person {
     }
   }
 
-  /** One short turn: the daemon records the mail as delivered in it and marks it read when it ends. */
   private async markInboxRead(): Promise<void> {
     const sock = this.socket;
     if (!sock?.open) return;

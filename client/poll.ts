@@ -1,31 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { dom } from "./kit/platform.ts";
 
-/** ps --view reads the workers' logs for ctx and turns: ask this often while something works or waits ... */
 export const BUSY_MS = 5000;
-/** ... and this often otherwise. */
 export const QUIET_MS = 30000;
 
-/** How long ago a read may be, beyond the poll interval, before it counts as overdue: the call itself takes time. */
 export const GRACE_MS = 3000;
 
-/** How often ps --view is asked for: soon while something works or waits, else rarely. */
 export const pollEvery = (busy: boolean) => (busy ? BUSY_MS : QUIET_MS);
 
 const page = dom.document;
 
-/** The app page is in the background. */
 function hidden(): boolean {
   return page?.visibilityState === "hidden";
 }
 
 export type Failed = { code: string; message: string };
-export type Loaded<T> = { value: T | null; error: Failed | null; /** When the value was read (ms), null before the first read. */ at: number | null };
+export type Loaded<T> = { value: T | null; error: Failed | null; at: number | null };
 
-/**
- * Calls `load` now and again after `every(value)` ms while mounted and the page is shown (a hidden
- * page skips, and asks at once when shown again); keeps the last good value across a failure.
- */
 export function usePoll<T>(load: () => Promise<{ ok: true; value: T } | { ok: false; code: string; error: string }>, reloadKey: string, every: (value: T | null) => number): Loaded<T> {
   const [state, setState] = useState<Loaded<T>>({ value: null, error: null, at: null });
   const latest = useRef({ load, every });
@@ -65,7 +56,6 @@ export function usePoll<T>(load: () => Promise<{ ok: true; value: T } | { ok: fa
   return state;
 }
 
-/** The clock, ticking every `ms`, for ages that are drawn from a time and not from piggery's own words. */
 export function useNow(ms: number): number {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {

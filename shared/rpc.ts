@@ -10,18 +10,12 @@ import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./speech.ts";
 
 const Failure = z.object({ ok: z.literal(false), code: z.enum(["missing", "down", "older", "newer", "failed", "nodb", "nolog", "denied"]), error: z.string() });
 
-/**
- * `piggery ps --view`, passed through as piggery wrote it (shared/view.ts checks its version and
- * types it). With a workspace `dir`, also that directory as piggery records paths (symlinks
- * resolved, e.g. macOS's /tmp is a symlink), which only the daemon side can work out.
- */
 export const snapshot = defineRpc({
   name: "pigmonitor.snapshot",
   input: z.object({ dir: z.string().optional() }),
   output: z.union([z.object({ ok: z.literal(true), view: z.record(z.string(), z.unknown()), dir: z.string().optional() }), Failure]),
 });
 
-/** The last lines of one participant's session, as `piggery tail --view` gives them. */
 export const tail = defineRpc({
   name: "pigmonitor.tail",
   input: z.object({ id: z.string().min(1), lines: z.number().int().min(1).max(200).default(20) }),
@@ -40,7 +34,6 @@ export const transcript = defineRpc({
   output: z.union([Transcript.extend({ ok: z.literal(true) }), Failure]),
 });
 
-/** The person behind Paseo as a piggery participant (server/person.ts): who it is, once it has joined; null before the first send. */
 export const person = defineRpc({
   name: "pigmonitor.person",
   input: z.object({}),
@@ -235,7 +228,6 @@ export const models = defineRpc({
 });
 
 
-/** What the user folded, the tab they chose (shared/folds.ts) and the Sessions list width: kept per Paseo host, saved by the app after a change. */
 export const viewSettings = defineSettings({
   id: "pigmonitor-view",
   scope: "host",
@@ -243,7 +235,6 @@ export const viewSettings = defineSettings({
   schema: z.object({ teams: z.record(z.string(), z.boolean()).default({}), gone: z.record(z.string(), z.boolean()).default({}), tab: z.enum(["overview", "graph", "board", "mail", "sessions"]).default("overview"), listWidth: z.number().optional(), hidden: z.record(z.string(), z.boolean()).default({}) }),
 });
 
-/** A piggery binary the user chose; empty uses the one that installed the plugin, else PATH. */
 export const settings = defineSettings({
   id: "pigmonitor",
   scope: "host",

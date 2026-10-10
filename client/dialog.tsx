@@ -16,10 +16,8 @@ import { SectionTitle } from "./kit/section.tsx";
 import { ICON_SIZE, KEY_WIDTH, RADIUS, READABLE, ROW_MIN, SPACING, text } from "./kit/theme.ts";
 import { BUSY_MS, usePoll } from "./poll.ts";
 
-/** One row of the snapshot, by id, with the directory it is listed under. */
 export type Index = Map<string, Row>;
 
-/** What the dialog shows: a row's (or a team line's) Overview, or the tail of its session. */
 export type DialogPage = { kind: "detail"; id: string } | { kind: "tail"; id: string } | { kind: "transcript"; id: string };
 
 const TAIL_COLOUR: Record<TailKind, keyof PluginTheme["colors"]> = {
@@ -32,11 +30,6 @@ const TAIL_COLOUR: Record<TailKind, keyof PluginTheme["colors"]> = {
   text: "foreground",
 };
 
-/**
- * One detail dialog for a row and what is opened from it. The host gives each dialog its own backdrop,
- * so a second one would darken the screen while the first fades; the content changes in place instead,
- * and Back returns to the step before.
- */
 const STEP_ICON: Record<DialogPage["kind"], string> = { detail: "Info", tail: "Terminal", transcript: "MessagesSquare" };
 
 export function DetailDialog({ theme, view, index, root, onClose }: { theme: PluginTheme; view: PigView; index: Index; root: string | null; onClose: () => void }) {
@@ -87,7 +80,6 @@ function SessionStream({ theme, id, row }: { theme: PluginTheme; id: string; row
   );
 }
 
-/** A row's Overview as piggery top's sidebar: its state, task and facts, then the hint. Empty facts are not here: piggery leaves them out. */
 function Overview({ theme, detail, row, onTail, onTranscript }: { theme: PluginTheme; detail: Detail; row: Row | undefined; onTail: () => void; onTranscript: () => void }) {
   const task = detail.task;
   const facts = detail.facts;
@@ -145,7 +137,6 @@ function Overview({ theme, detail, row, onTail, onTranscript }: { theme: PluginT
   );
 }
 
-/** The last lines of the session, as `piggery tail` prints them, kept fresh while it is open. */
 function Tail({ theme, id }: { theme: PluginTheme; id: string }) {
   const call = useRpc(tail);
   const { value, error } = usePoll(

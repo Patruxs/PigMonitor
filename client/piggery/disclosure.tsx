@@ -6,15 +6,6 @@ import { PressRow } from "../kit/press.tsx";
 import { ASIDE, ICON_SIZE, ROW_MIN, SPACING } from "../kit/theme.ts";
 import { Lead } from "./row.tsx";
 
-/**
- * A line that folds what is under it: the host's chevron (providers-section.tsx:227-230), down when
- * open, then `children` (its icon, its name), then the `tail` (the columns a participant's line
- * has), so its columns sit under theirs. The rows it folds are the caller's, drawn as siblings so the
- * list's rules run on. `aside` is at the right edge, outside the pressable part (an info button).
- * With `onBody` there is no aside: the chevron alone folds, and a press on the rest of the line does
- * `onBody` (opens its detail, as a participant's line does), so the line keeps the room the button
- * would take. `left` is the room before the chevron.
- */
 export function Disclosure({ theme, open, onToggle, onBody, label, left, tail, aside, children }: { theme: PluginTheme; open: boolean; onToggle: () => void; onBody?: () => void; label: string; left: number; tail?: ReactNode; aside?: ReactNode; children: ReactNode }) {
   const chevron = <Icon name={open ? "ChevronDown" : "ChevronRight"} size={ICON_SIZE.sm} color={theme.colors.foregroundMuted} />;
   const line = { flex: 1, minWidth: 0, flexDirection: "row", minHeight: ROW_MIN } as const;

@@ -24,7 +24,6 @@ function Field({ theme, label, hint, value, placeholder, onChange }: { theme: Pl
   );
 }
 
-/** Settings: which piggery binary to run, and which piggery database to read mail from. */
 export function PigMonitorSettings({ theme }: PluginSurfaceProps) {
   const state = useSettings(settings);
   const [path, setPath] = useState<string | null>(null);

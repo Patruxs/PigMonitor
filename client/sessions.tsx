@@ -17,7 +17,6 @@ import { useProjectActions } from "./project.tsx";
 import { ResizeHandle, clampWidth, useSavedListWidth } from "./resize.tsx";
 import { ConversationList, HiddenProjects } from "./session-list.tsx";
 
-/** Who the person is in piggery, once they have sent something; asked again after each send. */
 function usePerson(bump: number): Me | null {
   const call = useRpc(person);
   const { value } = usePoll(
@@ -43,11 +42,6 @@ function Empty({ theme }: { theme: PluginTheme }) {
   );
 }
 
-/**
- * The Sessions tab as a chat app: the conversations down the left (search, a filter, grouped by team,
- * the most pressing first), the open one on the right with its transcript scrolled to the latest turn.
- * Narrower than CHAT_SPLIT_MIN, one at a time: the list, then the chat with a Back.
- */
 export function SessionsPane({ theme, view, dirs, width, selected, opened, now, navigation, serverId, hidden, onSelect, onOpened, onInfo, onHide, onShowHidden }: { theme: PluginTheme; view: PigView; dirs: Dir[]; width: number; selected: string; opened: boolean; now: number; navigation?: Navigation; serverId?: string; hidden: number; onSelect: (id: string) => void; onOpened: (opened: boolean) => void; onInfo: (id: string) => void; onHide: (path: string) => void; onShowHidden: () => void }) {
   const actions = useProjectActions(navigation, serverId, onHide);
   const [sent, setSent] = useState(0);
