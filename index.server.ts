@@ -5,7 +5,7 @@ import type { PluginServerContext } from "@getpaseo/plugin/server";
 import type { input as ZodInput, output as ZodOutput, ZodType } from "zod";
 import { piggeryPath } from "./server/installed.ts";
 import { PiggeryDb, pickDatabase } from "./server/db.ts";
-import { abort, listModels, piggeryHome, pickBin, realDir, runPiggery, runStepIn, tailView } from "./server/piggery.ts";
+import { abort, listModels, piggeryHome, pickBin, psView, realDir, runStepIn, tailView } from "./server/piggery.ts";
 import { Person } from "./server/person.ts";
 import { checkoutRemoteUrl, configureAgent, listClaudeAgents, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
 import { ATTACH_ROOT, mailBody, uploadTooLarge } from "./server/attach.ts";
@@ -35,7 +35,7 @@ export default function contribute(server: PluginServerContext) {
     return pickBin(state.status === "ready" ? state.values.path : "", piggeryPath);
   };
 
-  const states = new StateRecorder(STATES_FILE, async () => runPiggery(await bin(), ["ps", "--view"]));
+  const states = new StateRecorder(STATES_FILE, async () => psView(await bin()));
   states.start();
   server.handle(snapshot, async ({ dir }) => {
     const r = await states.snapshot();

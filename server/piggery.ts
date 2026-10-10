@@ -58,7 +58,15 @@ export type TailLine = z.infer<typeof TailLine>;
 
 const TailDoc = z.object({ version: z.number(), lines: z.array(TailLine) });
 
+const PsView = z.record(z.string(), z.unknown());
+
 const Models = z.object({ models: z.array(z.string()).optional() }).nullable().optional();
+
+export async function psView(bin: string): Promise<Result> {
+  const r = await runPiggery(bin, ["ps", "--view"]);
+  if (!r.ok) return r;
+  return PsView.safeParse(parsedJson(r.out)).success ? r : { ok: false, code: "failed", error: "piggery ps --view did not print JSON." };
+}
 
 export async function tailView(bin: string, id: string, lines: number): Promise<{ ok: true; lines: TailLine[] } | Failed> {
   const r = await runPiggery(bin, ["tail", id, "-n", String(lines), "--view"]);

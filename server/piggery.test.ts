@@ -4,7 +4,7 @@ import net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { listModels, pickBin, realDir, runPiggery, stepInArgs, tailView } from "./piggery.ts";
+import { listModels, pickBin, psView, realDir, runPiggery, stepInArgs, tailView } from "./piggery.ts";
 
 function fakeBin(script: string): { bin: string; done: () => void } {
   const dir = mkdtempSync(path.join(tmpdir(), "fake-piggery-"));
@@ -49,6 +49,18 @@ test("tail --view is read only at the version this plugin speaks", async () => {
   } finally {
     for (const f of fakes) f.done();
   }
+});
+
+test("ps --view is recorded only when piggery printed a JSON object", async () => {
+  const replies = { object: '{"version":1,"summary":{}}', array: "[1,2]", text: "not json", nothing: "null" };
+  const results: Record<string, string> = {};
+  for (const [name, reply] of Object.entries(replies)) {
+    const fake = fakeBin(`printf '%s' '${reply}'`);
+    const r = await psView(fake.bin);
+    results[name] = r.ok ? "ok" : r.code;
+    fake.done();
+  }
+  assert.deepEqual(results, { object: "ok", array: "failed", text: "failed", nothing: "failed" });
 });
 
 test("a step-in becomes piggery's own verb; a model change needs a model or a thinking level", () => {
