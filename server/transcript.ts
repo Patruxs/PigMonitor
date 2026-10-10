@@ -40,11 +40,6 @@ export function runLogs(dir: string): string[] {
     .map((f) => path.join(dir, f));
 }
 
-export function page(items: Item[], before: number | undefined, limit: number): Item[] {
-  const end = before === undefined ? items.length : Math.max(0, Math.min(before, items.length));
-  return items.slice(Math.max(0, end - limit), end);
-}
-
 export class TranscriptReader {
   private logs = new Map<string, Logs>();
   private rev = 0;
@@ -89,7 +84,7 @@ export class TranscriptReader {
     return stamp === undefined ? JSON.stringify(item) : `${this.keyOf(item)}:${stamp}`;
   }
 
-  read(dbFile: string, id: string, before: number | undefined, limit: number, person?: string, since?: Cursor): TranscriptResult {
+  read(dbFile: string, id: string, limit: number, person?: string, since?: Cursor): TranscriptResult {
     let who: Participant | null = null;
     try {
       who = this.mail.participant(dbFile, id);
@@ -124,11 +119,10 @@ export class TranscriptReader {
           roles = this.mail.teammates(dbFile, who.team_id);
         } catch {}
       }
-      const changed = since?.epoch === logs.epoch && before === undefined ? logs.revs.findIndex((at) => at > since.rev) : undefined;
+      const changed = since?.epoch === logs.epoch ? logs.revs.findIndex((at) => at > since.rev) : undefined;
       const from = changed === undefined ? undefined : changed < 0 ? merged.length : changed;
-      const end = from === undefined && before !== undefined ? Math.max(0, Math.min(before, merged.length)) : merged.length;
-      const start = from ?? Math.max(0, end - limit);
-      const items = merged.slice(start, end).map((item, k) => ({ ...item, i: start + k, key: this.keyOf(item) }));
+      const start = from ?? Math.max(0, merged.length - limit);
+      const items = merged.slice(start).map((item, k) => ({ ...item, i: start + k, key: this.keyOf(item) }));
       return { ok: true, items, total: merged.length, name: who?.name ?? id, role: who?.role ?? undefined, files: files.length, ...(roles ? { roles } : {}), ...(usage ? { usage } : {}), epoch: logs.epoch, rev, ...(from === undefined ? {} : { from }) };
     } catch (error) {
       return { ok: false, code: "failed", error: `Could not read the session log: ${String((error as Error).message ?? error)}` };

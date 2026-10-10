@@ -73,7 +73,7 @@ export async function configureAgent(agentId: string, field: AgentField, value: 
   return { ok: true, notice: (r.value as ProviderNoticeData | null) ?? null };
 }
 
-export async function listUsageReports(options: { agentId?: string; forceRefresh?: boolean; reportIds?: string[] }): Promise<{ ok: true; reports: UsageReportEntryData[] } | { ok: false; code: "older" | "failed"; error: string }> {
+export async function listUsageReports(options: { agentId?: string; forceRefresh?: boolean }): Promise<{ ok: true; reports: UsageReportEntryData[] } | { ok: false; code: "older" | "failed"; error: string }> {
   const r = await daemonCall("listUsageReports", [options]);
   if (!r.ok) return { ok: false, code: /Update the host/.test(r.error) ? "older" : "failed", error: r.error };
   const reports = ((r.value as { reports?: unknown[] } | null)?.reports ?? []).flatMap((report) => {

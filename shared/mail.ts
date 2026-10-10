@@ -28,15 +28,13 @@ export const MailTeam = z.object({ id: z.string(), name: z.string(), dir: z.stri
 
 export type MailTeam = z.infer<typeof MailTeam>;
 
-export const MailPage = z.object({ messages: z.array(MailMessage), teams: z.record(z.string(), MailTeam), total: z.number().int() });
+export const MailPage = z.object({ messages: z.array(MailMessage), teams: z.record(z.string(), MailTeam) });
 
 export type MailPage = z.infer<typeof MailPage>;
 
 export const MailFilter = z.object({
-  teams: z.array(z.string()).optional(),
   participants: z.array(z.string()).optional(),
   participant: z.string().optional(),
-  before: z.number().int().optional(),
   held: z.boolean().optional(),
   limit: z.number().int().min(1).max(1000).default(100),
 });

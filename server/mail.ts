@@ -54,26 +54,15 @@ function placeholders(n: number): string {
 export function whereOf(filter: MailFilter): { sql: string; params: (string | number)[] } {
   const clauses: string[] = [];
   const params: (string | number)[] = [];
-  const scope: string[] = [];
-  if (filter.teams && filter.teams.length > 0) {
-    scope.push(`m.team_id IN (${placeholders(filter.teams.length)})`);
-    params.push(...filter.teams);
-  }
   if (filter.participants && filter.participants.length > 0) {
-    scope.push(`m.from_id IN (${placeholders(filter.participants.length)})`, `m.to_id IN (${placeholders(filter.participants.length)})`);
+    clauses.push(`(m.from_id IN (${placeholders(filter.participants.length)}) OR m.to_id IN (${placeholders(filter.participants.length)}))`);
     params.push(...filter.participants, ...filter.participants);
-  }
-  if (scope.length > 0) clauses.push(`(${scope.join(" OR ")})`);
-  else if (filter.teams || filter.participants) clauses.push("0");
+  } else if (filter.participants) clauses.push("0");
   if (filter.participant) {
     clauses.push("(m.from_id = ? OR m.to_id = ?)");
     params.push(filter.participant, filter.participant);
   }
   if (filter.held) clauses.push("m.held_reason IS NOT NULL");
-  if (filter.before !== undefined) {
-    clauses.push("m.seq < ?");
-    params.push(filter.before);
-  }
   return { sql: clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "", params };
 }
 
@@ -178,7 +167,6 @@ export class MailReader {
   private query(db: DatabaseSync, filter: MailFilter): MailResult {
     const { sql, params } = whereOf(filter);
     const rows = db.prepare(`${SELECT}${sql} ORDER BY m.seq DESC LIMIT ?`).all(...params, filter.limit) as unknown as Raw[];
-    const total = (db.prepare(`SELECT COUNT(*) AS n FROM messages m${sql}`).get(...params) as unknown as { n: number }).n;
     const messages = rows.map(toMessage);
     const teamIds = [...new Set(messages.map((m) => m.team).filter((t): t is string => t !== undefined))];
     const teams: Record<string, MailTeam> = {};
@@ -186,6 +174,6 @@ export class MailReader {
       const found = db.prepare(`SELECT id, name, root_cwd, closed_at FROM teams WHERE id IN (${placeholders(teamIds.length)})`).all(...teamIds) as unknown as RawTeam[];
       for (const t of found) teams[t.id] = { id: t.id, name: t.name, dir: t.root_cwd, ...(t.closed_at !== null ? { closed: t.closed_at } : {}) };
     }
-    return { ok: true, messages, teams, total };
+    return { ok: true, messages, teams };
   }
 }

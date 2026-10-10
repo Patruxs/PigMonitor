@@ -11,12 +11,10 @@ test("the database is the setting, else the one in piggery's home", () => {
   assert.ok(pickDatabase("").endsWith(path.join(".piggery", "piggery.db")));
 });
 
-test("whereOf builds the scope, the participant and the page", () => {
+test("whereOf builds the scope, the participant and the held filter", () => {
   assert.deepEqual(whereOf({ limit: 10 }), { sql: "", params: [] });
-  assert.deepEqual(whereOf({ limit: 10, teams: ["t1", "t2"] }), { sql: " WHERE (m.team_id IN (?, ?))", params: ["t1", "t2"] });
-  assert.deepEqual(whereOf({ limit: 10, teams: ["t1"], participants: ["p1"] }), { sql: " WHERE (m.team_id IN (?) OR m.from_id IN (?) OR m.to_id IN (?))", params: ["t1", "p1", "p1"] });
-  assert.deepEqual(whereOf({ limit: 10, teams: [] }), { sql: " WHERE 0", params: [] });
-  assert.deepEqual(whereOf({ limit: 10, participant: "p", before: 50 }), { sql: " WHERE (m.from_id = ? OR m.to_id = ?) AND m.seq < ?", params: ["p", "p", 50] });
+  assert.deepEqual(whereOf({ limit: 10, participants: ["p1"], participant: "p" }), { sql: " WHERE (m.from_id IN (?) OR m.to_id IN (?)) AND (m.from_id = ? OR m.to_id = ?)", params: ["p1", "p1", "p", "p"] });
+  assert.deepEqual(whereOf({ limit: 10, participants: [] }), { sql: " WHERE 0", params: [] });
   assert.deepEqual(whereOf({ limit: 10, participant: "p", held: true }), { sql: " WHERE (m.from_id = ? OR m.to_id = ?) AND m.held_reason IS NOT NULL", params: ["p", "p"] });
 });
 
@@ -47,7 +45,6 @@ test("MailReader reads mail newest first with names, reply seqs and the teams it
     const r = reader.read(file, { limit: 10 });
     assert.ok(r.ok);
     if (!r.ok) return;
-    assert.equal(r.total, 5);
     assert.deepEqual(r.messages.map((m) => m.seq), [5, 4, 3, 2, 1]);
     const handback = r.messages.find((m) => m.seq === 2);
     assert.deepEqual(handback, { id: "m2", seq: 2, team: "t1", from: "peer", from_name: "ci", from_role: "peer", to: "lead", to_name: "lead", to_role: "lead", kind: "handback", reply_to: "m1", reply_seq: 1, body: "Done", created_at: 200 });
@@ -63,22 +60,16 @@ test("MailReader reads mail newest first with names, reply seqs and the teams it
   }
 });
 
-test("MailReader scopes by teams and solos, by one participant, and pages by seq", () => {
+test("MailReader scopes by the person's mail with one participant, and takes the newest up to the limit", () => {
   const { dir, file } = farm();
   const reader = new MailReader();
   try {
-    const scoped = reader.read(file, { limit: 10, teams: ["t1"], participants: ["solo"] });
-    assert.ok(scoped.ok);
-    if (scoped.ok) assert.deepEqual(scoped.messages.map((m) => m.seq), [5, 2, 1]);
-    const one = reader.read(file, { limit: 10, participant: "peer" });
+    const between = reader.read(file, { limit: 10, participants: ["solo"], participant: "lead" });
+    assert.ok(between.ok);
+    if (between.ok) assert.deepEqual(between.messages.map((m) => m.seq), [5]);
+    const one = reader.read(file, { limit: 2, participant: "peer" });
     assert.ok(one.ok);
-    if (one.ok) assert.deepEqual(one.messages.map((m) => m.seq), [3, 2, 1]);
-    const page = reader.read(file, { limit: 2, before: 4 });
-    assert.ok(page.ok);
-    if (page.ok) {
-      assert.deepEqual(page.messages.map((m) => m.seq), [3, 2]);
-      assert.equal(page.total, 3);
-    }
+    if (one.ok) assert.deepEqual(one.messages.map((m) => m.seq), [3, 2]);
   } finally {
     reader.close();
     rmSync(dir, { recursive: true, force: true });

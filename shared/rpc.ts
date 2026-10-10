@@ -36,7 +36,7 @@ export const mail = defineRpc({
 
 export const transcript = defineRpc({
   name: "pigmonitor.transcript",
-  input: z.object({ id: z.string().min(1), before: z.number().int().optional(), limit: z.number().int().min(1).max(200000).default(20000), since: z.object({ epoch: z.string(), rev: z.number().int() }).optional() }),
+  input: z.object({ id: z.string().min(1), limit: z.number().int().min(1).max(200000).default(20000), since: z.object({ epoch: z.string(), rev: z.number().int() }).optional() }),
   output: z.union([Transcript.extend({ ok: z.literal(true) }), Failure]),
 });
 
@@ -133,7 +133,7 @@ export const agentConfig = defineRpc({
 
 export const usageReports = defineRpc({
   name: "pigmonitor.usage-reports",
-  input: z.object({ agentId: z.string().min(1).optional(), forceRefresh: z.boolean().optional(), reportIds: z.array(z.string()).optional() }),
+  input: z.object({ agentId: z.string().min(1).optional(), forceRefresh: z.boolean().optional() }),
   output: z.union([z.object({ ok: z.literal(true), reports: z.array(UsageReportEntry) }), Failure]),
 });
 
@@ -234,7 +234,6 @@ export const models = defineRpc({
   output: z.union([z.object({ ok: z.literal(true), models: z.array(z.string()) }), Failure]),
 });
 
-export const RPC_NAMES = [snapshot.name, tail.name, mail.name, transcript.name, person.name, sendMail.name, sessions.name, resume.name, agentConfig.name, usageReports.name, stop.name, imageFile.name, promptImages.name, upload.name, forgeSearch.name, timelinePrompts.name, rewind.name, timelineSearch.name, dirSuggest.name, checkoutRemote.name, dictationStatus.name, transcribe.name, notifyStatus.name, stepIn.name, models.name];
 
 /** What the user folded, the tab they chose (shared/folds.ts) and the Sessions list width: kept per Paseo host, saved by the app after a change. */
 export const viewSettings = defineSettings({

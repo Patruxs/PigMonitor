@@ -14,7 +14,7 @@ const optOf = (o: Rec, keys: string[], ok: (v: unknown) => boolean): boolean => 
 const optStr = (o: Rec, ...keys: string[]): boolean => optOf(o, keys, isStr);
 const str = (o: Rec | undefined, k: string): string | undefined => (o && isStr(o[k]) ? (o[k] as string) : undefined);
 
-export function nonEmptyString(value: unknown): string | undefined {
+function nonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
@@ -36,7 +36,7 @@ function looksLikeCodexShellEnvelope(lines: string[]): boolean {
   return head.some((l) => l.startsWith("wall time:")) && head.some((l) => l.startsWith("process exited with code"));
 }
 
-export function extractCodexShellOutput(value: string | undefined): string | undefined {
+function extractCodexShellOutput(value: string | undefined): string | undefined {
   const text = nonEmptyString(value);
   if (!text) return undefined;
   const lines = text.replace(/\r\n/g, "\n").split("\n");
@@ -62,7 +62,7 @@ function flattenReadContent(value: ReadContent | undefined): string | undefined 
 
 const READ_GUTTER_LINE = /^\s*(\d+)\t(.*)$/;
 
-export function stripReadLineNumberGutter(content: string | undefined): { content: string; startLine?: number } | undefined {
+function stripReadLineNumberGutter(content: string | undefined): { content: string; startLine?: number } | undefined {
   const text = nonEmptyString(content);
   if (!text) return undefined;
   const stripped: string[] = [];
@@ -99,7 +99,7 @@ export function stripReadLineNumberGutter(content: string | undefined): { conten
   return { content: stripped.join("\n"), startLine };
 }
 
-export function truncateDiffText(text: string | undefined, maxChars = 12_000): string | undefined {
+function truncateDiffText(text: string | undefined, maxChars = 12_000): string | undefined {
   if (typeof text !== "string") return undefined;
   if (text.length <= maxChars) return text;
   return `${text.slice(0, maxChars)}\n...[truncated ${text.length - maxChars} chars]`;
@@ -385,7 +385,7 @@ function searchDetail(toolName: SearchToolName, input: unknown, output: unknown)
   return branch(input, output, searchInput, (v) => (isWebSearchOutput(v) ? v : undefined), (i, o) => toSearchDetail(i, "web_search", o));
 }
 
-export function deriveClaudeToolDetail(name: string, input: unknown, output: unknown): ToolCallDetail {
+function deriveClaudeToolDetail(name: string, input: unknown, output: unknown): ToolCallDetail {
   const unknown: ToolCallDetail = { type: "unknown", input: input ?? null, output: output ?? null };
   if (!name) return unknown;
   let detail: ToolCallDetail | undefined;

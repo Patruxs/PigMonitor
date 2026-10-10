@@ -44,8 +44,8 @@ export default function contribute(server: PluginServerContext) {
 
   const savePasted = pastedImageSaver(`${ATTACH_ROOT}/pasted`);
   const transcripts = new TranscriptReader(reader, savePasted);
-  server.handle(transcript, async ({ id, before, limit, since }) => {
-    return transcripts.read(await database(), id, before, limit, me.current(piggeryHome())?.id, since);
+  server.handle(transcript, async ({ id, limit, since }) => {
+    return transcripts.read(await database(), id, limit, me.current(piggeryHome())?.id, since);
   });
 
   server.handle(imageFile, async ({ path }) => readImage(path));
