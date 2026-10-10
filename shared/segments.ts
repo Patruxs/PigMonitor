@@ -98,3 +98,15 @@ export function piecesIn(segments: readonly Segment[], from: number, until: numb
   }
   return out;
 }
+
+export function uncoveredIn(from: number, until: number, covers: readonly { start: number; end: number }[]): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = [];
+  let cursor = from;
+  for (const cover of [...covers].sort((a, b) => a.start - b.start)) {
+    if (cover.start > cursor) out.push({ start: cursor, end: Math.min(cover.start, until) });
+    cursor = Math.max(cursor, cover.end);
+    if (cursor >= until) break;
+  }
+  if (cursor < until) out.push({ start: cursor, end: until });
+  return out.filter((gap) => gap.end > gap.start);
+}

@@ -10,7 +10,7 @@ import { keptAxisSteps } from "../shared/axis.ts";
 import { agoText, clockText, readView, related, type Block, type Column, type Detail, type Dir, type EventRow, type Head, type Row, type Status, type TailKind, type Tone, type View as PigView } from "../shared/view.ts";
 import { DetailDialog, type Index } from "./dialog.tsx";
 import { barColours, PastSegments } from "./gantt.tsx";
-import { piecesIn, type Segment } from "../shared/segments.ts";
+import { piecesIn, uncoveredIn, type Segment } from "../shared/segments.ts";
 import { Header } from "./header.tsx";
 import { conversationsOf, HiddenProjects, SessionsPane } from "./sessions.tsx";
 import type { Navigation } from "./native.tsx";
@@ -311,6 +311,11 @@ function stateWords(row: Row): { word: string; since: string } {
   return { word: row.state_text.replace(/^[^\p{L}]+/u, ""), since: row.since ?? "" };
 }
 
+function currentWordFits(row: Row, scale: Scale): boolean {
+  const since = row.state_since ?? row.created_at ?? scale.start;
+  return xOf(scale, scale.now) - xOf(scale, Math.max(since, scale.start)) >= WORD_MIN;
+}
+
 function Track({ theme, member, segments, scale, events, onPress }: { theme: PluginTheme; member: Member; segments: Segment[]; scale: Scale; events: { t: number; tone: Tone; type: string }[]; onPress: () => void }) {
   const { row } = member;
   const born = row.created_at ?? scale.start;
@@ -318,26 +323,26 @@ function Track({ theme, member, segments, scale, events, onPress }: { theme: Plu
   const gone = row.status === "gone";
   const end = gone ? since : scale.now;
   const lifeX = xOf(scale, Math.max(born, scale.start));
-  const lifeW = Math.max(2, xOf(scale, end) - lifeX);
   const stateX = xOf(scale, Math.max(since, scale.start));
   const stateW = Math.max(6, xOf(scale, scale.now) - stateX);
   const { word, since: sinceText } = stateWords(row);
   const doing = member.detail?.task ? member.detail.task.title.replace(/^#\d+\s*/, "").trim() : "";
   const own = paint(theme, row.role, row.id);
   const colours = barColours(theme, row.status, own);
-  const status = statusColour(theme, row.status);
   const top = TRACK_H / 2 - BAR_H / 2;
-  const inside = stateW >= WORD_MIN;
+  const inside = currentWordFits(row, scale);
   const pieces = piecesIn(segments, scale.start, Math.min(since, scale.now), scale.now);
-  const outsideRoom = stateX - SPACING[2];
+  const lifeGaps = uncoveredIn(Math.max(born, scale.start), end, gone ? pieces : [...pieces, { start: since, end: scale.now }]);
   return (
     <PressRow theme={theme} onPress={onPress} label={`${row.name}, ${row.state_text}`} style={{ height: TRACK_H, justifyContent: "center" }}>
-      <View style={{ position: "absolute", left: lifeX, width: lifeW, top: TRACK_H / 2 - LIFE_H / 2, height: LIFE_H, borderRadius: LIFE_H / 2, backgroundColor: own, opacity: gone ? 0.25 : 0.55 }} />
+      {lifeGaps.map((gap) => (
+        <View key={gap.start} style={{ position: "absolute", left: xOf(scale, gap.start), width: Math.max(2, xOf(scale, gap.end) - xOf(scale, gap.start)), top: TRACK_H / 2 - LIFE_H / 2, height: LIFE_H, borderRadius: LIFE_H / 2, backgroundColor: own, opacity: gone ? 0.25 : 0.55 }} />
+      ))}
       {born >= scale.start && !gone ? <View style={{ position: "absolute", left: lifeX - 1, top: TRACK_H / 2 - 7, width: 3, height: 14, borderRadius: 1.5, backgroundColor: own }} /> : null}
       <PastSegments theme={theme} pieces={pieces} xOf={(t) => xOf(scale, t)} top={top} height={BAR_H} own={own} />
       {!gone ? (
         <>
-          <View style={{ position: "absolute", left: stateX, width: stateW, top, height: BAR_H, borderRadius: 6, backgroundColor: colours.fill, borderWidth: 1, borderColor: colours.border, overflow: "hidden", justifyContent: "center", paddingHorizontal: SPACING[2] }}>
+          <View style={{ position: "absolute", left: stateX, width: stateW, top, height: BAR_H, borderRadius: 6, backgroundColor: colours.fill, borderWidth: 1, borderColor: colours.border, overflow: "hidden", justifyContent: "center", paddingHorizontal: inside ? SPACING[2] : 0 }}>
             {inside ? (
               <Text style={[text(theme, "label"), { color: colours.ink, fontWeight: "700", lineHeight: 16 }]} numberOfLines={1}>
                 {word}
@@ -346,14 +351,6 @@ function Track({ theme, member, segments, scale, events, onPress }: { theme: Plu
               </Text>
             ) : null}
           </View>
-          {!inside && outsideRoom > WORD_MIN ? (
-            <View style={{ position: "absolute", right: scale.width - stateX + SPACING[1], top, height: BAR_H, justifyContent: "center", maxWidth: outsideRoom, paddingHorizontal: SPACING[1], borderRadius: 6, backgroundColor: pieces.length > 0 ? theme.colors.surface0 : "transparent" }}>
-              <Text style={[text(theme, "label"), { color: status, fontWeight: "700", lineHeight: 16 }]} numberOfLines={1}>
-                {word}
-                {sinceText ? <Text style={{ fontWeight: "500", color: theme.colors.foregroundMuted }}>{`  ${sinceText}`}</Text> : null}
-              </Text>
-            </View>
-          ) : null}
         </>
       ) : (
         <View style={{ position: "absolute", left: Math.min(xOf(scale, since), scale.width - 120), top, height: BAR_H, flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[2], borderRadius: 6, backgroundColor: tint(theme.colors.statusDanger, "1f"), borderWidth: 1, borderColor: tint(theme.colors.statusDanger, "88") }}>
@@ -392,7 +389,7 @@ function TreeGuides({ theme, depth, colour, last }: { theme: PluginTheme; depth:
   );
 }
 
-function TrackLabel({ theme, member, narrow, last, onPress }: { theme: PluginTheme; member: Member; narrow: boolean; last: boolean; onPress: () => void }) {
+function TrackLabel({ theme, member, narrow, last, stateHere, onPress }: { theme: PluginTheme; member: Member; narrow: boolean; last: boolean; stateHere: boolean; onPress: () => void }) {
   const { row } = member;
   const colour = paint(theme, row.role, row.id);
   const dim = row.status === "gone";
@@ -412,10 +409,16 @@ function TrackLabel({ theme, member, narrow, last, onPress }: { theme: PluginThe
           </Text>
           {row.gate ? <Icon name="DoorOpen" size={11} color={theme.colors.foregroundMuted} /> : null}
         </View>
-        {narrow ? null : (
+        {narrow && !stateHere ? null : (
           <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5] }}>
-            <RolePill theme={theme} role={row.role} id={row.id} />
-            {row.ctx ? <Text style={[text(theme, "label"), { fontVariant: ["tabular-nums"] }]} numberOfLines={1}>{row.ctx}</Text> : null}
+            {narrow ? null : <RolePill theme={theme} role={row.role} id={row.id} />}
+            {row.ctx && !narrow ? <Text style={[text(theme, "label"), { fontVariant: ["tabular-nums"], flexShrink: 1 }]} numberOfLines={1}>{row.ctx}</Text> : null}
+            {stateHere ? (
+              <Text style={[text(theme, "label"), { color: status, fontWeight: "700", flexShrink: 0 }]} numberOfLines={1}>
+                {stateWords(row).word}
+                {row.since ? <Text style={{ fontWeight: "500", color: theme.colors.foregroundMuted }}>{` ${row.since}`}</Text> : null}
+              </Text>
+            ) : null}
           </View>
         )}
       </View>
@@ -613,7 +616,7 @@ function Overview({ theme, view, segments, dirs, h, index, whole, width, now, em
                       <Animated.View style={[{ width: labelW, marginLeft: -3, paddingLeft: 3, borderRightWidth: 1, borderRightColor: divider }, sticky]}>
                         <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: tint(lane, i % 2 === 1 ? "0e" : "06") }} />
                         <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: tint(lane, "77") }} />
-                        <TrackLabel theme={theme} member={m} narrow={narrow} last={lastSibling(g.members, i)} onPress={() => h.open(m.row.id)} />
+                        <TrackLabel theme={theme} member={m} narrow={narrow} last={lastSibling(g.members, i)} stateHere={m.row.status !== "gone" && scale.width > 0 && !currentWordFits(m.row, scale)} onPress={() => h.open(m.row.id)} />
                       </Animated.View>
                       <View style={{ width: trackW, paddingRight: NOW_PAD, position: "relative" }}>
                         {scale.width > 0 ? (
