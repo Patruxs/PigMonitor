@@ -6,7 +6,7 @@ import { Pressable, Text, View } from "react-native";
 import type { Usage } from "../shared/context-meter.ts";
 import type { Conversation } from "../shared/conversations.ts";
 import type { MailMessage } from "../shared/mail.ts";
-import { stepInsOf, turnOf, type ChatRoute } from "../shared/chat-route.ts";
+import { paseoBusyOf, stepInsOf, turnOf, withPaseoBusy, type ChatRoute } from "../shared/chat-route.ts";
 import { mail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { replyTarget, type Me } from "../shared/mail.ts";
 import { FileDropZone } from "./attachments-drop.tsx";
@@ -127,7 +127,7 @@ export function Chat({ theme, item, all, me, chat, onSent, onPick, onBack, onInf
   if (route.kind === "open") {
     return (
       <OpenChat key={route.agentId} agentId={route.agentId}>
-        {(timeline) => <ChatPane theme={theme} item={item} all={all} me={me} chat={chat} route={route} timeline={timeline} onSent={onSent} onPick={onPick} onBack={onBack} onInfo={onInfo} />}
+        {(timeline) => <ChatPane theme={theme} item={{ ...item, row: withPaseoBusy(item.row, paseoBusyOf(timeline.agent)) }} all={all} me={me} chat={chat} route={route} timeline={timeline} onSent={onSent} onPick={onPick} onBack={onBack} onInfo={onInfo} />}
       </OpenChat>
     );
   }

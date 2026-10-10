@@ -21,11 +21,22 @@ export function chatRouteOf(participant: ParticipantRecord | undefined, agentId:
   return { kind: "mail", why: "a claude session running outside Paseo" };
 }
 
-export function agentsBySession(entries: { agent: { id: string; provider: string; persistence?: { sessionId?: string } | null } }[]): Map<string, string> {
-  const out = new Map<string, string>();
+export interface PaseoHeld {
+  agentId: string;
+  busy: boolean | null;
+}
+
+export function paseoBusyOf(agent: { status: string; activeTurn?: unknown } | null | undefined): boolean | null {
+  if (!agent) return null;
+  if (agent.status === "running" || agent.activeTurn) return true;
+  return agent.status === "idle" || agent.status === "error" || agent.status === "closed" ? false : null;
+}
+
+export function agentsBySession(entries: { agent: { id: string; provider: string; status: string; activeTurn?: unknown; persistence?: { sessionId?: string } | null } }[]): Map<string, PaseoHeld> {
+  const out = new Map<string, PaseoHeld>();
   for (const { agent } of entries) {
     const ref = agent.persistence?.sessionId;
-    if (ref && agent.provider.startsWith("claude") && !out.has(ref)) out.set(ref, agent.id);
+    if (ref && agent.provider.startsWith("claude") && !out.has(ref)) out.set(ref, { agentId: agent.id, busy: paseoBusyOf(agent) });
   }
   return out;
 }
@@ -37,6 +48,11 @@ export function abortable(state: string): boolean {
 export interface Turn {
   active: boolean;
   meterStatus: string;
+}
+
+export function withPaseoBusy<R extends Pick<Row, "state" | "status" | "state_text">>(row: R, paseoBusy: boolean | null): R {
+  if (paseoBusy === null || row.status === "gone" || paseoBusy === abortable(row.state)) return row;
+  return paseoBusy ? { ...row, state: "working", status: "working", state_text: "working" } : { ...row, state: "idle", status: "idle", state_text: "idle" };
 }
 
 export function turnOf(row: Pick<Row, "state" | "status">): Turn {

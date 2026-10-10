@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { abortable, chatRouteOf, releasable, stepInsOf, turnOf, type ParticipantRecord } from "./chat-route.ts";
+import { abortable, chatRouteOf, paseoBusyOf, releasable, stepInsOf, turnOf, withPaseoBusy, type ParticipantRecord } from "./chat-route.ts";
 
 const claude = (over: Partial<ParticipantRecord>): ParticipantRecord => ({ id: "p", ref: "s1", harness: "claude", mode: "interactive", cwd: "/w", gone: false, state: "working", teamClosed: false, ...over });
 
@@ -39,4 +39,14 @@ test("a held message can be released unless its team is closed", () => {
 test("a worker awaiting permission is mid-turn for both Stop and the turn indicator", () => {
   assert.deepEqual(turnOf({ state: "awaiting_permission", status: "waiting" }), { active: true, meterStatus: "running" });
   assert.deepEqual(turnOf({ state: "idle", status: "waiting" }), { active: false, meterStatus: "waiting" });
+});
+
+test("an open Paseo agent decides busy or idle over piggery's state, and piggery's state stands without one", () => {
+  const working = { state: "working", status: "working" as const, state_text: "working" };
+  const idle = { state: "idle", status: "idle" as const, state_text: "idle" };
+  const interrupted = withPaseoBusy(working, paseoBusyOf({ status: "idle", activeTurn: null }));
+  assert.deepEqual({ status: interrupted.status, stop: turnOf(interrupted).active }, { status: "idle", stop: false });
+  const started = withPaseoBusy(idle, paseoBusyOf({ status: "running", activeTurn: { turnId: "t" } }));
+  assert.deepEqual({ status: started.status, stop: turnOf(started).active }, { status: "working", stop: true });
+  assert.equal(withPaseoBusy(working, paseoBusyOf(null)), working);
 });

@@ -1,9 +1,9 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { usePaseo, useRpc, type PluginSurfaceProps } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/react-native";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { agentsBySession, chatRouteOf, type ChatRoute, type ParticipantRecord } from "../shared/chat-route.ts";
+import { agentsBySession, chatRouteOf, paseoBusyOf, type ChatRoute, type PaseoHeld, type ParticipantRecord } from "../shared/chat-route.ts";
 import { resume, sessions, stop } from "../shared/rpc.ts";
 import { useLiveAgent, type PaseoApi } from "./agent-live.ts";
 import { SPACING, text } from "./kit/theme.ts";
@@ -16,12 +16,12 @@ const PAGE_SIZE = 200;
 const MAX_PAGES = 5;
 
 
-async function agentsFor(paseo: PaseoApi, wanted: string[]): Promise<Map<string, string>> {
-  const found = new Map<string, string>();
+async function agentsFor(paseo: PaseoApi, wanted: string[]): Promise<Map<string, PaseoHeld>> {
+  const found = new Map<string, PaseoHeld>();
   let cursor: string | undefined;
   for (let page = 0; page < MAX_PAGES && wanted.some((ref) => !found.has(ref)); page++) {
     const r = await paseo.agents.list({ filter: { includeArchived: true }, sort: [{ key: "updated_at", direction: "desc" }], page: { limit: PAGE_SIZE, ...(cursor ? { cursor } : {}) } });
-    for (const [ref, id] of agentsBySession(r.entries)) if (!found.has(ref)) found.set(ref, id);
+    for (const [ref, held] of agentsBySession(r.entries)) if (!found.has(ref)) found.set(ref, held);
     if (!r.pageInfo.hasMore || !r.pageInfo.nextCursor) break;
     cursor = r.pageInfo.nextCursor;
   }
@@ -35,6 +35,7 @@ export interface ChatRouting {
   canOpen: boolean;
   routeOf: (id: string) => ChatRoute;
   participant: (id: string) => ParticipantRecord | undefined;
+  paseoBusy: (id: string) => boolean | null;
   open: (agentId: string) => void;
   resume: (id: string) => Promise<string | null>;
 }
@@ -45,7 +46,17 @@ export function useChatRouting(ids: string[], selected: string, navigation: Navi
   const callResume = useRpc(resume);
   const [bump, setBump] = useState(0);
   const lastKnown = useRef<ParticipantRecord[] | null>(null);
-  const lastAgents = useRef<Map<string, string> | null>(null);
+  const lastAgents = useRef<Map<string, PaseoHeld> | null>(null);
+  const [liveBusy, setLiveBusy] = useState<ReadonlyMap<string, boolean | null>>(new Map());
+  useEffect(
+    () =>
+      paseo.agents.subscribe((update) => {
+        if (update.kind !== "upsert") return;
+        const busy = paseoBusyOf(update.agent);
+        setLiveBusy((had) => (had.get(update.agent.id) === busy ? had : new Map(had).set(update.agent.id, busy)));
+      }),
+    [paseo],
+  );
   const asked = [...ids].sort();
   const { value: fresh } = usePoll(
     async () => {
@@ -61,7 +72,7 @@ export function useChatRouting(ids: string[], selected: string, navigation: Navi
   const wanted = known.filter((s) => s.ref && (!s.gone || s.id === selected)).map((s) => s.ref as string);
   const { value: found } = usePoll(
     async () => {
-      if (wanted.length === 0) return { ok: true as const, value: new Map<string, string>() };
+      if (wanted.length === 0) return { ok: true as const, value: new Map<string, PaseoHeld>() };
       try {
         return { ok: true as const, value: await agentsFor(paseo, wanted) };
       } catch (error) {
@@ -72,15 +83,21 @@ export function useChatRouting(ids: string[], selected: string, navigation: Navi
     () => QUIET_MS,
   );
   if (found) lastAgents.current = found;
-  const agents = lastAgents.current ?? new Map<string, string>();
+  const agents = lastAgents.current ?? new Map<string, PaseoHeld>();
+  const heldBy = (id: string) => {
+    const ref = byId.get(id)?.ref;
+    return ref ? agents.get(ref) : undefined;
+  };
   return {
     ready: lastKnown.current !== null && lastAgents.current !== null,
     canOpen: navigation !== undefined,
-    routeOf: (id) => {
-      const participant = byId.get(id);
-      return chatRouteOf(participant, participant?.ref ? agents.get(participant.ref) : undefined);
-    },
+    routeOf: (id) => chatRouteOf(byId.get(id), heldBy(id)?.agentId),
     participant: (id) => byId.get(id),
+    paseoBusy: (id) => {
+      const held = heldBy(id);
+      if (!held) return null;
+      return liveBusy.has(held.agentId) ? (liveBusy.get(held.agentId) ?? null) : held.busy;
+    },
     open: (agentId) => navigation?.openAgent({ agentId, ...(serverId ? { serverId } : {}) }),
     resume: async (id) => {
       const r = await callResume({ id });

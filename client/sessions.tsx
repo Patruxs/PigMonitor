@@ -4,6 +4,7 @@ import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { conversationsOf, mostPressing } from "../shared/conversations.ts";
+import { withPaseoBusy } from "../shared/chat-route.ts";
 import { person } from "../shared/rpc.ts";
 import type { Me } from "../shared/mail.ts";
 import type { Dir, View as PigView } from "../shared/view.ts";
@@ -51,10 +52,11 @@ export function SessionsPane({ theme, view, dirs, width, selected, opened, now, 
   const actions = useProjectActions(navigation, serverId, onHide);
   const [sent, setSent] = useState(0);
   const me = usePerson(sent);
-  const items = conversationsOf(view, dirs).filter((c) => c.row.id !== me?.id);
+  const listed = conversationsOf(view, dirs).filter((c) => c.row.id !== me?.id);
   const wide = width >= CHAT_SPLIT_MIN;
+  const chat = useChatRouting(listed.map((c) => c.row.id), (listed.find((c) => c.row.id === selected) ?? (wide ? mostPressing(listed) : undefined))?.row.id ?? "", navigation, serverId);
+  const items = listed.map((c) => ({ ...c, row: withPaseoBusy(c.row, chat.paseoBusy(c.row.id)) }));
   const current = items.find((c) => c.row.id === selected) ?? (wide ? mostPressing(items) : undefined);
-  const chat = useChatRouting(items.map((c) => c.row.id), current?.row.id ?? "", navigation, serverId);
   const [listWidth, setListWidth, saveListWidth] = useSavedListWidth(LIST_WIDTH);
   if (width === 0) return <View style={{ flex: 1 }} />;
   if (items.length === 0) {
