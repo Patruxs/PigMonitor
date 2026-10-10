@@ -6,10 +6,9 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { MailReader, pickDatabase, whereOf } from "./mail.ts";
 
-test("the database is the setting, else PIGGERY_HOME's, else ~/.piggery's", () => {
-  assert.equal(pickDatabase(" /x/piggery.db ", {}), "/x/piggery.db");
-  assert.equal(pickDatabase("", { PIGGERY_HOME: "/farm" }), path.join("/farm", "piggery.db"));
-  assert.ok(pickDatabase("", {}).endsWith(path.join(".piggery", "piggery.db")));
+test("the database is the setting, else the one in piggery's home", () => {
+  assert.equal(pickDatabase(" /x/piggery.db "), "/x/piggery.db");
+  assert.ok(pickDatabase("").endsWith(path.join(".piggery", "piggery.db")));
 });
 
 test("whereOf builds the scope, the participant and the page", () => {

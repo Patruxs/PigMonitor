@@ -1,19 +1,14 @@
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { MailFilter, MailMessage, MailPage, MailTeam } from "../shared/mail.ts";
 import type { Session } from "../shared/native.ts";
+import { piggeryHome } from "./piggery.ts";
 
 export type MailResult = ({ ok: true } & MailPage) | { ok: false; code: "nodb" | "failed"; error: string };
 
-export function defaultDatabase(env: NodeJS.ProcessEnv = process.env): string {
-  const home = env.PIGGERY_HOME?.trim() || path.join(homedir(), ".piggery");
-  return path.join(home, "piggery.db");
-}
-
-export function pickDatabase(setting: string, env: NodeJS.ProcessEnv = process.env): string {
-  return setting.trim() || defaultDatabase(env);
+export function pickDatabase(setting: string): string {
+  return setting.trim() || path.join(piggeryHome(), "piggery.db");
 }
 
 interface Raw {

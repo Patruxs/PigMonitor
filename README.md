@@ -36,7 +36,7 @@ Looking only reads: it runs `piggery ps --view` and `piggery tail --view` with `
 In Paseo, Settings → PigMonitor:
 
 - **piggery binary**: full path to piggery. Empty means `piggery` on PATH.
-- **piggery database**: the database the Sessions tab reads. Empty means `~/.piggery/piggery.db`, or `$PIGGERY_HOME/piggery.db`.
+- **piggery database**: the database the Sessions tab reads. Empty means `~/.piggery/piggery.db`, in piggery's home.
 
 ## Development
 
