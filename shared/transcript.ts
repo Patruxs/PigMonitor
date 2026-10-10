@@ -78,6 +78,7 @@ interface Entry {
   message?: { role?: string; content?: string | Block[] };
   model?: string;
   cwd?: string;
+  session_id?: string;
   total_cost_usd?: number;
   duration_ms?: number;
   num_turns?: number;
@@ -156,6 +157,7 @@ export class Parser {
   private readonly describe: DescribeTool | undefined;
   private cwd: string | undefined;
   private spent = 0;
+  private began: string | undefined;
 
   constructor(run?: string, saveImage?: SaveImage, describe?: DescribeTool) {
     this.run = run;
@@ -187,6 +189,9 @@ export class Parser {
     if (!this.cwd && e.cwd) this.cwd = e.cwd;
     const at = stamp(e);
     if (e.type === "system" && e.subtype === "init") {
+      const began = [e.session_id, e.model, e.cwd].join("\n");
+      if (began === this.began) return;
+      this.began = began;
       this.push({ kind: "session", at, text: [e.model, e.cwd].filter(Boolean).join(" · ") });
       return;
     }

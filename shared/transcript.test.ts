@@ -119,3 +119,10 @@ test("a sent mail's tool call carries the mail's #ref, a refused one does not", 
   const items = parseLines([send("a"), result("a", "sent #1753"), send("b"), result("b", "refused (routing.no_rule): routing does not allow peer -> peer")].join("\n"));
   assert.deepEqual(items.map((i) => i.ref), ["#1753", undefined]);
 });
+
+test("a run is started once, not again for each query, unless its session, model or folder changes", () => {
+  const init = (cwd: string) => line({ type: "system", subtype: "init", session_id: "s1", model: "m", cwd });
+  const say = (text: string) => line({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text }] } });
+  const items = parseLines([init("/p"), say("one"), init("/p"), say("two"), init("/q"), say("three")].join("\n"));
+  assert.deepEqual(items.map((i) => [i.kind, i.text]), [["session", "m · /p"], ["assistant", "one"], ["assistant", "two"], ["session", "m · /q"], ["assistant", "three"]]);
+});
