@@ -2,9 +2,10 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Easing, Pressable, Text, View } from "react-native";
-import { HUMAN, roleColour, roleWord } from "../../shared/mail.ts";
+import { HUMAN, roleWord } from "../../shared/mail.ts";
+import { withAlpha } from "../../shared/palette.ts";
 import type { Status } from "../../shared/view.ts";
-import { statusColour } from "./badge.tsx";
+import { paint, statusColour, usePalette } from "../palette.tsx";
 import { ICON_SIZE, RADIUS, SPACING, text } from "./theme.ts";
 
 export type Colour = keyof PluginTheme["colors"];
@@ -14,12 +15,7 @@ export const AVATAR_SM = 20;
 export const BUBBLE_RADIUS = 14;
 
 export function tint(colour: string, alpha = "22"): string {
-  return /^#[0-9a-fA-F]{6}$/.test(colour) ? `${colour}${alpha}` : colour;
-}
-
-export function paint(theme: PluginTheme, role: string | undefined, id: string): string {
-  const p = roleColour(role, id);
-  return p.kind === "hex" ? p.value : theme.colors[p.value];
+  return withAlpha(colour, alpha);
 }
 
 export function initials(name: string): string {
@@ -40,7 +36,7 @@ export function Avatar({ theme, name, colour, size = AVATAR, icon, dim }: { them
 }
 
 export function RoleAvatar({ theme, name, role, id, size, dim }: { theme: PluginTheme; name: string; role: string | undefined; id: string; size?: number; dim?: boolean }) {
-  return <Avatar theme={theme} name={name} colour={paint(theme, role, id)} size={size} icon={role === HUMAN ? "User" : undefined} dim={dim} />;
+  return <Avatar theme={theme} name={name} colour={paint(usePalette(theme), role, id)} size={size} icon={role === HUMAN ? "User" : undefined} dim={dim} />;
 }
 
 export function AvatarStack({ theme, people, max = 5 }: { theme: PluginTheme; people: { id: string; name: string; role?: string; dim?: boolean }[]; max?: number }) {
@@ -77,11 +73,11 @@ export function Pill({ theme, label, colour, icon, filled, mono, onPress }: { th
 }
 
 export function RolePill({ theme, role, id }: { theme: PluginTheme; role: string | undefined; id: string }) {
-  return <Pill theme={theme} label={roleWord(role, id)} colour={paint(theme, role, id)} filled />;
+  return <Pill theme={theme} label={roleWord(role, id)} colour={paint(usePalette(theme), role, id)} filled />;
 }
 
 export function StatusPill({ theme, status, word, dim }: { theme: PluginTheme; status: Status; word: string; dim?: boolean }) {
-  const c = statusColour(theme, status, dim);
+  const c = statusColour(usePalette(theme), status, dim);
   const plain = word.replace(/^[^\p{L}]+/u, "");
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[2], height: 22, borderRadius: 11, backgroundColor: tint(c, "16"), borderWidth: 1, borderColor: tint(c, "44") }} accessibilityLabel={word}>
@@ -115,7 +111,7 @@ function usePulse(on: boolean): Animated.Value {
 }
 
 export function StatusDot({ theme, status, dim, size = 12 }: { theme: PluginTheme; status: Status; dim?: boolean; size?: number }) {
-  const c = statusColour(theme, status, dim);
+  const c = statusColour(usePalette(theme), status, dim);
   const opacity = usePulse(status === "working" && !dim);
   const hollow = status === "idle" || status === "gone";
   return (
@@ -126,7 +122,7 @@ export function StatusDot({ theme, status, dim, size = 12 }: { theme: PluginThem
 }
 
 export function StatusWord({ theme, status, dim }: { theme: PluginTheme; status: Status; dim?: boolean }) {
-  const c = statusColour(theme, status, dim);
+  const c = statusColour(usePalette(theme), status, dim);
   const busy = !dim && (status === "working" || status === "waiting");
   return (
     <Text style={[text(theme, "label"), { color: c, fontWeight: busy ? "600" : "400", flexShrink: 0 }]} numberOfLines={1}>

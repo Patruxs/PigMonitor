@@ -8,8 +8,9 @@ import type { MailMessage } from "../shared/mail.ts";
 import { mail, person, sendMail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
 import { latestFrom, type Me } from "../shared/thread.ts";
 import { briefAgo, type Dir, type Row, type Status, type View as PigView } from "../shared/view.ts";
-import { Chip, statusColour } from "./kit/badge.tsx";
-import { AVATAR, AvatarStack, Pill, RoleAvatar, STATUS_WORD, StatusDot, StatusPill, StatusWord, paint, tint } from "./kit/chat.tsx";
+import { Chip } from "./kit/badge.tsx";
+import { AVATAR, AvatarStack, Pill, RoleAvatar, STATUS_WORD, StatusDot, StatusPill, StatusWord, tint } from "./kit/chat.tsx";
+import { paint, statusColour, usePalette } from "./palette.tsx";
 import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
 import { Notice } from "./kit/notice.tsx";
 import { PressRow } from "./kit/press.tsx";
@@ -178,23 +179,26 @@ function SearchBox({ theme, value, onChange }: { theme: PluginTheme; value: stri
 }
 
 function StatusRing({ theme, status }: { theme: PluginTheme; status: Status }) {
+  const palette = usePalette(theme);
   const size = AVATAR_LG + RING_GAP * 2;
-  return <View style={{ position: "absolute", left: -RING_GAP, top: -RING_GAP, width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: tint(statusColour(theme, status), "99") }} />;
+  return <View style={{ position: "absolute", left: -RING_GAP, top: -RING_GAP, width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: tint(statusColour(palette, status), "99") }} />;
 }
 
 function UnreadBadge({ theme, count }: { theme: PluginTheme; count: number }) {
+  const palette = usePalette(theme);
   return (
-    <View style={{ minWidth: 20, height: 20, paddingHorizontal: SPACING[1.5], borderRadius: 10, backgroundColor: theme.colors.accent, alignItems: "center", justifyContent: "center" }} accessibilityLabel={`${count} unread`}>
+    <View style={{ minWidth: 20, height: 20, paddingHorizontal: SPACING[1.5], borderRadius: 10, backgroundColor: palette.mail, alignItems: "center", justifyContent: "center" }} accessibilityLabel={`${count} unread`}>
       <Text style={{ fontSize: 11, lineHeight: 13, fontWeight: "600", color: theme.colors.surface0, fontVariant: ["tabular-nums"] }}>{count > 99 ? "99+" : String(count)}</Text>
     </View>
   );
 }
 
 function ConversationRow({ theme, item, spot, selected, now, onPress }: { theme: PluginTheme; item: Conversation; spot: TreeSpot; selected: boolean; now: number; onPress: () => void }) {
+  const palette = usePalette(theme);
   const { row } = item;
   const dim = row.dim === true || row.status === "gone";
   const busy = !dim && (row.status === "working" || row.status === "waiting");
-  const colour = dim ? theme.colors.foregroundMuted : paint(theme, row.role, row.id);
+  const colour = dim ? theme.colors.foregroundMuted : paint(palette, row.role, row.id);
   const style = (state: PressableStateCallbackType) => ({
     flexDirection: "row" as const,
     alignItems: "center" as const,
@@ -472,6 +476,7 @@ function sessionItems(theme: PluginTheme, item: Conversation, native: Native, ch
 }
 
 function CompactChatHead({ theme, item, native, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
+  const palette = usePalette(theme);
   const toast = useToast();
   const { row } = item;
   const place = item.teamName ?? basenameOf(item.dir.path);
@@ -490,7 +495,7 @@ function CompactChatHead({ theme, item, native, chat, writable, steps, onBack, o
         <Text style={[text(theme, "rowTitle"), { fontWeight: "600", flexShrink: 1 }]} numberOfLines={1}>
           {row.name}
         </Text>
-        {row.role ? <Pill theme={theme} label={row.role} colour={paint(theme, row.role, row.id)} filled /> : null}
+        {row.role ? <Pill theme={theme} label={row.role} colour={paint(palette, row.role, row.id)} filled /> : null}
         <StatusWord theme={theme} status={row.status} dim={row.dim} />
         <Text style={[text(theme, "label"), { flexShrink: 2, minWidth: 0 }]} numberOfLines={1}>
           {place}
@@ -502,13 +507,14 @@ function CompactChatHead({ theme, item, native, chat, writable, steps, onBack, o
 }
 
 function ChatHead({ theme, item, native, chat, writable, steps, onBack, onInfo }: { theme: PluginTheme; item: Conversation; native: Native; chat: NativeChat; writable: boolean; steps: MenuItem[]; onBack?: () => void; onInfo: () => void }) {
+  const palette = usePalette(theme);
   const compactFormFactor = useWindowDimensions().width < COMPACT_HEAD_BELOW;
   const [width, setWidth] = useState(0);
   if (compactFormFactor) return <CompactChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />;
   const stacked = width > 0 && width < HEAD_STACK_BELOW;
   const link = <NativeLink theme={theme} id={item.row.id} native={native} chat={chat} writable={writable} />;
   const { row } = item;
-  const colour = paint(theme, row.role, row.id);
+  const colour = paint(palette, row.role, row.id);
   const sub = [row.harness, row.model && row.model !== "-" ? row.model : undefined, row.ctx ? `${row.ctx} ctx` : undefined, row.turns ? `${row.turns} turns` : undefined].filter(Boolean).join(" · ");
   const project = basenameOf(item.dir.path);
   return (

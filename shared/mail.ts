@@ -1,3 +1,5 @@
+import { ROLE_KEYS, type RoleKey } from "./palette.ts";
+
 export const MAIL_VERSION = 1;
 
 export const ENGINE_ID = "engine";
@@ -86,25 +88,13 @@ export type RoleTone = "accent" | "success" | "warning" | "muted";
 
 export const HUMAN = "human";
 
-export const ROLE_PALETTE: Record<string, string> = {
-  supervisor: "#a78bfa",
-  chair: "#a78bfa",
-  lead: "#38bdf8",
-  peer: "#34d399",
-  executor: "#2dd4bf",
-  member: "#2dd4bf",
-  advisor: "#f472b6",
-  oracle: "#f472b6",
-  reviewer: "#f472b6",
-};
-
-export type Paint = { kind: "hex"; value: string } | { kind: "token"; value: "accent" | "foregroundMuted" };
+export type Paint = { kind: "role"; value: RoleKey } | { kind: "token"; value: "accent" | "foregroundMuted" };
 
 export function roleColour(role: string | undefined, id: string): Paint {
   if (role === HUMAN) return { kind: "token", value: "accent" };
   if (PSEUDO_IDS.has(id) || !role) return { kind: "token", value: "foregroundMuted" };
-  const hex = ROLE_PALETTE[role];
-  return hex ? { kind: "hex", value: hex } : { kind: "token", value: "foregroundMuted" };
+  const key = ROLE_KEYS[role];
+  return key ? { kind: "role", value: key } : { kind: "token", value: "foregroundMuted" };
 }
 
 export function roleWord(role: string | undefined, id: string): string {

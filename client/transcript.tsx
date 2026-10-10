@@ -12,7 +12,8 @@ import { StreamView, type ViewportHandle } from "./stream.tsx";
 import { clockText } from "../shared/view.ts";
 import { Markdown } from "./kit/markdown.tsx";
 import { MESSAGE_TEXT } from "./message.tsx";
-import { AVATAR, AVATAR_SM, paint, Panel, Pill, Quiet, RoleAvatar, tint } from "./kit/chat.tsx";
+import { AVATAR, AVATAR_SM, Panel, Pill, Quiet, RoleAvatar, tint } from "./kit/chat.tsx";
+import { paint, usePalette } from "./palette.tsx";
 import { Notice } from "./kit/notice.tsx";
 import { SPACING, text } from "./kit/theme.ts";
 import { BUSY_MS, useNow, usePoll } from "./poll.ts";
@@ -60,8 +61,9 @@ function Message({ avatar, colour, children }: { avatar: ReactNode; colour: stri
 }
 
 export function MailIn({ theme, item, role, now }: { theme: PluginTheme; item: Item; role: string | undefined; now: number }) {
+  const palette = usePalette(theme);
   const from = item.from ?? "mail";
-  const colour = paint(theme, role, from);
+  const colour = paint(palette, role, from);
   return (
     <Message colour={colour} avatar={<RoleAvatar theme={theme} name={from} role={role} id={from} />}>
       <Header

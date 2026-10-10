@@ -3,23 +3,25 @@ import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { headlineOf, readAgo } from "../shared/events.ts";
+import type { ColourKey } from "../shared/palette.ts";
 import { tileWidth } from "../shared/tiles.ts";
 import type { Daemon, Summary } from "../shared/view.ts";
 import { tint } from "./kit/chat.tsx";
 import { DOT, RADIUS, SPACING, text } from "./kit/theme.ts";
+import { usePalette } from "./palette.tsx";
 import { GRACE_MS, pollEvery } from "./poll.ts";
 
 type Colour = keyof PluginTheme["colors"];
 
 type StatKey = "waiting" | "working" | "idle" | "unacked" | "held" | "teams";
 
-const STATS: { key: StatKey; label: string; colour: Colour | `#${string}`; icon?: string; always?: boolean }[] = [
-  { key: "waiting", label: "need you", colour: "statusWarning" },
-  { key: "working", label: "working", colour: "statusSuccess" },
-  { key: "idle", label: "idle", colour: "#60a5fa" },
-  { key: "unacked", label: "unread mail", colour: "#f472b6", icon: "Mail" },
-  { key: "held", label: "held mail", colour: "#fb923c", icon: "Inbox" },
-  { key: "teams", label: "teams", colour: "#a78bfa", icon: "Users", always: true },
+const STATS: { key: StatKey; label: string; colour: ColourKey; icon?: string; always?: boolean }[] = [
+  { key: "waiting", label: "need you", colour: "waiting" },
+  { key: "working", label: "working", colour: "working" },
+  { key: "idle", label: "idle", colour: "idle" },
+  { key: "unacked", label: "unread mail", colour: "mail", icon: "Mail" },
+  { key: "held", label: "held mail", colour: "mailHeld", icon: "Inbox" },
+  { key: "teams", label: "teams", colour: "team", icon: "Users", always: true },
 ];
 
 const HEADLINE_COLOUR: Record<"warning" | "success" | "muted", Colour> = { warning: "statusWarning", success: "foreground", muted: "foregroundMuted" };
@@ -27,8 +29,7 @@ const HEADLINE_COLOUR: Record<"warning" | "success" | "muted", Colour> = { warni
 const TILE_MIN = 88;
 const TILE_MAX = 220;
 
-function StatTile({ theme, n, label, colour, icon, width }: { theme: PluginTheme; n: number; label: string; colour: Colour | `#${string}`; icon?: string; width: number | undefined }) {
-  const c = colour.startsWith("#") ? colour : theme.colors[colour as Colour];
+function StatTile({ theme, n, label, colour: c, icon, width }: { theme: PluginTheme; n: number; label: string; colour: string; icon?: string; width: number | undefined }) {
   const lit = n > 0;
   return (
     <View accessibilityLabel={`${n} ${label}`} style={{ width, minWidth: width === undefined ? TILE_MIN : undefined, paddingHorizontal: SPACING[3], paddingVertical: SPACING[2], borderRadius: RADIUS.lg, borderWidth: 1, borderColor: lit ? tint(c, "55") : theme.colors.border, backgroundColor: lit ? tint(c, "14") : theme.colors.surface1, gap: SPACING[0.5] }}>
@@ -45,6 +46,7 @@ function StatTile({ theme, n, label, colour, icon, width }: { theme: PluginTheme
 
 export function Header({ theme, summary, daemon, at, now }: { theme: PluginTheme; summary: Summary; daemon: Daemon | undefined; at: number | null; now: number }) {
   const [rowW, setRowW] = useState(0);
+  const palette = usePalette(theme);
   const count = (key: StatKey) => summary[key] ?? 0;
   const stats = STATS.filter((s) => s.always || count(s.key) > 0);
   const tileW = rowW > 0 ? tileWidth(rowW, stats.length, TILE_MIN, TILE_MAX, SPACING[2]) : undefined;
@@ -69,7 +71,7 @@ export function Header({ theme, summary, daemon, at, now }: { theme: PluginTheme
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACING[2] }} onLayout={(e) => setRowW(e.nativeEvent.layout.width)}>
         {stats.map((s) => (
-          <StatTile key={s.key} theme={theme} n={count(s.key)} label={s.label} colour={s.colour} icon={s.icon} width={tileW} />
+          <StatTile key={s.key} theme={theme} n={count(s.key)} label={s.label} colour={palette[s.colour]} icon={s.icon} width={tileW} />
         ))}
       </View>
       {daemon?.outdated ? <Text style={text(theme, "label", "statusWarning")}>{daemon.outdated}</Text> : null}

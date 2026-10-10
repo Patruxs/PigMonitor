@@ -8,6 +8,7 @@ import type { Transcript } from "./transcript.ts";
 import type { ToolCallDetail } from "./tool-call.ts";
 import { UsageReportEntry } from "./usage-schema.ts";
 import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./speech.ts";
+import { PALETTE_KEYS, type PaletteKey } from "./palette.ts";
 
 /**
  * Why piggery gave nothing: not installed at that path, daemon not running, a piggery older (no
@@ -358,6 +359,13 @@ export const viewSettings = defineSettings({
   scope: "host",
   version: 1,
   schema: z.object({ teams: z.record(z.string(), z.boolean()).default({}), gone: z.record(z.string(), z.boolean()).default({}), tab: z.enum(["overview", "graph", "board", "mail", "sessions"]).default("overview"), listWidth: z.number().optional(), hidden: z.record(z.string(), z.boolean()).default({}) }),
+});
+
+export const colourSettings = defineSettings({
+  id: "pigmonitor-colours",
+  scope: "host",
+  version: 1,
+  schema: z.object(Object.fromEntries(PALETTE_KEYS.map((key) => [key, z.string().optional()])) as Record<PaletteKey, z.ZodOptional<z.ZodString>>),
 });
 
 /** A piggery binary the user chose; empty uses the one that installed the plugin, else PATH. */

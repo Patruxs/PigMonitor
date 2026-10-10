@@ -1,18 +1,12 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Pressable, Text } from "react-native";
 import type { Status } from "../../shared/view.ts";
+import { statusColour, usePalette } from "../palette.tsx";
 import { RADIUS, SPACING, text } from "./theme.ts";
-
-/** A status's colour: working success, waiting warning, gone danger, idle muted (as piggery top). */
-export function statusColour(theme: PluginTheme, status: Status, dim?: boolean): string {
-  if (dim) return theme.colors.foregroundMuted;
-  const c = theme.colors;
-  return { working: c.statusSuccess, idle: c.foregroundMuted, waiting: c.statusWarning, gone: c.statusDanger }[status];
-}
 
 /** The state as piggery says it ("● working", "◐ waiting"): its glyph is the shape, so it never rests on colour alone. */
 export function StateWord({ theme, status, word, dim }: { theme: PluginTheme; status: Status; word: string; dim?: boolean }) {
-  return <Text style={[text(theme, "meta"), { color: statusColour(theme, status, dim) }]} numberOfLines={1}>{word}</Text>;
+  return <Text style={[text(theme, "meta"), { color: statusColour(usePalette(theme), status, dim) }]} numberOfLines={1}>{word}</Text>;
 }
 
 /** A filter chip with its count; the chosen one is filled. */

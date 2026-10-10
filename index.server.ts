@@ -12,7 +12,7 @@ import { adminCall } from "./server/admin.ts";
 import { StateRecorder, STATES_FILE } from "./server/states.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
-import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
+import { agentConfig, colourSettings, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
 import { TAIL_VERSION } from "./shared/view.ts";
 
 const STEP_IN_TIMEOUT_MS = 30000;
@@ -20,6 +20,7 @@ const STEP_IN_TIMEOUT_MS = 30000;
 export default function contribute(server: PluginServerContext) {
   const stored = server.registerSettings(settings);
   server.registerSettings(viewSettings);
+  server.registerSettings(colourSettings);
   const bin = async () => {
     const state = await stored.read();
     return pickBin(state.status === "ready" ? state.values.path : "", piggeryPath);

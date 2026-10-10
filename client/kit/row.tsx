@@ -9,8 +9,8 @@ import type { ReactNode } from "react";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import type { Row } from "../../shared/view.ts";
-import { statusColour } from "./badge.tsx";
-import { Pill, RoleAvatar, StatusPill, paint, tint } from "./chat.tsx";
+import { paint, statusColour, usePalette } from "../palette.tsx";
+import { Pill, RoleAvatar, StatusPill, tint } from "./chat.tsx";
 import { PressRow } from "./press.tsx";
 import { BOTH_MIN, CARD_RADIUS, CTX_MIN, DOT, NAME_MIN, ROW_ONE, SHARE, SPACING, STATE_MIN, text } from "./theme.ts";
 
@@ -31,13 +31,14 @@ export function Lead({ left, children }: { left: number; children: ReactNode }) 
 
 /** The columns after the name: role, state, ctx, since (a line without a role or ctx leaves its cells empty). */
 export function Tail({ theme, row, columns, dim, noState }: { theme: PluginTheme; row: Row; columns: Columns; dim?: boolean; /** The state is said elsewhere (a Board column's heading): leave its cell out. */ noState?: boolean }) {
+  const palette = usePalette(theme);
   const num = { fontVariant: ["tabular-nums" as const] };
   const cell = { minWidth: 0 };
   const faded = dim ?? row.dim === true;
   return (
     <View style={{ width: tailWidth(columns, !noState), flexShrink: 0, flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
       {columns === "both" ? (
-        <View style={{ flex: SHARE.role, minWidth: 0, flexDirection: "row" }}>{row.role ? <Pill theme={theme} label={row.role} colour={faded ? theme.colors.foregroundMuted : paint(theme, row.role, row.id)} filled={!faded} /> : null}</View>
+        <View style={{ flex: SHARE.role, minWidth: 0, flexDirection: "row" }}>{row.role ? <Pill theme={theme} label={row.role} colour={faded ? theme.colors.foregroundMuted : paint(palette, row.role, row.id)} filled={!faded} /> : null}</View>
       ) : null}
       {noState ? null : (
         <View style={{ flex: SHARE.state, minWidth: STATE_MIN, flexDirection: "row" }}>
@@ -56,6 +57,7 @@ export function Tail({ theme, row, columns, dim, noState }: { theme: PluginTheme
  * every kind of line at a width.
  */
 export function AgentRow({ theme, row, left, slot, columns, noState, onPress }: { theme: PluginTheme; row: Row; left: number; slot: number; columns: Columns; noState?: boolean; onPress: () => void }) {
+  const palette = usePalette(theme);
   const dim = row.dim === true;
   return (
     <PressRow theme={theme} onPress={onPress} label={`${row.name}, ${row.state_text}`} style={{ flexDirection: "row", minHeight: ROW_ONE + SPACING[1] }}>
@@ -66,7 +68,7 @@ export function AgentRow({ theme, row, left, slot, columns, noState, onPress }: 
             {row.name}
           </Text>
           {row.gate ? <Pill theme={theme} label="gate" icon="DoorOpen" /> : null}
-          {columns !== "both" && row.role ? <Text style={[text(theme, "label"), { color: dim ? theme.colors.foregroundMuted : paint(theme, row.role, row.id) }]} numberOfLines={1}>{row.role}</Text> : null}
+          {columns !== "both" && row.role ? <Text style={[text(theme, "label"), { color: dim ? theme.colors.foregroundMuted : paint(palette, row.role, row.id) }]} numberOfLines={1}>{row.role}</Text> : null}
         </Lead>
         <Tail theme={theme} row={row} columns={columns} noState={noState} />
       </View>
@@ -88,11 +90,12 @@ export function taskWords(title: string): string {
  * carries the state's colour; hover marks the border in the role's colour.
  */
 export function AgentCard({ theme, row, task, onPress }: { theme: PluginTheme; row: Row; task?: string; onPress: () => void }) {
+  const palette = usePalette(theme);
   const dim = row.dim === true;
-  const colour = dim ? theme.colors.foregroundMuted : paint(theme, row.role, row.id);
+  const colour = dim ? theme.colors.foregroundMuted : paint(palette, row.role, row.id);
   const doing = task ? taskWords(task) : "";
   const fallback = row.kind === "solo" ? `${row.harness ?? "agent"} session` : "No task yet";
-  const status = statusColour(theme, row.status, dim);
+  const status = statusColour(palette, row.status, dim);
   const busy = row.status === "working" || row.status === "waiting";
   const style = (state: PressableStateCallbackType) => {
     const hovered = (state as PressableStateCallbackType & { hovered?: boolean }).hovered === true;

@@ -37,6 +37,7 @@ In Paseo, Settings → PigMonitor:
 
 - **piggery binary**: full path to piggery. Empty means `piggery` on PATH.
 - **piggery database**: the database the Sessions tab reads. Empty means `~/.piggery/piggery.db`, in piggery's home.
+- **Colours**: the colours of states, roles, mail and teams. Each takes a hex colour (`#rgb`, `#rrggbb`, `#rrggbbaa`) or a Paseo theme token such as `statusSuccess`; team lanes take 1 to 8 hex colours. Copy palette as JSON and Paste palette JSON share a palette.
 
 ## Development
 
