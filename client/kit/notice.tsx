@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 import { ICON_SIZE, SPACING, text } from "./theme.ts";
 
 /** What the plugin says when there is nothing to draw: one icon, a title, one line of why, apart for each cause. */
-export const NOTICES: Record<string, { icon: string; title: string; warn?: boolean }> = {
+const NOTICES: Record<string, { icon: string; title: string; warn?: boolean }> = {
   missing: { icon: "FileQuestion", title: "piggery is not installed", warn: true },
   down: { icon: "ServerOff", title: "The piggery daemon is not running", warn: true },
   older: { icon: "ArrowDownToLine", title: "This piggery is older than the plugin", warn: true },

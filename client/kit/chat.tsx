@@ -11,7 +11,6 @@ export type Colour = keyof PluginTheme["colors"];
 
 export const AVATAR = 28;
 export const AVATAR_SM = 20;
-export const BUBBLE_RADIUS = 14;
 
 export function tint(colour: string, alpha = "22"): string {
   return /^#[0-9a-fA-F]{6}$/.test(colour) ? `${colour}${alpha}` : colour;
@@ -22,14 +21,14 @@ export function paint(theme: PluginTheme, role: string | undefined, id: string):
   return p.kind === "hex" ? p.value : theme.colors[p.value];
 }
 
-export function initials(name: string): string {
+function initials(name: string): string {
   const parts = name.replace(/[^\p{L}\p{N} _-]/gu, " ").split(/[\s_-]+/).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-export function Avatar({ theme, name, colour, size = AVATAR, icon, dim }: { theme: PluginTheme; name: string; colour: string; size?: number; icon?: string; dim?: boolean }) {
+function Avatar({ theme, name, colour, size = AVATAR, icon, dim }: { theme: PluginTheme; name: string; colour: string; size?: number; icon?: string; dim?: boolean }) {
   const c = dim ? theme.colors.foregroundMuted : colour;
   const big = size >= AVATAR;
   return (
@@ -149,18 +148,6 @@ export function Legend({ theme, entries }: { theme: PluginTheme; entries: { labe
   );
 }
 
-export function DayDivider({ theme, label }: { theme: PluginTheme; label: string }) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[3], paddingVertical: SPACING[4] }}>
-      <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.border }} />
-      <View style={{ paddingHorizontal: SPACING[3], height: 22, borderRadius: 11, backgroundColor: theme.colors.surface1, borderWidth: 1, borderColor: theme.colors.border, justifyContent: "center" }}>
-        <Text style={text(theme, "label")}>{label}</Text>
-      </View>
-      <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.border }} />
-    </View>
-  );
-}
-
 export function Quiet({ theme, icon, label, colour }: { theme: PluginTheme; icon: string; label: string; colour?: string }) {
   const c = colour ?? theme.colors.foregroundMuted;
   return (
@@ -177,11 +164,3 @@ export function Panel({ theme, children, tone }: { theme: PluginTheme; children:
   return <View style={{ gap: SPACING[2], padding: SPACING[3], borderRadius: RADIUS.lg, backgroundColor: tone ? tint(tone, "0d") : theme.colors.surface1, borderWidth: 1, borderColor: tone ? tint(tone, "55") : theme.colors.border }}>{children}</View>;
 }
 
-export function StatCard({ theme, value, label, colour }: { theme: PluginTheme; value: string | number; label: string; colour?: Colour }) {
-  return (
-    <View style={{ flexGrow: 1, flexBasis: 96, minWidth: 96, paddingHorizontal: SPACING[3], paddingVertical: SPACING[2], borderRadius: RADIUS.lg, backgroundColor: theme.colors.surface1, borderWidth: 1, borderColor: theme.colors.border, gap: SPACING[0.5] }} accessibilityLabel={`${value} ${label}`}>
-      <Text style={[text(theme, "stat", colour ?? "foreground"), { fontVariant: ["tabular-nums"] }]}>{value}</Text>
-      <Text style={text(theme, "label")}>{label}</Text>
-    </View>
-  );
-}

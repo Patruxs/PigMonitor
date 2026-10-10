@@ -5,7 +5,7 @@ import { Text, View } from "react-native";
 import { PressRow } from "./press.tsx";
 import { ICON_SIZE, RADIUS, ROW_MIN, SPACING, text } from "./theme.ts";
 
-export interface Option {
+interface Option {
   value: string;
   label: string;
   count?: number;

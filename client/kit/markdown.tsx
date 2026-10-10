@@ -90,7 +90,7 @@ function PictureOf({ theme, path, alt, viewer }: { theme: PluginTheme; path: str
   );
 }
 
-export type Look = "plain" | "assistant";
+type Look = "plain" | "assistant";
 
 function tag(name: string): object {
   return { dataSet: { paseoMarkdownTag: name } };

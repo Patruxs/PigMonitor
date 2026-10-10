@@ -19,8 +19,8 @@ export type Columns = "both" | "ctx" | "none";
 export const columnsFor = (width: number): Columns => (width >= BOTH_MIN ? "both" : width >= CTX_MIN ? "ctx" : "none");
 
 /** The tail's width as a share of the line: the same for every line, so its columns start at one x. */
-function tailWidth(columns: Columns, state: boolean): `${number}%` {
-  const tail = (state ? SHARE.state : 0) + SHARE.since + (columns !== "none" ? SHARE.ctx : 0) + (columns === "both" ? SHARE.role : 0);
+function tailWidth(columns: Columns): `${number}%` {
+  const tail = SHARE.state + SHARE.since + (columns !== "none" ? SHARE.ctx : 0) + (columns === "both" ? SHARE.role : 0);
   return `${(100 * tail) / (SHARE.name + tail)}%`;
 }
 
@@ -30,20 +30,18 @@ export function Lead({ left, children }: { left: number; children: ReactNode }) 
 }
 
 /** The columns after the name: role, state, ctx, since (a line without a role or ctx leaves its cells empty). */
-export function Tail({ theme, row, columns, dim, noState }: { theme: PluginTheme; row: Row; columns: Columns; dim?: boolean; /** The state is said elsewhere (a Board column's heading): leave its cell out. */ noState?: boolean }) {
+export function Tail({ theme, row, columns, dim }: { theme: PluginTheme; row: Row; columns: Columns; dim?: boolean }) {
   const num = { fontVariant: ["tabular-nums" as const] };
   const cell = { minWidth: 0 };
   const faded = dim ?? row.dim === true;
   return (
-    <View style={{ width: tailWidth(columns, !noState), flexShrink: 0, flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
+    <View style={{ width: tailWidth(columns), flexShrink: 0, flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
       {columns === "both" ? (
         <View style={{ flex: SHARE.role, minWidth: 0, flexDirection: "row" }}>{row.role ? <Pill theme={theme} label={row.role} colour={faded ? theme.colors.foregroundMuted : paint(theme, row.role, row.id)} filled={!faded} /> : null}</View>
       ) : null}
-      {noState ? null : (
-        <View style={{ flex: SHARE.state, minWidth: STATE_MIN, flexDirection: "row" }}>
-          <StatusPill theme={theme} status={row.status} word={row.state_text} dim={faded} />
-        </View>
-      )}
+      <View style={{ flex: SHARE.state, minWidth: STATE_MIN, flexDirection: "row" }}>
+        <StatusPill theme={theme} status={row.status} word={row.state_text} dim={faded} />
+      </View>
       {columns !== "none" ? <Text style={[text(theme, "label"), cell, num, { flex: SHARE.ctx, textAlign: "right" }]} numberOfLines={1}>{row.ctx ?? ""}</Text> : null}
       <Text style={[text(theme, "label"), cell, num, { flex: SHARE.since, textAlign: "right" }]} numberOfLines={1}>{row.since ? `for ${row.since}` : ""}</Text>
     </View>
@@ -55,7 +53,7 @@ export function Tail({ theme, row, columns, dim, noState }: { theme: PluginTheme
  * slot. `slot` is what stays free at the right edge (the room of a line's info button), the same for
  * every kind of line at a width.
  */
-export function AgentRow({ theme, row, left, slot, columns, noState, onPress }: { theme: PluginTheme; row: Row; left: number; slot: number; columns: Columns; noState?: boolean; onPress: () => void }) {
+export function AgentRow({ theme, row, left, slot, columns, onPress }: { theme: PluginTheme; row: Row; left: number; slot: number; columns: Columns; onPress: () => void }) {
   const dim = row.dim === true;
   return (
     <PressRow theme={theme} onPress={onPress} label={`${row.name}, ${row.state_text}`} style={{ flexDirection: "row", minHeight: ROW_ONE + SPACING[1] }}>
@@ -68,7 +66,7 @@ export function AgentRow({ theme, row, left, slot, columns, noState, onPress }: 
           {row.gate ? <Pill theme={theme} label="gate" icon="DoorOpen" /> : null}
           {columns !== "both" && row.role ? <Text style={[text(theme, "label"), { color: dim ? theme.colors.foregroundMuted : paint(theme, row.role, row.id) }]} numberOfLines={1}>{row.role}</Text> : null}
         </Lead>
-        <Tail theme={theme} row={row} columns={columns} noState={noState} />
+        <Tail theme={theme} row={row} columns={columns} />
       </View>
       <View style={{ width: slot }} />
     </PressRow>

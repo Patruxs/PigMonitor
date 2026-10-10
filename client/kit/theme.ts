@@ -25,15 +25,6 @@ export const RADIUS = { md: 6, lg: 8 } as const;
 /** A line's least height (control-geometry.ts:27 FIELD_CONTROL_HEIGHT): a team, a dialog's button, a filter's option. */
 export const ROW_MIN = 44;
 
-/** The Board's band divider: one slim line. */
-export const ROW_BAND = 28;
-
-/** A fold mark hung in the panel's gutter (SPACING[4] wide): it must fit inside it. */
-export const FOLD_MARK = 12;
-
-/** An event's line: dense, as it is only a muted note. */
-export const ROW_EVENT = 24;
-
 /** A participant's line: one line, so a team of fifteen stays within a screen. */
 export const ROW_ONE = 36;
 
@@ -64,12 +55,6 @@ export const INDENT = SPACING[4];
 
 /** A disclosure's chevron and the gap after it: what a team's members are indented by, so their bars start under the team's icon. */
 export const CHEVRON_SLOT = ICON_SIZE.sm + SPACING[2];
-
-/** At least this wide, the Board is a row of columns; narrower, they stack. */
-export const BOARD_COLUMNS_MIN = 720;
-
-/** One Board column's least width. */
-export const COLUMN_MIN = 220;
 
 /** A Board card's corner, and its cell's. */
 export const CARD_RADIUS = 12;
@@ -105,7 +90,7 @@ const ROLES = {
   code: { fontSize: FONT_SIZE.code, lineHeight: 18, fontWeight: "400", colour: "foreground", fontFamily: "monospace" },
 } as const satisfies Record<string, TextStyle & { colour: Colour }>;
 
-export type Role = keyof typeof ROLES;
+type Role = keyof typeof ROLES;
 
 /** The style of a text role; `colour` swaps only its colour. */
 export function text(theme: PluginTheme, role: Role, colour?: Colour): TextStyle {

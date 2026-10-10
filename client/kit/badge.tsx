@@ -10,11 +10,6 @@ export function statusColour(theme: PluginTheme, status: Status, dim?: boolean):
   return { working: c.statusSuccess, idle: c.foregroundMuted, waiting: c.statusWarning, gone: c.statusDanger }[status];
 }
 
-/** The state as piggery says it ("● working", "◐ waiting"): its glyph is the shape, so it never rests on colour alone. */
-export function StateWord({ theme, status, word, dim }: { theme: PluginTheme; status: Status; word: string; dim?: boolean }) {
-  return <Text style={[text(theme, "meta"), { color: statusColour(theme, status, dim) }]} numberOfLines={1}>{word}</Text>;
-}
-
 /** A filter chip with its count; the chosen one is filled. */
 export function Chip({ theme, label, count, on, onPress }: { theme: PluginTheme; label: string; count?: number; on: boolean; onPress: () => void }) {
   return (

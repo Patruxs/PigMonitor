@@ -34,7 +34,7 @@ export function SheetText({ style, ...props }: TextProps) {
   return <Text {...props} style={fontFamily ? [style, { fontFamily }] : style} />;
 }
 
-export function useSheetPresentation(): boolean {
+function useSheetPresentation(): boolean {
   return useCompact();
 }
 
