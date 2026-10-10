@@ -6,11 +6,12 @@ import { Person } from "./server/person.ts";
 import { checkoutRemoteUrl, configureAgent, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
 import { ATTACH_ROOT, bodyWithAttachments, bodyWithImages, saveImages, uploadTooLarge } from "./server/attach.ts";
 import { TranscriptReader } from "./server/transcript.ts";
+import { PromptImageReader } from "./server/prompt-images.ts";
 import { notifyHooksSet } from "./server/notify.ts";
 import { adminCall } from "./server/admin.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
-import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, person, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
+import { agentConfig, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
 import { TAIL_VERSION } from "./shared/view.ts";
 
 const STEP_IN_TIMEOUT_MS = 30000;
@@ -66,6 +67,9 @@ export default function contribute(server: PluginServerContext) {
   });
 
   server.handle(imageFile, async ({ path }) => readImage(path));
+
+  const prompts = new PromptImageReader(pastedImageSaver(`${ATTACH_ROOT}/pasted`));
+  server.handle(promptImages, async ({ id }) => prompts.read(reader, await database(), id));
   void database().then((db) => me.warm(db));
   server.handle(person, async () => {
     const who = me.current(await database());

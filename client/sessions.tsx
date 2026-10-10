@@ -26,6 +26,7 @@ import { NativeLink, useNative, useStop, type Navigation, type NativeChat, type 
 import { MailStream } from "./transcript.tsx";
 import { StreamView, type ViewportHandle } from "./stream.tsx";
 import { useAgentTimeline, type AgentTimeline } from "./timeline.ts";
+import { useWithPromptImages } from "./prompt-images.ts";
 import { RewindMenu } from "./rewind.tsx";
 import { useHasComposerTracks } from "./tracks.tsx";
 import { createUserMessage, generateMessageId } from "../shared/stream.ts";
@@ -646,14 +647,15 @@ function hintOf(item: Conversation, native: Native, me: Me | null): string | und
   return `Piggery mail to ${item.row.name}${why} · ${who} · attachments go as file paths and links · ${keys}`;
 }
 
-function OpenStream({ theme, timeline, cwd, draftKey, viewportRef }: { theme: PluginTheme; timeline: AgentTimeline; cwd: string; draftKey: string; viewportRef: { current: ViewportHandle | null } }) {
+function OpenStream({ theme, id, timeline, cwd, draftKey, viewportRef }: { theme: PluginTheme; id: string; timeline: AgentTimeline; cwd: string; draftKey: string; viewportRef: { current: ViewportHandle | null } }) {
   const composerTracks = useHasComposerTracks(timeline.agentId);
+  const { tail, head } = useWithPromptImages(id, timeline.tail, timeline.head);
   return (
     <StreamView
       theme={theme}
       streamKey={timeline.agentId}
-      tail={timeline.tail}
-      head={timeline.head}
+      tail={tail}
+      head={head}
       turn={timeline.turn}
       cwd={timeline.agent?.cwd ?? cwd}
       permissions={timeline.permissions}
@@ -732,7 +734,7 @@ function ChatPane({ theme, item, all, me, chat, native, timeline, onSent, onPick
     <FileDropZone theme={theme} style={{ flex: 1, minWidth: 0 }}>
     <KeyboardAvoidingPane>
       <ChatHead theme={theme} item={item} native={native} chat={chat} writable={writable} steps={steps} onBack={onBack} onInfo={onInfo} />
-      {timeline ? <OpenStream theme={theme} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} onUsage={setLogUsage} />}
+      {timeline ? <OpenStream theme={theme} id={item.row.id} timeline={timeline} cwd={item.dir.path} draftKey={item.row.id} viewportRef={viewportRef} /> : <MailStream theme={theme} id={item.row.id} refresh={bump} working={item.row.status === "working"} workingSince={item.row.state_since} cwd={item.dir.path} viewportRef={viewportRef} onUsage={setLogUsage} />}
       {step.note ? <StepInNotice theme={theme} note={step.note} onDismiss={step.dismiss} /> : null}
       {writable ? (
         <Composer key={item.row.id} draftKey={item.row.id} cwd={item.dir.path} theme={theme} placeholder={ended ? "This session has ended" : `Message ${item.row.name}`} disabled={!chat.ready || ended} hint={hintOf(item, native, me)} controls={native.kind === "open" ? ({ isCompactLayout }) => <AgentControls theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : undefined} trailing={native.kind === "open" ? ({ isCompactLayout }) => <AgentContextMeter theme={theme} agentId={native.agentId} isCompactLayout={isCompactLayout} /> : ({ isCompactLayout }) => <SessionContextMeter theme={theme} usage={logUsage} status={logStatus} isCompactLayout={isCompactLayout} />} stop={stop} agent={native.kind === "open" && timeline ? { agentId: native.agentId, timeline, open: chat.canOpen ? chat.open : undefined } : undefined} onSend={send} />

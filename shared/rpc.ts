@@ -257,6 +257,12 @@ export const stop = defineRpc({
   output: z.union([z.object({ ok: z.literal(true) }), Failure]),
 });
 
+export const promptImages = defineRpc({
+  name: "pigmonitor.prompt-images",
+  input: z.object({ id: z.string().min(1) }),
+  output: z.union([z.object({ ok: z.literal(true), prompts: z.array(z.object({ uuid: z.string(), keys: z.array(z.string()), images: z.array(z.object({ path: z.string(), mimeType: z.string() })) })) }), Failure]),
+});
+
 export const imageFile = defineRpc({
   name: "pigmonitor.image",
   input: z.object({ path: z.string().min(1) }),
@@ -342,7 +348,7 @@ export const models = defineRpc({
   output: z.union([z.object({ ok: z.literal(true), models: z.array(z.string()) }), Failure]),
 });
 
-export const RPC_NAMES = [snapshot.name, tail.name, mail.name, transcript.name, person.name, sendMail.name, sessions.name, resume.name, agentConfig.name, usageReports.name, stop.name, imageFile.name, upload.name, forgeSearch.name, timelinePrompts.name, rewind.name, timelineSearch.name, dirSuggest.name, checkoutRemote.name, dictationStatus.name, transcribe.name, notifyStatus.name, stepIn.name, models.name];
+export const RPC_NAMES = [snapshot.name, tail.name, mail.name, transcript.name, person.name, sendMail.name, sessions.name, resume.name, agentConfig.name, usageReports.name, stop.name, imageFile.name, promptImages.name, upload.name, forgeSearch.name, timelinePrompts.name, rewind.name, timelineSearch.name, dirSuggest.name, checkoutRemote.name, dictationStatus.name, transcribe.name, notifyStatus.name, stepIn.name, models.name];
 
 /** What the user folded, the tab they chose (shared/folds.ts) and the Sessions list width: kept per Paseo host, saved by the app after a change. */
 export const viewSettings = defineSettings({
