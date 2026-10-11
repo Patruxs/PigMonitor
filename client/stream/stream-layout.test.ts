@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { StreamItem } from "./stream.ts";
+import type { StreamItem } from "../../shared/stream.ts";
 import { streamOfLog } from "./log-stream.ts";
 import { layoutStream } from "./stream-layout.ts";
 import { createReadingAnchor } from "./stream-scroll.ts";

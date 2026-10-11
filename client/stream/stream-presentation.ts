@@ -1,5 +1,5 @@
-import { splitMarkdownBlocks } from "./markdown.ts";
-import type { AssistantMessageItem, StreamItem, UserMessageItem } from "./stream.ts";
+import { splitMarkdownBlocks } from "./markdown-parse.ts";
+import type { AssistantMessageItem, StreamItem, UserMessageItem } from "../../shared/stream.ts";
 
 export function getStreamItemMessageId(item: StreamItem): string {
   return item.kind === "assistant_message" ? (item.blockGroupId ?? item.id) : item.id;

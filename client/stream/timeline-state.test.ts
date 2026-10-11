@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { EMPTY_TIMELINE, processAgentStreamEvents, processTimelineResponse, type TimelinePage, type TimelineResponseEntry } from "./timeline.ts";
+import { EMPTY_TIMELINE, processAgentStreamEvents, processTimelineResponse, type TimelinePage, type TimelineResponseEntry } from "./timeline-state.ts";
 
 const entry = (seq: number, item: Record<string, unknown>): TimelineResponseEntry => ({ seqStart: seq, seqEnd: seq, provider: "claude", item, timestamp: new Date(Date.UTC(2026, 0, 1, 0, 0, seq)).toISOString() });
 

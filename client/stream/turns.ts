@@ -1,5 +1,5 @@
-import type { StreamItem } from "./stream.ts";
-import type { StreamEventInput } from "./timeline.ts";
+import type { StreamItem } from "../../shared/stream.ts";
+import type { StreamEventInput } from "./timeline-state.ts";
 
 export function continuesTurn(previous: StreamItem | null, next: StreamItem | null): boolean {
   if (!previous || !next) return false;

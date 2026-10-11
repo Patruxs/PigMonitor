@@ -5,7 +5,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { PiggeryDb } from "./db.ts";
-import { streamOfLog } from "../shared/log-stream.ts";
+import { streamOfLog } from "../client/stream/log-stream.ts";
 import { withIncrement } from "../shared/transcript.ts";
 import { logsDirOf, runLogs, TranscriptReader } from "./transcript.ts";
 

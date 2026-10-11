@@ -2,8 +2,8 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { ScrollView as SheetScrollView } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ActivityIndicator, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView as NativeScrollView } from "react-native";
-import type { StreamLayoutItem } from "../shared/stream-layout.ts";
-import { getStreamItemMessageId } from "../shared/stream-presentation.ts";
+import type { StreamLayoutItem } from "./stream-layout.ts";
+import { getStreamItemMessageId } from "./stream-presentation.ts";
 import {
   abandonHistoryStartPaginationRequest,
   createReadingAnchor,
@@ -14,8 +14,8 @@ import {
   type HistoryStartPaginationInput,
   type HistoryStartPaginationState,
   type HistoryStartPaginationTransition,
-} from "../shared/stream-scroll.ts";
-import { hostColours } from "./kit/theme.ts";
+} from "./stream-scroll.ts";
+import { hostColours } from "../kit/theme.ts";
 import { useIsCompact } from "./message.tsx";
 import { historyRowAttributes, historyRows, messageRows } from "./find-anchors.ts";
 

@@ -2,12 +2,12 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View, type PressableStateCallbackType, type TextStyle } from "react-native";
-import { areQuestionsAnswered, buildQuestionFormAnswers, isQuestionAnswered, parseQuestionFormQuestions, questionShowsTextInput, resolveDismissLabel, shouldSubmitEmptyOnDismiss, type QuestionFormQuestion } from "../shared/question.ts";
-import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
+import { areQuestionsAnswered, buildQuestionFormAnswers, isQuestionAnswered, parseQuestionFormQuestions, questionShowsTextInput, resolveDismissLabel, shouldSubmitEmptyOnDismiss, type QuestionFormQuestion } from "./question.ts";
+import { hostColours, RADIUS, SPACING } from "../kit/theme.ts";
 import { PlanCard, useIsCompact } from "./message.tsx";
 import type { PermissionAction, PermissionRequest, PermissionResponse } from "./timeline.ts";
 import { ToolCallDetailsContent } from "./tool-details.tsx";
-import { NO_OUTLINE } from "./kit/platform.ts";
+import { NO_OUTLINE } from "../kit/platform.ts";
 
 
 function hoveredOf(state: PressableStateCallbackType): boolean {

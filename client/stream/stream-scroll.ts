@@ -1,4 +1,4 @@
-import type { StreamItem } from "./stream.ts";
+import type { StreamItem } from "../../shared/stream.ts";
 import { isPrompt } from "./turns.ts";
 
 export const MOUNTED_RECENT_STREAM_ITEMS = 20;

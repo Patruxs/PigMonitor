@@ -2,12 +2,12 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
-import { collectAssistantResponseContent, layoutStream, type StreamLayoutItem, type TurnFooterHost } from "../shared/stream-layout.ts";
-import { findEarlierHistoryWindowStart, findMountedWindowStart, MOUNTED_RECENT_STREAM_ITEMS } from "../shared/stream-scroll.ts";
-import type { PiggeryStreamItem, StreamItem } from "../shared/stream.ts";
-import { createStreamPresentation, getStreamItemMessageId } from "../shared/stream-presentation.ts";
-import { deriveStreamTurnTiming, type TurnPresentation } from "../shared/turns.ts";
-import { MAX_CONTENT_WIDTH, SPACING } from "./kit/theme.ts";
+import { collectAssistantResponseContent, layoutStream, type StreamLayoutItem, type TurnFooterHost } from "./stream-layout.ts";
+import { findEarlierHistoryWindowStart, findMountedWindowStart, MOUNTED_RECENT_STREAM_ITEMS } from "./stream-scroll.ts";
+import type { PiggeryStreamItem, StreamItem } from "../../shared/stream.ts";
+import { createStreamPresentation, getStreamItemMessageId } from "./stream-presentation.ts";
+import { deriveStreamTurnTiming, type TurnPresentation } from "./turns.ts";
+import { MAX_CONTENT_WIDTH, SPACING } from "../kit/theme.ts";
 import { TURN_FOOTER_BOTTOM_SPACING, AssistantMessage, Notification, CompactionMarker, CompletedTurnFooter, RunningTurnFooter, SpeakMessage, ThoughtBadge, TodoListCard, ToolCall, TurnFooterRow, UserMessage, useIsCompact } from "./message.tsx";
 import { ChatFind, useChatFindSelectedMessageId, type AgentHistory } from "./chat-find.tsx";
 import { NativeViewport, WebViewport, type ViewportHandle, type ViewportProps } from "./stream-viewport.tsx";
@@ -15,7 +15,7 @@ import { ChatOutlineRail, useChatOutline } from "./outline.tsx";
 import { PermissionRequestCard } from "./permission.tsx";
 import { TRACK_PILL_CLEARANCE, TRACK_PILL_MIN_HEIGHT } from "./tracks.tsx";
 import type { PermissionRequest, PermissionResponse } from "./timeline.ts";
-import { isWeb } from "./kit/platform.ts";
+import { isWeb } from "../kit/platform.ts";
 
 
 interface StreamHistory {

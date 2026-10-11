@@ -1,6 +1,6 @@
-import { splitImageMarks } from "./attach.ts";
-import type { StreamItem, UserMessageImage } from "./stream.ts";
-import type { Item } from "./transcript.ts";
+import { splitImageMarks } from "../../shared/attach.ts";
+import type { StreamItem, UserMessageImage } from "../../shared/stream.ts";
+import type { Item } from "../../shared/transcript.ts";
 
 function keyOf(item: Item): string {
   return item.key ?? `${item.run ?? ""}:${item.i}`;

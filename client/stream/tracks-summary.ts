@@ -1,5 +1,5 @@
-import type { StreamItem } from "./stream.ts";
-import type { TodoEntry } from "./todos.ts";
+import type { StreamItem } from "../../shared/stream.ts";
+import type { TodoEntry } from "../../shared/todos.ts";
 
 export type Bucket = "failed" | "running";
 

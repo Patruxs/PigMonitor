@@ -1,6 +1,6 @@
 import { usePaseo } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { appendSubmittedUserMessage, removeSubmittedUserMessage, type AgentStreamEvent, type StreamItem, type UserMessageItem } from "../shared/stream.ts";
+import { appendSubmittedUserMessage, removeSubmittedUserMessage, type AgentStreamEvent, type StreamItem, type UserMessageItem } from "../../shared/stream.ts";
 import {
   EMPTY_TIMELINE,
   planTimelineCatchUpAfter,
@@ -13,11 +13,11 @@ import {
   type TimelineFetchPlan,
   type TimelinePage,
   type TimelineState,
-} from "../shared/timeline.ts";
-import { useLiveAgent, type AgentHandle, type PaseoAgent } from "./chat/agent-live.ts";
-import { reduceTurnLiveness, resolveTurnPresentation, turnLivenessOfEvents, TURN_LIVENESS_IDLE, type TurnLiveness, type TurnPresentation } from "../shared/turns.ts";
-import type { ToolCallDetail } from "../shared/tool-call.ts";
-import { messageOf } from "../shared/errors.ts";
+} from "./timeline-state.ts";
+import { useLiveAgent, type AgentHandle, type PaseoAgent } from "../chat/agent-live.ts";
+import { reduceTurnLiveness, resolveTurnPresentation, turnLivenessOfEvents, TURN_LIVENESS_IDLE, type TurnLiveness, type TurnPresentation } from "./turns.ts";
+import type { ToolCallDetail } from "../../shared/tool-call.ts";
+import { messageOf } from "../../shared/errors.ts";
 
 
 export interface PermissionAction {

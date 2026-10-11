@@ -3,13 +3,13 @@ import { usePaseo } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import type { StreamItem } from "../shared/stream.ts";
-import type { TodoEntry } from "../shared/todos.ts";
-import { bucketOf, hasComposerTracks, isFinished, latestTasksFromStream, pillPresentation, resolveRowLabel, type Bucket, type Segment, type SubagentRow } from "../shared/tracks.ts";
-import { AnchoredPopover, SheetText } from "./kit/menu.tsx";
-import { hostColours, MAX_CONTENT_WIDTH, RADIUS, SPACING } from "./kit/theme.ts";
-import { BUSY_MS, usePoll } from "./poll.ts";
-import { messageOf } from "../shared/errors.ts";
+import type { StreamItem } from "../../shared/stream.ts";
+import type { TodoEntry } from "../../shared/todos.ts";
+import { bucketOf, hasComposerTracks, isFinished, latestTasksFromStream, pillPresentation, resolveRowLabel, type Bucket, type Segment, type SubagentRow } from "./tracks-summary.ts";
+import { AnchoredPopover, SheetText } from "../kit/menu.tsx";
+import { hostColours, MAX_CONTENT_WIDTH, RADIUS, SPACING } from "../kit/theme.ts";
+import { BUSY_MS, usePoll } from "../poll.ts";
+import { messageOf } from "../../shared/errors.ts";
 
 
 type ArchiveFinishedStatus = { kind: "idle" } | { kind: "archiving"; completedCount: number; totalCount: number } | { kind: "failed"; failedCount: number; totalCount: number };

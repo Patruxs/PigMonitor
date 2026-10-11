@@ -6,7 +6,7 @@ import { Text, useWindowDimensions, View } from "react-native";
 import { tail } from "../shared/rpc.ts";
 import { turnOf } from "../shared/chat-route.ts";
 import { type Detail, type Row, type TailKind, type View as PigView } from "../shared/view.ts";
-import { LogStream } from "./transcript.tsx";
+import { LogStream } from "./stream/transcript.tsx";
 import { Pill } from "./kit/pill.tsx";
 import { paint, usePalette } from "./palette.tsx";
 import { RoleAvatar } from "./piggery/role.tsx";

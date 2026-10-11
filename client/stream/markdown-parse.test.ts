@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { imagesIn, parseInline, parseMarkdown, splitMarkdownBlocks } from "./markdown.ts";
+import { imagesIn, parseInline, parseMarkdown, splitMarkdownBlocks } from "./markdown-parse.ts";
 
 test("blocks: headings, paragraphs, nested lists, fenced code, quotes and rules", () => {
   const source = ["# Title", "", "Some text", "on two lines.", "", "- one", "  - nested", "- two", "", "3. third", "4. fourth", "", "```ts", "const a = 1;", "", "- not a list", "```", "> quoted **bold**", "", "---"].join("\n");

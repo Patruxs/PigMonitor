@@ -11,7 +11,7 @@ import {
   type AssistantMessageItem,
   type StreamItem,
   type TimelinePosition,
-} from "./stream.ts";
+} from "../../shared/stream.ts";
 
 export const TIMELINE_FETCH_PAGE_SIZE = 40;
 

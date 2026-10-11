@@ -2,13 +2,13 @@ import type { PluginTheme, RpcInput, RpcOutput } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Image, Linking, Pressable, Text, View, type TextStyle } from "react-native";
-import { AttachmentLightbox } from "./kit/lightbox.tsx";
-import { imagesIn, parseMarkdown, type Block, type Inline } from "../shared/markdown.ts";
-import { imageFile } from "../shared/rpc.ts";
-import { RADIUS, SPACING, text } from "./kit/theme.ts";
+import { AttachmentLightbox } from "../kit/lightbox.tsx";
+import { imagesIn, parseMarkdown, type Block, type Inline } from "./markdown-parse.ts";
+import { imageFile } from "../../shared/rpc.ts";
+import { RADIUS, SPACING, text } from "../kit/theme.ts";
 import { markdownTagProps } from "./find-anchors.ts";
-import { boundedMap } from "../shared/bounded-map.ts";
-import { messageOf } from "../shared/errors.ts";
+import { boundedMap } from "../../shared/bounded-map.ts";
+import { messageOf } from "../../shared/errors.ts";
 
 const PICTURE_CACHE_LIMIT = 50;
 
