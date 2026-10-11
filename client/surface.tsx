@@ -27,7 +27,6 @@ import { TabBar } from "./kit/tab-bar.tsx";
 import { ASIDE, BAR, CARD_RADIUS, CHAT_SPLIT_MIN, DOT, CHEVRON_SLOT, ICON_SIZE, ORG_CARD, INDENT, RADIUS, ROW_MIN, ROW_ONE, SPACING, text } from "./kit/theme.ts";
 import { BUSY_MS, QUIET_MS, pollEvery, useNow, usePoll } from "./poll.ts";
 
-/** ps --view, and with `dir` that directory as piggery writes paths (resolved on the daemon side). */
 function useView(dir: string | undefined) {
   const call = useRpc(snapshot);
   return usePoll(
@@ -42,14 +41,12 @@ function useView(dir: string | undefined) {
   );
 }
 
-/** Every participant row of the snapshot (the All and the Closed lists), by id. */
 function indexOf(view: PigView): Index {
   const out: Index = new Map();
   for (const list of [view.all, view.closed]) for (const d of list.dirs) for (const b of d.blocks) for (const r of b.rows) out.set(r.id, r);
   return out;
 }
 
-/** The directories of a workspace: the ones at, inside or around it, its own first. */
 function dirsOf(view: PigView, dir: string | undefined): Dir[] {
   if (dir === undefined) return view.all.dirs;
   const mine = view.all.dirs.filter((d) => related(d.path, dir));
@@ -59,7 +56,6 @@ function dirsOf(view: PigView, dir: string | undefined): Dir[] {
 
 const STATUS_ORDER: Record<string, number> = { working: 0, waiting: 1, idle: 2, gone: 3 };
 
-/** A small button that opens a line's Overview, beside the line's own fold. */
 function InfoButton({ theme, label, onPress }: { theme: PluginTheme; label: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={SPACING[2]}>
@@ -68,7 +64,6 @@ function InfoButton({ theme, label, onPress }: { theme: PluginTheme; label: stri
   );
 }
 
-/** A live team's line: chevron, name, what is wrong with it (amber), and, folded, its counts. */
 function TeamHead({ theme, head, rows, open, onToggle, onInfo, narrow }: { theme: PluginTheme; head: Head; rows: Row[]; open: boolean; onToggle: () => void; onInfo: () => void; narrow: boolean }) {
   const members = rows.filter((r) => r.kind === "member");
   const live = members.filter((m) => m.status !== "gone");
@@ -97,7 +92,6 @@ function TeamHead({ theme, head, rows, open, onToggle, onInfo, narrow }: { theme
   );
 }
 
-/** A team listed as one line (closed, or open with every member gone), and a live team's gone members as one line: dim, with its state and when, in the participants' columns. */
 function QuietLine({ theme, row, icon, open, onToggle, onInfo, left, columns }: { theme: PluginTheme; row: Row; icon?: string; open: boolean; onToggle: () => void; onInfo: () => void; left: number; columns: Columns }) {
   const narrow = columns === "none";
   return (
@@ -111,7 +105,6 @@ function QuietLine({ theme, row, icon, open, onToggle, onInfo, left, columns }: 
   );
 }
 
-/** A participant's indent: under its team's chevron, and one level more for a member below the gate. */
 const indentOf = (row: Row) => CHEVRON_SLOT + row.depth * INDENT;
 
 interface Handlers {
@@ -121,10 +114,8 @@ interface Handlers {
   columns: Columns;
 }
 
-/** One unit of a directory, folded as ps --view says (head.open, row.open, row.folded) unless the user chose. */
 function renderBlock(theme: PluginTheme, block: Block, key: string, h: Handlers) {
   const { folds, change, open } = h;
-  // The width where a participant's line gives its info slot back: every kind of line then does the same.
   const narrow = h.columns === "none";
   const agent = (row: Row) => <AgentRow key={row.id} theme={theme} row={row} left={indentOf(row)} slot={narrow ? 0 : ASIDE} columns={h.columns} onPress={() => open(row.id)} />;
   const member = agent;
@@ -728,7 +719,6 @@ function Activity({ theme, events, index }: { theme: PluginTheme; events: EventR
   );
 }
 
-/** Every participant of the snapshot with the directory it is listed under; closed teams' only when their tab is chosen. */
 interface Item {
   row: Row;
   dir: string;
@@ -752,7 +742,6 @@ function itemsIn(view: PigView, dirs: Dir[] | undefined): Item[] {
   return itemsOf(view).filter((i) => paths.has(i.dir));
 }
 
-/** Who a participant reports to and who reports to it, read off the tree ps --view lists (a row's parent is the nearest row above it one level up, in its block), and each team's template. */
 interface Tree {
   parents: Map<string, Row>;
   reports: Map<string, Row[]>;
@@ -785,30 +774,25 @@ function treeOf(view: PigView): Tree {
 }
 
 
-/** A team's filter is chips up to this many (All included); more teams than that are a select. */
 const TEAM_CHIPS_MAX = 5;
 
-/** Items in groups by `key`, in the order the keys first appear. */
 function groupsOf<T>(items: T[], key: (item: T) => string): [string, T[]][] {
   const out = new Map<string, T[]>();
   for (const item of items) out.set(key(item), [...(out.get(key(item)) ?? []), item]);
   return [...out];
 }
 
-/** A column's word as a heading: "● working" reads "Working"; the dot beside it is the colour. */
 function columnWord(c: Column): string {
   const plain = c.word.replace(/^[^A-Za-z]+/, "");
   return plain.charAt(0).toUpperCase() + plain.slice(1);
 }
 
-/** A directory's label split for a heading: its last segment, bold, and the path before it, muted. */
 function dirWords(label: string): { name: string; path: string } {
   const trimmed = label.replace(/^…\//, "").replace(/\/+$/, "");
   const at = trimmed.lastIndexOf("/");
   return at < 0 ? { name: trimmed, path: "" } : { name: trimmed.slice(at + 1), path: trimmed.slice(0, at + 1) };
 }
 
-/** "3 working · 2 idle": how many of `items` are in each of `columns`, the empty ones left out. */
 function countWords(items: Item[], columns: Column[]): string {
   return columns
     .map((c) => ({ n: items.filter((i) => i.row.status === c.status).length, word: columnWord(c).toLowerCase() }))
@@ -817,7 +801,6 @@ function countWords(items: Item[], columns: Column[]): string {
     .join(" · ");
 }
 
-/** "1 supervisor · 1 lead · 5 peers": how many of each role, in the order the roles first appear (the tree's order: top first). */
 function roleWords(rows: Row[]): string {
   const counts = new Map<string, number>();
   for (const r of rows) {
@@ -827,7 +810,6 @@ function roleWords(rows: Row[]): string {
   return [...counts].map(([role, n]) => `${n} ${n === 1 ? role : role.endsWith("s") ? role : `${role}s`}`).join(" · ");
 }
 
-/** A graph's edges: their thickness, the drop from a node to the rail its children hang from, the elbow's curve, and the gap between sibling subtrees. */
 const EDGE = 1;
 const DROP = 28;
 const ELBOW = 10;
@@ -835,17 +817,11 @@ const PORT = 6;
 const SIBLING_GAP = SPACING[4];
 const GRID = 24;
 
-/** One node of a team's graph: a participant, or the team itself at the top. */
 interface Node {
   row?: Row;
   kids: Node[];
 }
 
-/**
- * The visible rows of a team as a tree: a row hangs from the nearest visible row above it in ps
- * --view's tree, or from the team itself when none of them is shown (gone and hidden), so no card
- * is lost when its lead is.
- */
 function graphOf(rows: Row[], tree: Tree): Node[] {
   const shown = new Map(rows.map((r) => [r.id, { row: r, kids: [] as Node[] }]));
   const roots: Node[] = [];
@@ -902,11 +878,6 @@ function Elbow({ theme, first, last, stemAt }: { theme: PluginTheme; first: bool
   );
 }
 
-/**
- * The levels under a card, as a work breakdown structure lists them: each child on its own line
- * below, indented, hung from one rail down the left with a tick into each card; its own children
- * the same under it, one indent deeper.
- */
 function Stack({ theme, kids, task, open }: { theme: PluginTheme; kids: Node[]; task: (id: string) => string | undefined; open: (id: string) => void }) {
   const rail = railColour(theme);
   return (
@@ -943,11 +914,6 @@ function Stack({ theme, kids, task, open }: { theme: PluginTheme; kids: Node[]; 
   );
 }
 
-/**
- * A team's tree as a work breakdown structure: the first level in a row under the team node, each
- * hung from a rail by a rounded elbow into its card's centre; every level below that stacked down
- * under its card (see Stack), so a deep chain reads top to bottom and siblings left to right.
- */
 function Subtree({ theme, node, task, open }: { theme: PluginTheme; node: Node; task: (id: string) => string | undefined; open: (id: string) => void }) {
   const n = node.kids.length;
   if (n === 0) return null;
@@ -973,7 +939,6 @@ function Subtree({ theme, node, task, open }: { theme: PluginTheme; node: Node; 
     </View>
   );
 }
-/** The node at the top of a team's graph: the team, its template, and what was spawned by role. Pressing it opens the team's detail. */
 function TeamNode({ theme, name, template, rows, icon, onPress }: { theme: PluginTheme; name: string; template?: string; rows: Row[]; icon: string; onPress?: () => void }) {
   const accent = theme.colors.accent;
   return (
@@ -1017,7 +982,6 @@ function Canvas({ theme, children, fill }: { theme: PluginTheme; children: React
   );
 }
 
-/** A team of a directory's graph: its name, template and members, and what pressing its node opens. */
 interface TeamSpec {
   id: string;
   name: string;
@@ -1094,10 +1058,6 @@ function ZoomBar({ theme, scale, onScale, onFit, onExpand }: { theme: PluginThem
   );
 }
 
-/**
- * A directory as one graph: every team's tree side by side under its team node, then, when it has
- * any, its solos as a row of cards that wraps.
- */
 function GraphBody({ theme, teams, solos, tree, task, open }: { theme: PluginTheme; teams: TeamSpec[]; solos: Row[]; tree: Tree; task: (id: string) => string | undefined; open: (id: string) => void }) {
   return (
     <View style={{ gap: SPACING[6], alignItems: "center" }}>
@@ -1135,11 +1095,6 @@ function GraphBody({ theme, teams, solos, tree, task, open }: { theme: PluginThe
 const CANVAS_PAD = SPACING[4];
 const ZOOM_BAR_ROOM = SPACING[8] + SPACING[4];
 
-/**
- * A graph on its canvas with a zoom bar at its corner. The scale is the user's, or, until they pick
- * one (and again on Fit), the one that fits the whole graph in the view, never above 1 in the band;
- * `tall` fills the window it is opened in and fits on open.
- */
 function GraphCanvas({ theme, onExpand, tall, children }: { theme: PluginTheme; onExpand?: () => void; tall?: boolean; children: ReactNode }) {
   const [picked, setPicked] = useState<number | null>(tall ? null : 1);
   const [natural, setNatural] = useState<Size>({ width: 0, height: 0 });
@@ -1172,7 +1127,6 @@ function GraphCanvas({ theme, onExpand, tall, children }: { theme: PluginTheme; 
   );
 }
 
-/** A directory's graph in the band, and the same graph in a window when its expand button is pressed. */
 function DirGraph({ theme, label, teams, solos, tree, task, open }: { theme: PluginTheme; label: string; teams: TeamSpec[]; solos: Row[]; tree: Tree; task: (id: string) => string | undefined; open: (id: string) => void }) {
   const [big, setBig] = useState(false);
   const body = <GraphBody theme={theme} teams={teams} solos={solos} tree={tree} task={task} open={open} />;
@@ -1191,11 +1145,6 @@ function DirGraph({ theme, label, teams, solos, tree, task, open }: { theme: Plu
     </>
   );
 }
-/**
- * What names a Graph band: a folder, the directory's last segment bold and its path muted, then, at
- * the right, who is in it and how many are in each state. A band ps --view folds (gone and closed
- * directories) is this line alone until pressed; its chevron says so.
- */
 function BandHead({ theme, label, items, columns, fold }: { theme: PluginTheme; label: string; items: Item[]; columns: Column[]; fold?: { open: boolean; onToggle: () => void } }) {
   const { name, path } = dirWords(label);
   const counts = countWords(items, columns);
@@ -1223,7 +1172,6 @@ function BandHead({ theme, label, items, columns, fold }: { theme: PluginTheme; 
   );
 }
 
-/** What the Graph says when the filter leaves nothing to draw. */
 function GraphEmpty({ theme, team, goneCount, onShowGone }: { theme: PluginTheme; team: string; goneCount: number; onShowGone: () => void }) {
   return (
     <View style={{ alignItems: "center", gap: SPACING[2], paddingVertical: SPACING[8], paddingHorizontal: SPACING[4] }}>
@@ -1237,14 +1185,6 @@ function GraphEmpty({ theme, team, goneCount, onShowGone }: { theme: PluginTheme
   );
 }
 
-/**
- * The Graph: every team as a small org chart on its own canvas, small teams side by side, so what
- * was spawned, under whom, and in what state reads at one glance; solos of a directory as a grid of
- * cards after its teams. One band per directory ps --view lists, under its own heading; a band ps
- * --view folds (gone and closed directories) is one heading until pressed. Filtered by team (the
- * tabs ps --view lists); gone cards only when asked for. A legend over the bands says what the
- * state colours mean.
- */
 function Graph({ theme, view, dirs, open }: { theme: PluginTheme; view: PigView; dirs?: Dir[]; open: (id: string) => void }) {
   const palette = usePalette(theme);
   const [team, setTeam] = useState("");
@@ -1315,11 +1255,6 @@ function Graph({ theme, view, dirs, open }: { theme: PluginTheme; view: PigView;
     </View>
   );
 }
-/**
- * What the user chose is kept in the host's "pigmonitor-view" setting: read once when it arrives, saved a
- * moment after the last change (a burst of clicks is one save), only teams piggery still lists.
- * `change` shows a new state at once and saves it.
- */
 function useFolds(set: (f: Folds) => void, view: PigView | null) {
   const stored = useSettings(viewSettings);
   const latest = useRef({ stored, view });
@@ -1345,12 +1280,6 @@ function useFolds(set: (f: Folds) => void, view: PigView | null) {
   return { change };
 }
 
-/**
- * The PigMonitor surface: piggery top's rows in Paseo's finish. With a `dir` it is one workspace's: one
- * column, that directory first, and the Graph draws only its directories. Otherwise the whole machine.
- * Tabs: Overview (the directories and their teams, then the latest events), Graph (the teams as org
- * charts) and Sessions.
- */
 function Shell({ theme, compact, dir, empty, navigation, serverId }: { theme: PluginTheme; compact: boolean; dir?: string; empty: string; navigation?: Navigation; serverId?: string }) {
   const { value: snap, error, at } = useView(dir);
   const view = snap?.view ?? null;
@@ -1420,12 +1349,10 @@ function Shell({ theme, compact, dir, empty, navigation, serverId }: { theme: Pl
   );
 }
 
-/** Sidebar surface: every directory, like piggery top. */
 export function PigMonitorSurface({ theme, layout, navigation, host }: PluginSurfaceProps) {
   return <StoredPalette><Shell theme={theme} compact={layout.compact} navigation={navigation} serverId={host.id} empty="Open an agent session, or ask one to make a team." /></StoredPalette>;
 }
 
-/** Workspace panel: the teams and sessions of this workspace's directory. */
 export function FarmPanel({ theme, layout, workspaceId, navigation, host }: PluginWorkspacePanelProps) {
   const dir = useWorkspace(workspaceId, (w) => w.directory);
   if (!dir) return <View style={{ flex: 1, backgroundColor: theme.colors.surface0 }} />;
