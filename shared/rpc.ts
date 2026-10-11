@@ -8,6 +8,7 @@ import { Transcript } from "./stream/transcript.ts";
 import { UsageReportEntry } from "./stream/usage-schema.ts";
 import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./chat/speech.ts";
 import { PALETTE_KEYS, type PaletteKey } from "./piggery/palette.ts";
+import { AvatarSettings } from "./piggery/avatar.ts";
 
 const Failure = z.object({ ok: z.literal(false), code: z.enum(["missing", "down", "older", "newer", "failed", "nodb", "nolog", "denied"]), error: z.string() });
 
@@ -249,6 +250,13 @@ export const colourSettings = defineSettings({
   scope: "host",
   version: 1,
   schema: z.object(Object.fromEntries(PALETTE_KEYS.map((key) => [key, z.string().optional()])) as Record<PaletteKey, z.ZodOptional<z.ZodString>>),
+});
+
+export const avatarSettings = defineSettings({
+  id: "pigmonitor-avatars",
+  scope: "host",
+  version: 1,
+  schema: AvatarSettings,
 });
 
 export const settings = defineSettings({

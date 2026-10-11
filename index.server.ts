@@ -17,7 +17,7 @@ import { notifyHooksSet } from "./server/notify.ts";
 import { StateRecorder, STATES_FILE } from "./server/states.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
-import { agentConfig, colourSettings, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, paseoLinks, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
+import { agentConfig, avatarSettings, colourSettings, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, paseoLinks, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
 import { messageOf } from "./shared/errors.ts";
 
 export function statesFileOf(observeOnly: boolean, paseoHome: string | undefined): string | null {
@@ -34,6 +34,7 @@ export default function contribute(server: PluginServerContext) {
   const stored = server.registerSettings(settings);
   server.registerSettings(viewSettings);
   server.registerSettings(colourSettings);
+  server.registerSettings(avatarSettings);
   const bin = async () => {
     const state = await stored.read();
     return pickBin(state.status === "ready" ? state.values.path : "", piggeryPath);
