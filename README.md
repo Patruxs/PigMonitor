@@ -9,12 +9,19 @@ A short tour of PigMonitor in Paseo (suggested file: docs/media/pigmonitor.mp4).
 
 You need Paseo 0.9.1 or newer, piggery on the Paseo daemon's PATH, and Node 22.5 or newer.
 
+Install:
+
 ```
 paseo plugin install github:Patruxs/PigMonitor
+```
+
+Update to the latest version:
+
+```
 paseo plugin update pigmonitor
 ```
 
-The first command installs PigMonitor, the second updates it. It appears in Paseo's sidebar and as a workspace panel.
+PigMonitor then appears in Paseo's sidebar and as a workspace panel.
 
 ## What you see
 
