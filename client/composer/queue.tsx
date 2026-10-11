@@ -1,9 +1,10 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import { Pressable, Text, View } from "react-native";
-import { createQueueDrainer, type QueuedComposerMessage, type QueueWriter } from "./message-queue.ts";
-import { splitAttachmentsForSubmit } from "./attachment.ts";
+import { createQueueDrainer, editQueuedComposerMessage, queueComposerMessage, sendQueuedComposerMessageNow, type QueuedComposerMessage, type QueueWriter } from "./message-queue.ts";
+import { splitAttachmentsForSubmit, type ComposerAttachment } from "./attachment.ts";
+import { generateMessageId } from "../../shared/stream/stream.ts";
 import { agentStatusFeed, type PaseoApi } from "../chat/agent-live.ts";
 import { mountedTimeline, submitToAgent } from "../chat/chat-send.ts";
 import { ICON_SIZE, SPACING } from "../kit/theme.ts";
@@ -49,6 +50,40 @@ export function drainWhenIdle(paseo: PaseoApi, queueKey: string, agentId: string
       if (failed) throw new Error(failed);
     },
   );
+}
+
+export function useQueueActions({ paseo, queueKey, agentId, value, attachments, setAttachments, replaceText, composerHeight, submitMessage, setSendError }: { paseo: PaseoApi; queueKey: string | undefined; agentId: string | undefined; value: string; attachments: ComposerAttachment[]; setAttachments: Dispatch<SetStateAction<ComposerAttachment[]>>; replaceText: (next: string) => void; composerHeight: { reset: () => void }; submitMessage: (message: string, outgoing: ComposerAttachment[]) => Promise<void>; setSendError: (message: string | null) => void }) {
+  useEffect(() => {
+    if (agentId && queueKey && queueWriter.read(queueKey).length > 0) drainWhenIdle(paseo, queueKey, agentId);
+  }, [paseo, queueKey, agentId]);
+
+  const handleQueueMessage = () => {
+    if (!agentId || !queueKey) return;
+    const trimmed = value.trim();
+    if (!trimmed && attachments.length === 0) return;
+    const queued = queueComposerMessage({ queueKey, id: generateMessageId(), text: trimmed, attachments, queue: queueWriter });
+    if (!queued) return;
+    drainWhenIdle(paseo, queueKey, agentId);
+    replaceText("");
+    setAttachments([]);
+    composerHeight.reset();
+  };
+
+  const handleEditQueuedMessage = (id: string) => {
+    if (!queueKey) return;
+    const result = editQueuedComposerMessage({ queueKey, messageId: id, queue: queueWriter });
+    if (!result) return;
+    replaceText(result.text);
+    setAttachments(result.attachments);
+  };
+
+  const handleSendQueuedNow = async (id: string) => {
+    if (!queueKey) return;
+    const result = await sendQueuedComposerMessageNow({ queueKey, messageId: id, queue: queueWriter, submitMessage: ({ text: queuedText, attachments: queuedAttachments }) => submitMessage(queuedText, queuedAttachments) });
+    if (result.status === "failed") setSendError(result.errorMessage);
+  };
+
+  return { handleQueueMessage, handleEditQueuedMessage, handleSendQueuedNow };
 }
 
 export function QueuedMessageRow({ theme, item, onEdit, onSendNow }: { theme: PluginTheme; item: QueuedComposerMessage; onEdit: () => void; onSendNow: () => void }) {

@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { ActivityIndicator, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { dictationStatus, transcribe } from "../../shared/rpc.ts";
 import { stopwatch } from "../../shared/format.ts";
-import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, pcmChunker, resampleToPcm16, volumeOf, type DictationStatus } from "../../shared/chat/speech.ts";
+import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, pcmChunker, resampleToPcm16, volumeOf, withTranscript, type DictationStatus } from "../../shared/chat/speech.ts";
+import type { ComposerAttachment } from "./attachment.ts";
 import { ICON_SIZE, SPACING } from "../kit/theme.ts";
 import { messageOf } from "../../shared/errors.ts";
 import { isWeb } from "../kit/platform.ts";
@@ -207,6 +208,25 @@ export function useDictation({ onInsert, onInsertAndSend }: { onInsert: (text: s
   }, [confirm, duration, status]);
 
   return { supported: isWeb, status, volume, duration, readiness, start, confirm, cancel, retry, toggle };
+}
+
+export function useComposerDictation({ value, attachments, isAgentRunning, replaceText, focusInput, sendMessageWithContent, composerHeight }: { value: string; attachments: ComposerAttachment[]; isAgentRunning: boolean; replaceText: (next: string) => void; focusInput: () => void; sendMessageWithContent: (message: string, outgoing: ComposerAttachment[], forceSend?: boolean) => Promise<void>; composerHeight: { reset: () => void } }) {
+  const insertTranscript = (transcript: string) => {
+    replaceText(withTranscript(value, transcript));
+    focusInput();
+  };
+
+  const sendTranscript = (transcript: string) => {
+    const message = withTranscript(value, transcript).trim();
+    replaceText(message);
+    void sendMessageWithContent(message, attachments, isAgentRunning || undefined);
+    composerHeight.reset();
+  };
+
+  const dictation = useDictation({ onInsert: insertTranscript, onInsertAndSend: sendTranscript });
+  const isDictating = dictation.status !== "idle";
+
+  return { dictation, isDictating };
 }
 
 function hoveredOf(state: PressableStateCallbackType): boolean {
