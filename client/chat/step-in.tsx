@@ -3,14 +3,14 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import type { MailMessage } from "../shared/mail.ts";
-import { releasable, type StepIns } from "../shared/chat-route.ts";
-import { mail, models, stepIn, THINKING_LEVELS } from "../shared/rpc.ts";
-import type { MenuItem } from "./kit/menu.tsx";
-import { Actions, Button } from "./kit/button.tsx";
-import { ConfirmDialog } from "./kit/confirm.tsx";
-import { ICON_SIZE, RADIUS, SPACING, text, tint } from "./kit/theme.ts";
-import { QUIET_MS, usePoll } from "./poll.ts";
+import type { MailMessage } from "../../shared/mail.ts";
+import { releasable, type StepIns } from "../../shared/chat-route.ts";
+import { mail, models, stepIn, THINKING_LEVELS } from "../../shared/rpc.ts";
+import type { MenuItem } from "../kit/menu.tsx";
+import { Actions, Button } from "../kit/button.tsx";
+import { ConfirmDialog } from "../kit/confirm.tsx";
+import { ICON_SIZE, RADIUS, SPACING, text, tint } from "../kit/theme.ts";
+import { QUIET_MS, usePoll } from "../poll.ts";
 
 export type StepInDialog = "kill" | "model" | "resume" | "release" | null;
 

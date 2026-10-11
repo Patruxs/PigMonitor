@@ -9,7 +9,7 @@ import type { StreamItem } from "../shared/stream.ts";
 import { TIMELINE_FETCH_PAGE_SIZE } from "../shared/timeline.ts";
 import { RADIUS, SPACING } from "./kit/theme.ts";
 import type { ViewportHandle } from "./stream-viewport.tsx";
-import { useChatPaneArea } from "./chat-pane-scope.tsx";
+import { useChatPaneArea } from "./chat/chat-pane-scope.tsx";
 import { FIND_IGNORED_SELECTOR, findWidgetIn, findWidgetProps, historyRowOf, MARKDOWN_BLOCK_SELECTOR, messageRows, messageTextBlocks } from "./find-anchors.ts";
 import { isMac, isWeb, NO_OUTLINE } from "./kit/platform.ts";
 

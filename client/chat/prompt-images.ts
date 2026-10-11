@@ -1,9 +1,9 @@
 import { useRpc } from "@getpaseo/plugin/client";
 import { useMemo, useRef } from "react";
-import { withPromptImages, type Prompt } from "../shared/prompt-images.ts";
-import { promptImages } from "../shared/rpc.ts";
-import type { StreamItem } from "../shared/stream.ts";
-import { QUIET_MS, usePoll } from "./poll.ts";
+import { withPromptImages, type Prompt } from "../../shared/prompt-images.ts";
+import { promptImages } from "../../shared/rpc.ts";
+import type { StreamItem } from "../../shared/stream.ts";
+import { QUIET_MS, usePoll } from "../poll.ts";
 
 export function useWithPromptImages(id: string, tail: StreamItem[], head: StreamItem[]): { tail: StreamItem[]; head: StreamItem[] } {
   const call = useRpc(promptImages);

@@ -3,12 +3,12 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
-import { rewoundImageOf, type ComposerAttachment, type ComposerContent } from "../shared/composer.ts";
-import { imageFile, rewind } from "../shared/rpc.ts";
-import type { UserMessageImage } from "../shared/stream.ts";
-import { ConfirmDialog } from "./kit/confirm.tsx";
-import { RADIUS, SPACING, text } from "./kit/theme.ts";
-import { messageOf } from "../shared/errors.ts";
+import { rewoundImageOf, type ComposerAttachment, type ComposerContent } from "../../shared/composer.ts";
+import { imageFile, rewind } from "../../shared/rpc.ts";
+import type { UserMessageImage } from "../../shared/stream.ts";
+import { ConfirmDialog } from "../kit/confirm.tsx";
+import { RADIUS, SPACING, text } from "../kit/theme.ts";
+import { messageOf } from "../../shared/errors.ts";
 
 type RewindMode = "conversation" | "files" | "both";
 

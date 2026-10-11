@@ -3,13 +3,13 @@ import { usePaseo, useRpc, type PluginSurfaceProps } from "@getpaseo/plugin/clie
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { agentsById, agentsBySession, chatRouteOf, heldAgentOf, paseoBusyOf, type ChatRoute, type ListedAgent, type PaseoHeld, type ParticipantRecord } from "../shared/chat-route.ts";
-import { paseoLinks, resume, sessions, stop } from "../shared/rpc.ts";
+import { agentsById, agentsBySession, chatRouteOf, heldAgentOf, paseoBusyOf, type ChatRoute, type ListedAgent, type PaseoHeld, type ParticipantRecord } from "../../shared/chat-route.ts";
+import { paseoLinks, resume, sessions, stop } from "../../shared/rpc.ts";
 import { useLiveAgent, type PaseoApi } from "./agent-live.ts";
-import { SPACING, text } from "./kit/theme.ts";
-import { QUIET_MS, usePoll } from "./poll.ts";
-import { messageOf } from "../shared/errors.ts";
-import { boundedMap } from "../shared/bounded-map.ts";
+import { SPACING, text } from "../kit/theme.ts";
+import { QUIET_MS, usePoll } from "../poll.ts";
+import { messageOf } from "../../shared/errors.ts";
+import { boundedMap } from "../../shared/bounded-map.ts";
 
 export type Navigation = PluginSurfaceProps["navigation"];
 

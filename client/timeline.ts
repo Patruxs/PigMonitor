@@ -14,7 +14,7 @@ import {
   type TimelinePage,
   type TimelineState,
 } from "../shared/timeline.ts";
-import { useLiveAgent, type AgentHandle, type PaseoAgent } from "./agent-live.ts";
+import { useLiveAgent, type AgentHandle, type PaseoAgent } from "./chat/agent-live.ts";
 import { reduceTurnLiveness, resolveTurnPresentation, turnLivenessOfEvents, TURN_LIVENESS_IDLE, type TurnLiveness, type TurnPresentation } from "../shared/turns.ts";
 import type { ToolCallDetail } from "../shared/tool-call.ts";
 import { messageOf } from "../shared/errors.ts";

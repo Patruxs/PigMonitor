@@ -1,7 +1,7 @@
 import { usePaseo } from "@getpaseo/plugin/client";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
-import type { AgentStatusFeed } from "../shared/composer.ts";
-import { BUSY_MS } from "./poll.ts";
+import type { AgentStatusFeed } from "../../shared/composer.ts";
+import { BUSY_MS } from "../poll.ts";
 
 export type PaseoApi = ReturnType<typeof usePaseo>;
 export type AgentHandle = ReturnType<PaseoApi["agents"]["ref"]>;

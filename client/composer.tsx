@@ -28,7 +28,7 @@ import { AttachmentLightbox } from "./kit/lightbox.tsx";
 import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
 import { COMPACT_BELOW, CONTENT_FONT, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, SPACING, text } from "./kit/theme.ts";
 import { drainWhenIdle, queueWriter, useQueuedMessages } from "./queue.tsx";
-import { registerComposerRestore } from "./rewind.tsx";
+import { registerComposerRestore } from "./chat/rewind.tsx";
 import type { AgentTimeline } from "./timeline.ts";
 import { ComposerTracks } from "./tracks.tsx";
 import { DictationButton, useDictation } from "./dictation.tsx";

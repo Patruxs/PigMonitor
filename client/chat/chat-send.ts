@@ -1,10 +1,10 @@
 import { useRpc } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useRef } from "react";
-import { sendMail, type AttachmentData, type ImageData } from "../shared/rpc.ts";
-import { createUserMessage, generateMessageId } from "../shared/stream.ts";
+import { sendMail, type AttachmentData, type ImageData } from "../../shared/rpc.ts";
+import { createUserMessage, generateMessageId } from "../../shared/stream.ts";
 import type { PaseoApi } from "./agent-live.ts";
-import type { AgentTimeline } from "./timeline.ts";
-import { messageOf } from "../shared/errors.ts";
+import type { AgentTimeline } from "../timeline.ts";
+import { messageOf } from "../../shared/errors.ts";
 
 
 async function sendToAgent(paseo: PaseoApi, agentId: string, body: string, images: ImageData[], attachments: AttachmentData[], messageId?: string): Promise<string | null> {
