@@ -1,7 +1,7 @@
 import { usePaseo } from "@getpaseo/plugin/client";
 import { useToast } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
-import type { Navigation } from "./native.tsx";
+import type { Navigation } from "../native.tsx";
 
 const browser = globalThis as { window?: Window; btoa?: (data: string) => string };
 

@@ -8,7 +8,7 @@ import { snapshot, viewSettings } from "../../shared/rpc.ts";
 import { readView, related, type Dir, type Row, type View as PigView } from "../../shared/view.ts";
 import { DetailDialog, type Index } from "../dialog.tsx";
 import { Header } from "../header.tsx";
-import { conversationsOf, HiddenProjects, SessionsPane } from "../sessions.tsx";
+import { conversationsOf, HiddenProjects, SessionsPane } from "../sessions/sessions.tsx";
 import type { Navigation } from "../native.tsx";
 import { StoredPalette } from "../palette.tsx";
 import { Notice } from "../kit/notice.tsx";

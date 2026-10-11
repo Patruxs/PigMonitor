@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import type { Conversation } from "../../shared/conversations.ts";
+import type { Conversation } from "../sessions/conversations.ts";
 import { basenameOf } from "../../shared/events.ts";
 import type { ChatRoute } from "../../shared/chat-route.ts";
 import { AVATAR } from "../kit/avatar.tsx";

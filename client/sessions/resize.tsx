@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useSettings } from "@getpaseo/plugin/client";
 import { useEffect, useRef, useState } from "react";
 import { PanResponder, View, type ViewStyle } from "react-native";
-import { viewSettings } from "../shared/rpc.ts";
+import { viewSettings } from "../../shared/rpc.ts";
 
 const HANDLE_WIDTH = 8;
 

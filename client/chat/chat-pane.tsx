@@ -4,7 +4,7 @@ import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useRef, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Usage } from "../../shared/context-meter.ts";
-import type { Conversation } from "../../shared/conversations.ts";
+import type { Conversation } from "../sessions/conversations.ts";
 import type { MailMessage } from "../../shared/mail.ts";
 import { paseoBusyOf, sendTargetOf, stepInsOf, turnOf, withPaseoBusy, type ChatRoute } from "../../shared/chat-route.ts";
 import { mail, type AttachmentData, type ImageData } from "../../shared/rpc.ts";

@@ -1,5 +1,5 @@
-import { basenameOf } from "./events.ts";
-import { taskWords, URGENCY, type Dir, type Row, type View } from "./view.ts";
+import { basenameOf } from "../../shared/events.ts";
+import { taskWords, URGENCY, type Dir, type Row, type View } from "../../shared/view.ts";
 
 export interface ListedDir {
   path: string;
