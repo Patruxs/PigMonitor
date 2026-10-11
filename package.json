@@ -1,7 +1,16 @@
 {
   "name": "pigmonitor",
   "version": "0.1.0",
+  "description": "A Paseo plugin that shows your piggery agent teams inside Paseo",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Patruxs/PigMonitor.git"
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \"client/**/*.test.ts\" \"server/**/*.test.ts\" \"shared/**/*.test.ts\"",
