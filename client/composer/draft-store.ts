@@ -1,4 +1,4 @@
-import type { ComposerAttachment } from "./composer-input.ts";
+import type { ComposerAttachment } from "./attachment.ts";
 
 export interface DraftInput {
   text: string;
