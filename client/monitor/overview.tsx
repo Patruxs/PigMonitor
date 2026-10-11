@@ -2,18 +2,19 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useRef, useState } from "react";
 import { Animated, ScrollView as NativeScrollView, Text, View } from "react-native";
-import { sentenceOf } from "../../shared/events.ts";
+import { sentenceOf } from "../piggery/events.ts";
 import { setTeam, teamOpen, type Folds } from "../../shared/folds.ts";
 import type { Dir, EventRow, Row, View as PigView } from "../../shared/view.ts";
 import type { Index } from "../dialog.tsx";
 import type { Segment } from "../../shared/segments.ts";
-import { Pill, RoleAvatar, tint } from "../kit/chat.tsx";
+import { Pill } from "../kit/pill.tsx";
+import { RoleAvatar } from "../piggery/role.tsx";
 import { Chip } from "../kit/badge.tsx";
-import { paint, teamColour, usePalette } from "../palette.tsx";
+import { paint, teamColour, usePalette } from "../piggery/palette.tsx";
 import { PressRow } from "../kit/press.tsx";
-import type { Columns } from "../kit/row.tsx";
+import type { Columns } from "../piggery/row-layout.ts";
 import { Rows } from "../kit/rows.tsx";
-import { CARD_RADIUS, ICON_SIZE, ROW_ONE, SPACING, text } from "../kit/theme.ts";
+import { CARD_RADIUS, ICON_SIZE, ROW_ONE, SPACING, text, tint } from "../kit/theme.ts";
 import { Axis, ChartLegend, currentWordFits, Grid, type Group, groupsOfView, LABEL_W, LABEL_W_NARROW, LaneHead, lastSibling, MIN_TICK_PX, NOW_PAD, parseClock, type Scale, TimeSlider, Track, TrackLabel, WINDOWS } from "./overview-chart.tsx";
 
 export interface Handlers {

@@ -8,14 +8,14 @@ import { turnOf } from "../shared/chat-route.ts";
 import { type Detail, type Row, type TailKind, type View as PigView } from "../shared/view.ts";
 import { LogStream } from "./stream/transcript.tsx";
 import { Pill } from "./kit/pill.tsx";
-import { paint, usePalette } from "./palette.tsx";
+import { paint, usePalette } from "./piggery/palette.tsx";
 import { RoleAvatar } from "./piggery/role.tsx";
 import { StatusPill } from "./piggery/status.tsx";
 import { PressRow } from "./kit/press.tsx";
 import { Rows } from "./kit/rows.tsx";
 import { SectionTitle } from "./kit/section.tsx";
 import { ICON_SIZE, KEY_WIDTH, RADIUS, READABLE, ROW_MIN, SPACING, text } from "./kit/theme.ts";
-import { BUSY_MS, usePoll } from "./poll.ts";
+import { BUSY_MS, usePoll } from "./kit/poll.ts";
 
 export type Index = Map<string, Row>;
 

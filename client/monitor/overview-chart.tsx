@@ -2,15 +2,16 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useRef, useState } from "react";
 import { Animated, PanResponder, Text, View } from "react-native";
-import { basenameOf, countStatuses } from "../../shared/events.ts";
+import { basenameOf, countStatuses } from "../piggery/events.ts";
 import { keptAxisSteps } from "../../shared/axis.ts";
 import { clockText, type Detail, type Dir, type Row, type Status, type Tone, type View as PigView } from "../../shared/view.ts";
 import { barColours, PastSegments } from "../gantt.tsx";
 import { piecesIn, uncoveredIn, type Segment } from "../../shared/segments.ts";
-import { AvatarStack, Pill, RoleAvatar, RolePill, tint } from "../kit/chat.tsx";
-import { paint, statusColour, teamColour, usePalette } from "../palette.tsx";
+import { Pill } from "../kit/pill.tsx";
+import { AvatarStack, RoleAvatar, RolePill } from "../piggery/role.tsx";
+import { paint, statusColour, teamColour, usePalette } from "../piggery/palette.tsx";
 import { PressRow } from "../kit/press.tsx";
-import { DOT, ICON_SIZE, SPACING, text } from "../kit/theme.ts";
+import { DOT, ICON_SIZE, SPACING, text, tint } from "../kit/theme.ts";
 
 interface Member {
   row: Row;

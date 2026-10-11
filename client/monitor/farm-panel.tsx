@@ -1,6 +1,6 @@
 import { useWorkspace, type PluginWorkspacePanelProps } from "@getpaseo/plugin/client";
 import { View } from "react-native";
-import { StoredPalette } from "../palette.tsx";
+import { StoredPalette } from "../piggery/palette.tsx";
 import { Shell } from "./surface.tsx";
 
 export function FarmPanel({ theme, layout, workspaceId, navigation, host }: PluginWorkspacePanelProps) {

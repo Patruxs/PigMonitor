@@ -9,13 +9,13 @@ import { readView, related, type Dir, type Row, type View as PigView } from "../
 import { DetailDialog, type Index } from "../dialog.tsx";
 import { Header } from "../header.tsx";
 import { conversationsOf, HiddenProjects, SessionsPane } from "../sessions/sessions.tsx";
-import type { Navigation } from "../native.tsx";
-import { StoredPalette } from "../palette.tsx";
-import { Notice } from "../kit/notice.tsx";
-import { columnsFor } from "../kit/row.tsx";
+import type { Navigation } from "../chat/chat-route.tsx";
+import { StoredPalette } from "../piggery/palette.tsx";
+import { Notice } from "../piggery/notice.tsx";
+import { columnsFor } from "../piggery/row-layout.ts";
 import { TabBar } from "../kit/tab-bar.tsx";
 import { CHAT_SPLIT_MIN, SPACING, text } from "../kit/theme.ts";
-import { pollEvery, useNow, usePoll } from "../poll.ts";
+import { pollEvery, useNow, usePoll } from "../kit/poll.ts";
 import { type Handlers, Overview } from "./overview.tsx";
 import { itemsIn } from "./graph-layout.ts";
 import { Graph } from "./graph.tsx";

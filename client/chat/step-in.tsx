@@ -10,7 +10,7 @@ import type { MenuItem } from "../kit/menu.tsx";
 import { Actions, Button } from "../kit/button.tsx";
 import { ConfirmDialog } from "../kit/confirm.tsx";
 import { ICON_SIZE, RADIUS, SPACING, text, tint } from "../kit/theme.ts";
-import { QUIET_MS, usePoll } from "../poll.ts";
+import { QUIET_MS, usePoll } from "../kit/poll.ts";
 
 export type StepInDialog = "kill" | "model" | "resume" | "release" | null;
 

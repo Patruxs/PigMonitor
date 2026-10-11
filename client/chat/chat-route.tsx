@@ -7,9 +7,9 @@ import { agentsById, agentsBySession, chatRouteOf, heldAgentOf, paseoBusyOf, typ
 import { paseoLinks, resume, sessions, stop } from "../../shared/rpc.ts";
 import { useLiveAgent, type PaseoApi } from "./agent-live.ts";
 import { SPACING, text } from "../kit/theme.ts";
-import { QUIET_MS, usePoll } from "../poll.ts";
+import { QUIET_MS, usePoll } from "../kit/poll.ts";
 import { messageOf } from "../../shared/errors.ts";
-import { boundedMap } from "../../shared/bounded-map.ts";
+import { boundedMap } from "../kit/bounded-map.ts";
 
 export type Navigation = PluginSurfaceProps["navigation"];
 

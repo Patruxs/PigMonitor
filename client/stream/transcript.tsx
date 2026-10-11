@@ -14,14 +14,14 @@ import { messageClock } from "../../shared/format.ts";
 import { Markdown } from "./markdown.tsx";
 import { messageTextProps } from "./find-anchors.ts";
 import { AVATAR, AVATAR_SM } from "../kit/avatar.tsx";
-import { Panel, Quiet } from "../kit/chat.tsx";
+import { Panel, Quiet } from "../kit/panel.tsx";
 import { Pill } from "../kit/pill.tsx";
 import { tint } from "../kit/theme.ts";
-import { paint, usePalette } from "../palette.tsx";
+import { paint, usePalette } from "../piggery/palette.tsx";
 import { RoleAvatar } from "../piggery/role.tsx";
 import { Notice } from "../piggery/notice.tsx";
 import { SPACING, text } from "../kit/theme.ts";
-import { BUSY_MS, useNow, usePoll } from "../poll.ts";
+import { BUSY_MS, useNow, usePoll } from "../kit/poll.ts";
 
 const PAGE = 20000;
 const BODY_LINE = 22;

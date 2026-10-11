@@ -4,11 +4,6 @@ import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 import { RADIUS, SPACING, text, tint } from "./theme.ts";
 
-export { AvatarStack, RoleAvatar, RolePill } from "../piggery/role.tsx";
-export { StatusPill } from "../piggery/status.tsx";
-export { Pill } from "./pill.tsx";
-export { tint } from "./theme.ts";
-
 export function Legend({ theme, entries }: { theme: PluginTheme; entries: { label: string; colour: string }[] }) {
   if (entries.length === 0) return null;
   return (

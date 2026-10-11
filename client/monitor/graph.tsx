@@ -3,13 +3,14 @@ import { Icon, Modal, ScrollView } from "@getpaseo/plugin/client/react-native";
 import { useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Column, Dir, Row, View as PigView } from "../../shared/view.ts";
-import { AvatarStack, Legend, tint } from "../kit/chat.tsx";
+import { Legend } from "../kit/panel.tsx";
+import { AvatarStack } from "../piggery/role.tsx";
 import { Chip } from "../kit/badge.tsx";
-import { statusColour, usePalette } from "../palette.tsx";
+import { statusColour, usePalette } from "../piggery/palette.tsx";
 import { PressRow } from "../kit/press.tsx";
-import { AgentCard } from "../kit/row.tsx";
+import { AgentCard } from "../piggery/row.tsx";
 import { MultiSelect, Select } from "../kit/select.tsx";
-import { CARD_RADIUS, ICON_SIZE, ORG_CARD, RADIUS, ROW_MIN, SPACING, text } from "../kit/theme.ts";
+import { CARD_RADIUS, ICON_SIZE, ORG_CARD, RADIUS, ROW_MIN, SPACING, text, tint } from "../kit/theme.ts";
 import { graphOf, type Item, itemsIn, type Node, type Tree, treeOf } from "./graph-layout.ts";
 
 const TEAM_CHIPS_MAX = 5;

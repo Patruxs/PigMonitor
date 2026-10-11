@@ -1,4 +1,4 @@
-import { readAge } from "./format.ts";
+import { readAge } from "../../shared/format.ts";
 
 export type EventTone = "muted" | "warning" | "danger";
 

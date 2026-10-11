@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { Animated, Easing, Text, View } from "react-native";
 import type { Status } from "../../shared/view.ts";
 import { SPACING, text, tint } from "../kit/theme.ts";
-import { statusColour, usePalette } from "../palette.tsx";
+import { statusColour, usePalette } from "./palette.tsx";
 
 export function StatusPill({ theme, status, word, dim }: { theme: PluginTheme; status: Status; word: string; dim?: boolean }) {
   const c = statusColour(usePalette(theme), status, dim);

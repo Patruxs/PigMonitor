@@ -12,7 +12,7 @@ import { Chat } from "../chat/chat-pane.tsx";
 import { Notice } from "../piggery/notice.tsx";
 import { CHAT_SPLIT_MIN, LIST_MIN_WIDTH, LIST_WIDTH, SPACING, text } from "../kit/theme.ts";
 import { useChatRouting, type Navigation } from "../chat/chat-route.tsx";
-import { QUIET_MS, usePoll } from "../poll.ts";
+import { QUIET_MS, usePoll } from "../kit/poll.ts";
 import { useProjectActions } from "./project.tsx";
 import { ResizeHandle, clampWidth, useSavedListWidth } from "./resize.tsx";
 import { ConversationList, HiddenProjects } from "./session-list.tsx";

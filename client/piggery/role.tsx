@@ -4,7 +4,7 @@ import { HUMAN, roleWord } from "../../shared/mail.ts";
 import { Avatar, AVATAR_SM } from "../kit/avatar.tsx";
 import { Pill } from "../kit/pill.tsx";
 import { SPACING, text } from "../kit/theme.ts";
-import { paint, usePalette } from "../palette.tsx";
+import { paint, usePalette } from "./palette.tsx";
 
 export function RoleAvatar({ theme, name, role, id, size, dim }: { theme: PluginTheme; name: string; role: string | undefined; id: string; size?: number; dim?: boolean }) {
   return <Avatar theme={theme} name={name} colour={paint(usePalette(theme), role, id)} size={size} icon={role === HUMAN ? "User" : undefined} dim={dim} />;

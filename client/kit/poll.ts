@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { dom } from "./kit/platform.ts";
+import { dom } from "./platform.ts";
 
 export const BUSY_MS = 5000;
 export const QUIET_MS = 30000;

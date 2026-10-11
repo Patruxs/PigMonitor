@@ -2,9 +2,8 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Text, View } from "react-native";
 import type { Piece } from "../shared/segments.ts";
 import type { Status } from "../shared/view.ts";
-import { tint } from "./kit/chat.tsx";
-import { statusColour, usePalette, type Palette } from "./palette.tsx";
-import { SPACING, text } from "./kit/theme.ts";
+import { statusColour, usePalette, type Palette } from "./piggery/palette.tsx";
+import { SPACING, text, tint } from "./kit/theme.ts";
 
 const PAST_WORD_MIN = 64;
 const PIECE_GAP = 1;

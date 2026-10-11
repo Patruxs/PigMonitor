@@ -8,7 +8,7 @@ import type { TodoEntry } from "../../shared/todos.ts";
 import { bucketOf, hasComposerTracks, isFinished, latestTasksFromStream, pillPresentation, resolveRowLabel, type Bucket, type Segment, type SubagentRow } from "./tracks-summary.ts";
 import { AnchoredPopover, SheetText } from "../kit/menu.tsx";
 import { hostColours, MAX_CONTENT_WIDTH, RADIUS, SPACING } from "../kit/theme.ts";
-import { BUSY_MS, usePoll } from "../poll.ts";
+import { BUSY_MS, usePoll } from "../kit/poll.ts";
 import { messageOf } from "../../shared/errors.ts";
 
 

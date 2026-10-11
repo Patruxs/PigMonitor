@@ -7,7 +7,7 @@ import { imagesIn, parseMarkdown, type Block, type Inline } from "./markdown-par
 import { imageFile } from "../../shared/rpc.ts";
 import { RADIUS, SPACING, text } from "../kit/theme.ts";
 import { markdownTagProps } from "./find-anchors.ts";
-import { boundedMap } from "../../shared/bounded-map.ts";
+import { boundedMap } from "../kit/bounded-map.ts";
 import { messageOf } from "../../shared/errors.ts";
 
 const PICTURE_CACHE_LIMIT = 50;

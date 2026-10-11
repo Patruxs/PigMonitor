@@ -4,7 +4,7 @@ import { Icon } from "@getpaseo/plugin/client/react-native";
 import { Text, View } from "react-native";
 import { notifyStatus } from "../shared/rpc.ts";
 import { RADIUS, SPACING, text } from "./kit/theme.ts";
-import { QUIET_MS, usePoll } from "./poll.ts";
+import { QUIET_MS, usePoll } from "./kit/poll.ts";
 
 function useNotifySet(): boolean | null {
   const call = useRpc(notifyStatus);

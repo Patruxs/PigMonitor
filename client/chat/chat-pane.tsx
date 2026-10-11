@@ -21,7 +21,7 @@ import { KeyboardAvoidingPane } from "../kit/keyboard-pane.tsx";
 import { hovered } from "../kit/press.tsx";
 import { RADIUS, SPACING, text, tint } from "../kit/theme.ts";
 import { useStop, type ChatRouting, type Stop } from "./chat-route.tsx";
-import { BUSY_MS, usePoll } from "../poll.ts";
+import { BUSY_MS, usePoll } from "../kit/poll.ts";
 import { useWithPromptImages } from "./prompt-images.ts";
 import { RewindMenu } from "./rewind.tsx";
 import { KillDialog, ModelDialog, ReleaseDialog, ResumeDialog, StepInNotice, stepInItems, useHeld, useStepIn, type StepInDialog } from "./step-in.tsx";

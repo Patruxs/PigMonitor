@@ -6,7 +6,7 @@ import { matches, passes, projectsOf, SOLO_KEY, type Conversation, type Filter, 
 import { ageShort } from "../../shared/format.ts";
 import type { Status } from "../../shared/view.ts";
 import { Chip } from "../kit/badge.tsx";
-import { paint, statusColour, usePalette } from "../palette.tsx";
+import { paint, statusColour, usePalette } from "../piggery/palette.tsx";
 import { AvatarStack, RoleAvatar } from "../piggery/role.tsx";
 import { STATUS_WORD, StatusDot, StatusWord } from "../piggery/status.tsx";
 import { hovered, PressRow } from "../kit/press.tsx";

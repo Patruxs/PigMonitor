@@ -9,7 +9,7 @@ import { checkoutRemote, forgeSearch, type ForgeItemData } from "../../shared/rp
 import { forgeNumberLabel } from "./attachments.tsx";
 import { PressRow } from "../kit/press.tsx";
 import { ICON_SIZE, RADIUS, ROW_MIN, SPACING, text } from "../kit/theme.ts";
-import { boundedMap } from "../../shared/bounded-map.ts";
+import { boundedMap } from "../kit/bounded-map.ts";
 import { messageOf } from "../../shared/errors.ts";
 import { NO_OUTLINE } from "../kit/platform.ts";
 

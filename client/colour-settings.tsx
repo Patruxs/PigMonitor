@@ -7,7 +7,7 @@ import { exportPalette, importPalette, mergePalette, PALETTE_KEYS, parseTeamHues
 import { colourSettings } from "../shared/rpc.ts";
 import { SectionTitle } from "./kit/section.tsx";
 import { RADIUS, SPACING, text } from "./kit/theme.ts";
-import { resolveColour } from "./palette.tsx";
+import { resolveColour } from "./piggery/palette.tsx";
 
 const LABELS: Record<PaletteKey, string> = {
   working: "Working",
