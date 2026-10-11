@@ -13,7 +13,7 @@ import { ChatFind, useChatFindSelectedMessageId, type AgentHistory } from "./cha
 import { NativeViewport, WebViewport, type ViewportHandle, type ViewportProps } from "./stream-viewport.tsx";
 import { ChatOutlineRail, useChatOutline } from "./outline.tsx";
 import { PermissionRequestCard } from "./permission.tsx";
-import { TRACK_PILL_CLEARANCE, TRACK_PILL_MIN_HEIGHT } from "./tracks.tsx";
+import { TRACK_PILL_CLEARANCE, TRACK_PILL_MIN_HEIGHT } from "../composer/tracks.tsx";
 import type { PermissionRequest, PermissionResponse } from "./timeline.ts";
 import { isWeb } from "../kit/platform.ts";
 

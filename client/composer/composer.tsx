@@ -30,7 +30,7 @@ import { COMPACT_BELOW, CONTENT_FONT, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH,
 import { drainWhenIdle, queueWriter, useQueuedMessages } from "./queue.tsx";
 import { registerComposerRestore } from "../chat/rewind.tsx";
 import type { AgentTimeline } from "../stream/timeline.ts";
-import { ComposerTracks } from "../stream/tracks.tsx";
+import { ComposerTracks } from "./tracks.tsx";
 import { DictationButton, useDictation } from "./dictation.tsx";
 import { FOCUS_HINT, ModeCycleScope, useComposerKeys } from "./composer-keys.tsx";
 import { nodeOf, useComposerHeight } from "./composer-height.ts";
