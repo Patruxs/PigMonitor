@@ -24,16 +24,10 @@ export function foldsOf(values: StoredFolds | null | undefined): Folds {
 }
 
 export const teamOpen = (f: Folds, id: string, byDefault: boolean): boolean => f.teams[id] ?? byDefault;
-export const goneOpen = (f: Folds, id: string): boolean => f.gone[id] ?? false;
 
 export function setTeam(f: Folds, id: string, open: boolean, byDefault: boolean): Folds {
   const { [id]: _, ...rest } = f.teams;
   return { ...f, teams: open === byDefault ? rest : { ...rest, [id]: open } };
-}
-
-export function setGone(f: Folds, id: string, open: boolean): Folds {
-  const { [id]: _, ...rest } = f.gone;
-  return { ...f, gone: open ? { ...rest, [id]: true } : rest };
 }
 
 export const setTab = (f: Folds, tab: SurfaceTab): Folds => ({ ...f, tab });

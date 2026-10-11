@@ -1,4 +1,4 @@
-import { ageLong, clock24 } from "../format.ts";
+import { clock24 } from "../format.ts";
 
 export const VIEW_VERSION = 1;
 
@@ -60,7 +60,7 @@ export interface Row {
   tabs?: string[];
 }
 
-export interface Head {
+interface Head {
   id: string;
   detail: string;
   name: string;
@@ -72,7 +72,7 @@ export interface Head {
   tabs?: string[];
 }
 
-export interface Block {
+interface Block {
   head?: Head;
   rows: Row[];
   no_members?: boolean;
@@ -183,8 +183,6 @@ export function related(path: string, dir: string): boolean {
 export const TAIL_VERSION = 1;
 export const TAIL_KINDS = ["text", "tool", "result", "error", "warning", "rule", "user"] as const;
 export type TailKind = (typeof TAIL_KINDS)[number];
-
-export const agoText = ageLong;
 
 export const clockText = clock24;
 
