@@ -3,7 +3,7 @@ import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { z } from "zod";
-import { TAIL_KINDS, TAIL_VERSION } from "../shared/view.ts";
+import { TAIL_KINDS, TAIL_VERSION } from "../shared/piggery/view.ts";
 import { adminCall, type AdminResult } from "./admin.ts";
 
 export type Result = { ok: true; out: string } | { ok: false; code: "missing" | "down" | "older" | "failed"; error: string };

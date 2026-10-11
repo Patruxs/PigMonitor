@@ -1,13 +1,13 @@
 import { defineRpc, defineSettings } from "@getpaseo/plugin";
 import { z } from "zod";
-import { TAIL_KINDS } from "./view.ts";
-import { AgentTimelineSearchPayload } from "./chat-find.ts";
-import { MailFilter, MailPage } from "./mail.ts";
-import { ParticipantRecord } from "./chat-route.ts";
-import { Transcript } from "./transcript.ts";
-import { UsageReportEntry } from "./usage-schema.ts";
-import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./speech.ts";
-import { PALETTE_KEYS, type PaletteKey } from "./palette.ts";
+import { TAIL_KINDS } from "./piggery/view.ts";
+import { AgentTimelineSearchPayload } from "./chat/chat-find.ts";
+import { MailFilter, MailPage } from "./piggery/mail.ts";
+import { ParticipantRecord } from "./chat/chat-route.ts";
+import { Transcript } from "./stream/transcript.ts";
+import { UsageReportEntry } from "./stream/usage-schema.ts";
+import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS } from "./chat/speech.ts";
+import { PALETTE_KEYS, type PaletteKey } from "./piggery/palette.ts";
 
 const Failure = z.object({ ok: z.literal(false), code: z.enum(["missing", "down", "older", "newer", "failed", "nodb", "nolog", "denied"]), error: z.string() });
 

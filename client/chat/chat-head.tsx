@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Conversation } from "../sessions/conversations.ts";
 import { basenameOf } from "../piggery/events.ts";
-import type { ChatRoute } from "../../shared/chat-route.ts";
+import type { ChatRoute } from "../../shared/chat/chat-route.ts";
 import { AVATAR } from "../kit/avatar.tsx";
 import { Pill } from "../kit/pill.tsx";
 import { paint, usePalette } from "../piggery/palette.tsx";

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { ActivityIndicator, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { dictationStatus, transcribe } from "../../shared/rpc.ts";
 import { stopwatch } from "../../shared/format.ts";
-import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, pcmChunker, resampleToPcm16, volumeOf, type DictationStatus } from "../../shared/speech.ts";
+import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, pcmChunker, resampleToPcm16, volumeOf, type DictationStatus } from "../../shared/chat/speech.ts";
 import { ICON_SIZE, SPACING } from "../kit/theme.ts";
 import { messageOf } from "../../shared/errors.ts";
 import { isWeb } from "../kit/platform.ts";

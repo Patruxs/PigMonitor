@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { MailMessage } from "../shared/mail.ts";
-import type { Item } from "../shared/transcript.ts";
+import type { MailMessage } from "../shared/piggery/mail.ts";
+import type { Item } from "../shared/stream/transcript.ts";
 import { mergeMail } from "./transcript-mail.ts";
 
 const msg = (p: Partial<MailMessage> & { seq: number; from: string; to: string }): MailMessage => ({ id: `m${p.seq}`, from_name: p.from === "ME" ? "lgtm" : p.from === "W" ? "worker" : "lead", to_name: "x", body: `body ${p.seq}`, created_at: p.seq * 1000, ...p });

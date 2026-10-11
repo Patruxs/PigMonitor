@@ -1,6 +1,6 @@
-import { formatTokenCount } from "../../shared/context-meter.ts";
+import { formatTokenCount } from "../../shared/stream/context-meter.ts";
 import { ageProse, levelOf } from "../../shared/format.ts";
-import type { FailedData, UnavailableData, UsageBalanceData, UsageProblemData, UsageReportData, UsageReportEntryData, UsageTone, UsageWindowData } from "../../shared/usage-schema.ts";
+import type { FailedData, UnavailableData, UsageBalanceData, UsageProblemData, UsageReportData, UsageReportEntryData, UsageTone, UsageWindowData } from "../../shared/stream/usage-schema.ts";
 
 export type { UsageReportEntryData, UsageWindowData, UsageBalanceData, UsageTone };
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isRecord } from "./guards.ts";
+import { isRecord } from "../guards.ts";
 
 export type ToolCallIconName = "wrench" | "square_terminal" | "eye" | "pencil" | "search" | "bot" | "sparkles" | "brain" | "mic_vocal";
 

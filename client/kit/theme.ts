@@ -1,6 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import type { TextStyle } from "react-native";
-import { withAlpha } from "../../shared/palette.ts";
+import { withAlpha } from "../../shared/piggery/palette.ts";
 
 export const SPACING = { 0.5: 2, 1: 4, 1.5: 6, 2: 8, 3: 12, 4: 16, 6: 24, 8: 32 } as const;
 

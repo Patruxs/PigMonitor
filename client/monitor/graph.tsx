@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon, Modal, ScrollView } from "@getpaseo/plugin/client/react-native";
 import { useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
-import type { Column, Dir, Row, View as PigView } from "../../shared/view.ts";
+import type { Column, Dir, Row, View as PigView } from "../../shared/piggery/view.ts";
 import { Legend } from "../kit/panel.tsx";
 import { AvatarStack } from "../piggery/role.tsx";
 import { Chip } from "../kit/badge.tsx";

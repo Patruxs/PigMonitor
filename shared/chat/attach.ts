@@ -1,5 +1,5 @@
 import { FORGES, type Forge } from "./forge-refs.ts";
-import type { AttachmentData, ForgeItemData } from "./rpc.ts";
+import type { AttachmentData, ForgeItemData } from "../rpc.ts";
 
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 

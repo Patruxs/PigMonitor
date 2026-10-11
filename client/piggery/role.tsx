@@ -1,6 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Text, View } from "react-native";
-import { HUMAN, roleWord } from "../../shared/mail.ts";
+import { HUMAN, roleWord } from "../../shared/piggery/mail.ts";
 import { Avatar, AVATAR_SM } from "../kit/avatar.tsx";
 import { Pill } from "../kit/pill.tsx";
 import { SPACING, text } from "../kit/theme.ts";

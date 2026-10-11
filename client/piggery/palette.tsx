@@ -1,10 +1,10 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useSettings } from "@getpaseo/plugin/client";
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { roleColour } from "../../shared/mail.ts";
-import { hueFor, isThemeToken, mergePalette, teamHuesOf, type ColourKey, type PaletteOverrides } from "../../shared/palette.ts";
+import { roleColour } from "../../shared/piggery/mail.ts";
+import { hueFor, isThemeToken, mergePalette, teamHuesOf, type ColourKey, type PaletteOverrides } from "../../shared/piggery/palette.ts";
 import { colourSettings } from "../../shared/rpc.ts";
-import type { Status } from "../../shared/view.ts";
+import type { Status } from "../../shared/piggery/view.ts";
 
 export type Palette = Record<ColourKey, string> & { teamHues: string[]; human: string; muted: string };
 

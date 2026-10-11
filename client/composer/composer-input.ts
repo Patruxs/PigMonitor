@@ -1,6 +1,6 @@
-import { forgeAttachment } from "../../shared/attach.ts";
+import { forgeAttachment } from "../../shared/chat/attach.ts";
 import type { AttachmentData, ForgeItemData, ImageData, UploadedFileData } from "../../shared/rpc.ts";
-import type { DictationStatus } from "../../shared/speech.ts";
+import type { DictationStatus } from "../../shared/chat/speech.ts";
 import { messageOf } from "../../shared/errors.ts";
 
 export interface ImageMetadata {

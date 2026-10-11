@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { StreamItem } from "./stream.ts";
+import type { StreamItem } from "../stream/stream.ts";
 
 export const AgentTimelineSearchPayload = z.object({
   epoch: z.string(),

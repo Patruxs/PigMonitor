@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useMemo, useState, type ReactNode } from "react";
 import { ScrollView, Text, View, type TextStyle, type ViewStyle } from "react-native";
 import { buildLineDiff, parseUnifiedDiff, type DiffLine } from "./diff.ts";
-import { buildPaseoToolDetailSections, hasMeaningfulToolCallDetail, type PaseoToolDetailSection, type ToolCallDetail } from "../../shared/tool-call.ts";
+import { buildPaseoToolDetailSections, hasMeaningfulToolCallDetail, type PaseoToolDetailSection, type ToolCallDetail } from "../../shared/stream/tool-call.ts";
 import { hostColours, RADIUS, SPACING } from "../kit/theme.ts";
 import { isWeb } from "../kit/platform.ts";
 

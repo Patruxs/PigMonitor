@@ -3,8 +3,8 @@ import { appendFileSync, mkdtempSync, readFileSync, renameSync, writeFileSync } 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { withPromptImages } from "../shared/prompt-images.ts";
-import { createUserMessage, type StreamItem, type UserMessageItem } from "../shared/stream.ts";
+import { withPromptImages } from "../shared/chat/prompt-images.ts";
+import { createUserMessage, type StreamItem, type UserMessageItem } from "../shared/stream/stream.ts";
 import { pastedImageSaver } from "./image.ts";
 import { PromptImageReader } from "./prompt-images.ts";
 

@@ -15,7 +15,7 @@ import {
   orderAboveInput,
   type AgentSlashCommand,
   type DirectoryEntry,
-} from "../../shared/autocomplete.ts";
+} from "../../shared/chat/autocomplete.ts";
 import { dirSuggest } from "../../shared/rpc.ts";
 import { hostColours, RADIUS, SPACING } from "../kit/theme.ts";
 import { boundedMap } from "../kit/bounded-map.ts";

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { NAME_MIN, SHARE, STATE_MIN, tailWidth, type Columns } from "./row-layout.ts";
-import { taskWords, type Row } from "../../shared/view.ts";
+import { taskWords, type Row } from "../../shared/piggery/view.ts";
 import { Pill } from "../kit/pill.tsx";
 import { hovered, PressRow } from "../kit/press.tsx";
 import { CARD_RADIUS, DOT, ROW_ONE, SPACING, text, tint } from "../kit/theme.ts";

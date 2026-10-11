@@ -1,7 +1,7 @@
-import type { Usage } from "../shared/context-meter.ts";
+import type { Usage } from "../shared/stream/context-meter.ts";
 import { usd } from "../shared/format.ts";
 import { isWake, mailsIn, stripMails } from "./mail-tags.ts";
-import type { Item, ToolCall } from "../shared/transcript.ts";
+import type { Item, ToolCall } from "../shared/stream/transcript.ts";
 import { isRecord } from "../shared/guards.ts";
 
 interface Block {

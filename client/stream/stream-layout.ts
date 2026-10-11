@@ -1,4 +1,4 @@
-import type { AssistantMessageItem, StreamItem } from "../../shared/stream.ts";
+import type { AssistantMessageItem, StreamItem } from "../../shared/stream/stream.ts";
 import { continuesResponse, continuesTurn, isPrompt, isResponseBoundary, type TurnTiming } from "./turns.ts";
 
 const GAP = { 1: 4, 3: 12, 4: 16 } as const;

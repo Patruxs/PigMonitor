@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { resolveComposerKey, type ComposerFocus, type ComposerKeyAction } from "./composer-input.ts";
-import type { DictationStatus } from "../../shared/speech.ts";
+import type { DictationStatus } from "../../shared/chat/speech.ts";
 import { useChatPaneArea } from "../chat/chat-pane-scope.tsx";
 import { nodeOf } from "./composer-height.ts";
 import { dom, isMac } from "../kit/platform.ts";

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createChatFindModel, searchLoadedItems } from "./chat-find.ts";
-import type { StreamItem } from "./stream.ts";
+import type { StreamItem } from "../stream/stream.ts";
 
 const at = (seq: number, kind: "user_message" | "assistant_message"): StreamItem => ({ kind, id: `m${seq}`, text: "x", timestamp: new Date(0), timelineCursor: { epoch: "e", seq } }) as StreamItem;
 

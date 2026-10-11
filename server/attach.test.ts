@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { ATTACH_ROOT, attachmentText, bodyWithAttachments, bodyWithImages, saveImages, uploadTooLarge, mailBody } from "./attach.ts";
-import { forgeAttachment, MAX_UPLOAD_BYTES } from "../shared/attach.ts";
+import { forgeAttachment, MAX_UPLOAD_BYTES } from "../shared/chat/attach.ts";
 
 test("an image sent as mail is saved under the session's folder and its path is in the body", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "piggery-attach-"));

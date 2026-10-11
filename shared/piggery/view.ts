@@ -1,4 +1,4 @@
-import { ageLong, clock24 } from "./format.ts";
+import { ageLong, clock24 } from "../format.ts";
 
 export const VIEW_VERSION = 1;
 

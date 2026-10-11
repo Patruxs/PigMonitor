@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { promptsOfLoadedItems, resolveActivePromptSeq } from "./outline-prompts.ts";
-import type { StreamItem } from "../../shared/stream.ts";
+import type { StreamItem } from "../../shared/stream/stream.ts";
 
 const at = new Date(0);
 

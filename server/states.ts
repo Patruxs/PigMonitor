@@ -1,8 +1,8 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
-import { pruneHistories, recentSegments, recordSightings, sightingsOf, WIDEST_WINDOW_MS, type Histories, type Segment } from "../shared/segments.ts";
-import { readView } from "../shared/view.ts";
+import { pruneHistories, recentSegments, recordSightings, sightingsOf, WIDEST_WINDOW_MS, type Histories, type Segment } from "../shared/piggery/segments.ts";
+import { readView } from "../shared/piggery/view.ts";
 import type { Result } from "./piggery.ts";
 
 export const STATES_FILE = path.join(homedir(), ".paseo", "plugin-data", "pigmonitor", "states.json");

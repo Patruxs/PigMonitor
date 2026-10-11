@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { conversationsOf, matches, mostPressing, passes, projectsOf, type Conversation, type Filter } from "./conversations.ts";
-import type { Dir, Row, Status, View } from "../../shared/view.ts";
+import type { Dir, Row, Status, View } from "../../shared/piggery/view.ts";
 
 const row = (id: string, status: Status, over: Partial<Row> = {}): Row => ({ kind: "member", id, depth: 0, name: id, state: status, state_text: status, status, unacked: 0, ...over });
 

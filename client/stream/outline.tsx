@@ -3,7 +3,7 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Platform, Pressable, Text, View, type LayoutChangeEvent } from "react-native";
 import { timelinePrompts } from "../../shared/rpc.ts";
-import type { StreamItem } from "../../shared/stream.ts";
+import type { StreamItem } from "../../shared/stream/stream.ts";
 import { promptsOfLoadedItems, resolveActivePromptSeq, type OutlinePrompt } from "./outline-prompts.ts";
 import { getStreamItemMessageId } from "./stream-presentation.ts";
 import type { AgentHistory } from "./chat-find.tsx";

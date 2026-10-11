@@ -1,4 +1,4 @@
-import type { StreamItem, UserMessageItem } from "./stream.ts";
+import type { StreamItem, UserMessageItem } from "../stream/stream.ts";
 
 export interface PromptImage {
   path: string;

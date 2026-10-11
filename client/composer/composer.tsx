@@ -18,8 +18,8 @@ import {
 } from "./composer-input.ts";
 import { attachmentChoices, type AttachmentChoiceId } from "./attachment-menu.ts";
 import { type AttachmentData, type ImageData } from "../../shared/rpc.ts";
-import { withTranscript } from "../../shared/speech.ts";
-import { generateMessageId } from "../../shared/stream.ts";
+import { withTranscript } from "../../shared/chat/speech.ts";
+import { generateMessageId } from "../../shared/stream/stream.ts";
 import { AttachmentTray, canAttach } from "./attachments.tsx";
 import { ForgeGlyph, ForgePicker } from "./attachments-forge.tsx";
 import { AutocompletePopover, useAgentAutocomplete } from "./autocomplete.tsx";

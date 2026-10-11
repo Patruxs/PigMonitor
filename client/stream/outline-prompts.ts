@@ -1,4 +1,4 @@
-import type { StreamItem } from "../../shared/stream.ts";
+import type { StreamItem } from "../../shared/stream/stream.ts";
 
 export interface OutlinePrompt {
   seq: number;

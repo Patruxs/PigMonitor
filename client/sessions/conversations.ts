@@ -1,5 +1,5 @@
 import { basenameOf } from "../piggery/events.ts";
-import { taskWords, URGENCY, type Dir, type Row, type View } from "../../shared/view.ts";
+import { taskWords, URGENCY, type Dir, type Row, type View } from "../../shared/piggery/view.ts";
 
 export interface ListedDir {
   path: string;

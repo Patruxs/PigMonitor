@@ -1,5 +1,5 @@
 import { Image, Platform, View } from "react-native";
-import { halfRingArc, ringSvg } from "../../shared/context-meter.ts";
+import { halfRingArc, ringSvg } from "../../shared/stream/context-meter.ts";
 
 interface ProgressRingProps {
   size: number;

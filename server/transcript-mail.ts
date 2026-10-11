@@ -1,5 +1,5 @@
-import type { MailMessage } from "../shared/mail.ts";
-import type { Item, ShownItem } from "../shared/transcript.ts";
+import type { MailMessage } from "../shared/piggery/mail.ts";
+import type { Item, ShownItem } from "../shared/stream/transcript.ts";
 
 function isShown(item: Item): item is ShownItem {
   return item.kind !== "delivery";

@@ -4,7 +4,7 @@ import { Icon, Modal, TextInput as ModalTextInput } from "@getpaseo/plugin/clien
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Platform, Text, type TextStyle } from "react-native";
 import { forgeAttachmentKey, isAttachmentSelectedForForgeItem, toggleForgeAttachment, type ComposerAttachment } from "./composer-input.ts";
-import { extractForgeRefs, forgeRefKey, type ForgeRef } from "../../shared/forge-refs.ts";
+import { extractForgeRefs, forgeRefKey, type ForgeRef } from "../../shared/chat/forge-refs.ts";
 import { checkoutRemote, forgeSearch, type ForgeItemData } from "../../shared/rpc.ts";
 import { forgeNumberLabel } from "./attachments.tsx";
 import { PressRow } from "../kit/press.tsx";

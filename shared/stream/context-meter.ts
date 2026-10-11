@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { clampPercent, levelOf, type Level } from "./format.ts";
+import { clampPercent, levelOf, type Level } from "../format.ts";
 
 export const Usage = z.object({ totalCostUsd: z.number().optional(), contextWindowMaxTokens: z.number().optional(), contextWindowUsedTokens: z.number().optional() });
 

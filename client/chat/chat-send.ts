@@ -1,7 +1,7 @@
 import { useRpc } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useRef } from "react";
 import { sendMail, type AttachmentData, type ImageData } from "../../shared/rpc.ts";
-import { createUserMessage, generateMessageId } from "../../shared/stream.ts";
+import { createUserMessage, generateMessageId } from "../../shared/stream/stream.ts";
 import type { PaseoApi } from "./agent-live.ts";
 import type { AgentTimeline } from "../stream/timeline.ts";
 import { messageOf } from "../../shared/errors.ts";

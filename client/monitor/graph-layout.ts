@@ -1,4 +1,4 @@
-import type { Dir, Row, View as PigView } from "../../shared/view.ts";
+import type { Dir, Row, View as PigView } from "../../shared/piggery/view.ts";
 
 export interface Item {
   row: Row;

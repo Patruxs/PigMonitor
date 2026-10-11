@@ -1,4 +1,4 @@
-import type { StreamItem } from "../../shared/stream.ts";
+import type { StreamItem } from "../../shared/stream/stream.ts";
 import type { StreamEventInput } from "./timeline-state.ts";
 
 export function continuesTurn(previous: StreamItem | null, next: StreamItem | null): boolean {

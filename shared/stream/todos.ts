@@ -1,4 +1,4 @@
-import { isRecord } from "./guards.ts";
+import { isRecord } from "../guards.ts";
 
 export interface TodoEntry {
   text: string;

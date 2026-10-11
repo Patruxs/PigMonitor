@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Text, View } from "react-native";
-import type { Status } from "../../shared/view.ts";
+import type { Status } from "../../shared/piggery/view.ts";
 import { SPACING, text, tint } from "../kit/theme.ts";
 import { statusColour, usePalette } from "./palette.tsx";
 

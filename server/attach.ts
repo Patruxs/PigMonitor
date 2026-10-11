@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir, userInfo } from "node:os";
 import path from "node:path";
-import { forgeOf, imageMark, MAX_UPLOAD_BYTES } from "../shared/attach.ts";
+import { forgeOf, imageMark, MAX_UPLOAD_BYTES } from "../shared/chat/attach.ts";
 import type { AttachmentData, ImageData } from "../shared/rpc.ts";
 import { messageOf } from "../shared/errors.ts";
 

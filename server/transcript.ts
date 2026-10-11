@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import type { MailMessage } from "../shared/mail.ts";
+import type { MailMessage } from "../shared/piggery/mail.ts";
 import { Parser, usageOf, type ContextReading, type DescribeTool, type SaveImage } from "./claude-log.ts";
 import { mergeMail } from "./transcript-mail.ts";
-import type { Item, Transcript } from "../shared/transcript.ts";
+import type { Item, Transcript } from "../shared/stream/transcript.ts";
 import type { PiggeryDb, Participant } from "./db.ts";
 import { JsonlTail } from "./jsonl-tail.ts";
 import { claudeToolCall } from "./tool-detail.ts";

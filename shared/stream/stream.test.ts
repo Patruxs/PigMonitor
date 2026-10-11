@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createStreamPresentation, getStreamItemMessageId } from "../client/stream/stream-presentation.ts";
+import { createStreamPresentation, getStreamItemMessageId } from "../../client/stream/stream-presentation.ts";
 import { appendSubmittedUserMessage, applyStreamEvent, createUserMessage, type AgentStreamEvent, type StreamItem } from "./stream.ts";
 
 const at = (s: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, s));

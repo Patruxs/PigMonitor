@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { PiggeryDb } from "./db.ts";
 import { streamOfLog } from "../client/stream/log-stream.ts";
-import { withIncrement } from "../shared/transcript.ts";
+import { withIncrement } from "../shared/stream/transcript.ts";
 import { logsDirOf, runLogs, TranscriptReader } from "./transcript.ts";
 
 test("the logs of a participant sit beside the database, one file per run, in run order", () => {

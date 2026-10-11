@@ -1,9 +1,9 @@
 import { execFile } from "node:child_process";
 import { cliUtils, daemonCall } from "./daemon.ts";
-import { resumable, type ParticipantRecord } from "../shared/chat-route.ts";
-import { UsageReportEntry, type UsageReportEntryData } from "../shared/usage-schema.ts";
-import { directoryEntriesOf, type DirectoryEntry } from "../shared/autocomplete.ts";
-import type { AgentTimelineSearchPayload } from "../shared/chat-find.ts";
+import { resumable, type ParticipantRecord } from "../shared/chat/chat-route.ts";
+import { UsageReportEntry, type UsageReportEntryData } from "../shared/stream/usage-schema.ts";
+import { directoryEntriesOf, type DirectoryEntry } from "../shared/chat/autocomplete.ts";
+import type { AgentTimelineSearchPayload } from "../shared/chat/chat-find.ts";
 import { ForgeItem, type ForgeItemData, type UploadedFileData } from "../shared/rpc.ts";
 
 export type Resumed = { ok: true; agentId: string } | { ok: false; code: "failed" | "denied"; error: string };

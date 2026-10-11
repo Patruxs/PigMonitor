@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { StreamItem } from "../../shared/stream.ts";
+import type { StreamItem } from "../../shared/stream/stream.ts";
 import { hasComposerTracks, pillPresentation, type SubagentRow } from "./tracks-summary.ts";
 
 const sub = (over: Partial<SubagentRow>): SubagentRow => ({ id: "s", title: null, status: "idle", turnOpen: false, createdAt: 0, ...over });

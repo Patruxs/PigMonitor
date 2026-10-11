@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { rewoundImageOf, type ComposerAttachment, type ComposerContent } from "../composer/composer-input.ts";
 import { imageFile, rewind } from "../../shared/rpc.ts";
-import type { UserMessageImage } from "../../shared/stream.ts";
+import type { UserMessageImage } from "../../shared/stream/stream.ts";
 import { ConfirmDialog } from "../kit/confirm.tsx";
 import { RADIUS, SPACING, text } from "../kit/theme.ts";
 import { messageOf } from "../../shared/errors.ts";

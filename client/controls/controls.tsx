@@ -4,7 +4,7 @@ import { Icon, Modal, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
 import { buildSelectorProviders, filterAndRankOptions, filterSelectableModels, formatAgentModeLabel, formatThinkingOptionLabel, getAgentFeatureIcon, getAgentModeIcon, getAgentModeOptionIcon, getFeatureHighlightColor, getFeatureTooltip, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveControlPresentation, resolveToolbarGlyphSize, selectorOpenRefetchDecision, shortModelLabel, type ControlDensity, type ControlPresentation, type Feature, type Mode, type ProviderEntry, type SelectorProvider } from "./control-options.ts";
-import type { Usage } from "../../shared/context-meter.ts";
+import type { Usage } from "../../shared/stream/context-meter.ts";
 import { agentConfig } from "../../shared/rpc.ts";
 import { useLiveAgent } from "../chat/agent-live.ts";
 import { useRegisterModeCycle } from "../composer/composer-keys.tsx";

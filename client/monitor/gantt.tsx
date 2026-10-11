@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Text, View } from "react-native";
-import type { Piece } from "../../shared/segments.ts";
-import type { Status } from "../../shared/view.ts";
+import type { Piece } from "../../shared/piggery/segments.ts";
+import type { Status } from "../../shared/piggery/view.ts";
 import { statusColour, usePalette, type Palette } from "../piggery/palette.tsx";
 import { SPACING, text, tint } from "../kit/theme.ts";
 

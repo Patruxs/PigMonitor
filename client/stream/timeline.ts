@@ -1,6 +1,6 @@
 import { usePaseo } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { appendSubmittedUserMessage, removeSubmittedUserMessage, type AgentStreamEvent, type StreamItem, type UserMessageItem } from "../../shared/stream.ts";
+import { appendSubmittedUserMessage, removeSubmittedUserMessage, type AgentStreamEvent, type StreamItem, type UserMessageItem } from "../../shared/stream/stream.ts";
 import {
   EMPTY_TIMELINE,
   planTimelineCatchUpAfter,
@@ -16,7 +16,7 @@ import {
 } from "./timeline-state.ts";
 import { useLiveAgent, type AgentHandle, type PaseoAgent } from "../chat/agent-live.ts";
 import { reduceTurnLiveness, resolveTurnPresentation, turnLivenessOfEvents, TURN_LIVENESS_IDLE, type TurnLiveness, type TurnPresentation } from "./turns.ts";
-import type { ToolCallDetail } from "../../shared/tool-call.ts";
+import type { ToolCallDetail } from "../../shared/stream/tool-call.ts";
 import { messageOf } from "../../shared/errors.ts";
 
 

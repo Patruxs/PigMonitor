@@ -1,4 +1,4 @@
-import { markedImage } from "../../shared/attach.ts";
+import { markedImage } from "../../shared/chat/attach.ts";
 
 export type Inline =
   | { kind: "text"; text: string }

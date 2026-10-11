@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { foldsOf, isHidden, NO_FOLDS, prune, setHidden, setTab, showAll, type Folds } from "../../shared/folds.ts";
 import { snapshot, viewSettings } from "../../shared/rpc.ts";
-import { readView, related, type Dir, type Row, type View as PigView } from "../../shared/view.ts";
+import { readView, related, type Dir, type Row, type View as PigView } from "../../shared/piggery/view.ts";
 import { DetailDialog, type Index } from "./dialog.tsx";
 import { Header } from "./header.tsx";
 import { conversationsOf, HiddenProjects, SessionsPane } from "../sessions/sessions.tsx";

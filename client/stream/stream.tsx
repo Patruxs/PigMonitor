@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode
 import { Pressable, Text, View } from "react-native";
 import { collectAssistantResponseContent, layoutStream, type StreamLayoutItem, type TurnFooterHost } from "./stream-layout.ts";
 import { findEarlierHistoryWindowStart, findMountedWindowStart, MOUNTED_RECENT_STREAM_ITEMS } from "./stream-scroll.ts";
-import type { PiggeryStreamItem, StreamItem } from "../../shared/stream.ts";
+import type { PiggeryStreamItem, StreamItem } from "../../shared/stream/stream.ts";
 import { createStreamPresentation, getStreamItemMessageId } from "./stream-presentation.ts";
 import { deriveStreamTurnTiming, type TurnPresentation } from "./turns.ts";
 import { MAX_CONTENT_WIDTH, SPACING } from "../kit/theme.ts";

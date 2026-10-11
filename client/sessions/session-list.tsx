@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Pressable, Text, TextInput, View, type PressableStateCallbackType } from "react-native";
 import { matches, passes, projectsOf, SOLO_KEY, type Conversation, type Filter, type Group, type Project } from "./conversations.ts";
 import { ageShort } from "../../shared/format.ts";
-import type { Status } from "../../shared/view.ts";
+import type { Status } from "../../shared/piggery/view.ts";
 import { Chip } from "../kit/badge.tsx";
 import { paint, statusColour, usePalette } from "../piggery/palette.tsx";
 import { AvatarStack, RoleAvatar } from "../piggery/role.tsx";

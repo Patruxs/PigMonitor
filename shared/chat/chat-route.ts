@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Row } from "./view.ts";
+import type { Row } from "../piggery/view.ts";
 
 export const ParticipantRecord = z.object({ id: z.string(), ref: z.string().nullable(), harness: z.string().nullable(), mode: z.string().nullable(), cwd: z.string(), gone: z.boolean(), state: z.string(), teamClosed: z.boolean() });
 

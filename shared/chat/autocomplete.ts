@@ -1,4 +1,4 @@
-import { compareMatchScores, scoreTextFields, type MatchScore } from "./match.ts";
+import { compareMatchScores, scoreTextFields, type MatchScore } from "../match.ts";
 
 export interface AgentSlashCommand {
   name: string;
