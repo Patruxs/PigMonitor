@@ -16,34 +16,10 @@ import {
 } from "./timeline-state.ts";
 import { useLiveAgent, type AgentHandle, type PaseoAgent } from "../chat/agent-live.ts";
 import { reduceTurnLiveness, resolveTurnPresentation, turnLivenessOfEvents, TURN_LIVENESS_IDLE, type TurnLiveness, type TurnPresentation } from "./turns.ts";
-import type { ToolCallDetail } from "../../shared/stream/tool-call.ts";
 import { messageOf } from "../../shared/errors.ts";
+import { pendingPermissions, permissionRequested, permissionResolved, type PermissionEvents, type PermissionRequest, type PermissionResponse } from "./pending-permissions.ts";
 
-
-export interface PermissionAction {
-  id: string;
-  label: string;
-  behavior: "allow" | "deny";
-  variant?: "primary" | "secondary" | "danger";
-  intent?: "implement" | "implement_resume" | "dismiss";
-}
-
-export interface PermissionRequest {
-  id: string;
-  provider: string;
-  name: string;
-  kind: "tool" | "plan" | "question" | "mode" | "other";
-  title?: string;
-  description?: string;
-  input?: Record<string, unknown>;
-  detail?: ToolCallDetail;
-  actions?: PermissionAction[];
-  metadata?: Record<string, unknown>;
-}
-
-export type PermissionResponse =
-  | { behavior: "allow"; selectedActionId?: string; updatedInput?: Record<string, unknown> }
-  | { behavior: "deny"; selectedActionId?: string; message?: string; interrupt?: boolean };
+export type { PermissionAction, PermissionRequest, PermissionResponse } from "./pending-permissions.ts";
 
 export interface AgentTimeline {
   agentId: string;
@@ -71,10 +47,6 @@ export interface AgentTimeline {
 const FLUSH_MS = 48;
 
 
-function permissionsOf(agent: PaseoAgent | null): PermissionRequest[] {
-  return ((agent?.pendingPermissions ?? []) as unknown as PermissionRequest[]).filter((permission) => typeof permission?.id === "string");
-}
-
 export function useAgentTimeline(agentId: string): AgentTimeline {
   const paseo = usePaseo();
   const handle = useMemo(() => paseo.agents.ref(agentId), [paseo, agentId]);
@@ -86,7 +58,7 @@ export function useAgentTimeline(agentId: string): AgentTimeline {
   const [liveness, setLiveness] = useState<TurnLiveness>(TURN_LIVENESS_IDLE);
   const [isLoadingOlder, setLoadingOlder] = useState(false);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
-  const [permissionEvents, setPermissionEvents] = useState<{ added: PermissionRequest[]; resolved: Set<string> }>({ added: [], resolved: new Set() });
+  const [permissionEvents, setPermissionEvents] = useState<PermissionEvents>({ added: [], resolved: new Set() });
   const [retryKey, setRetryKey] = useState(0);
   const pendingRef = useRef<ReadonlySet<string>>(pending);
   pendingRef.current = pending;
@@ -159,11 +131,11 @@ export function useAgentTimeline(agentId: string): AgentTimeline {
       const payload = message as { event: AgentStreamEvent; timestamp: string; seq?: number; epoch?: string };
       if (payload.event.type === "permission_requested") {
         const request = payload.event.request as PermissionRequest;
-        setPermissionEvents((had) => ({ added: [...had.added.filter((p) => p.id !== request.id), request], resolved: had.resolved }));
+        setPermissionEvents((had) => permissionRequested(had, request));
       }
       if (payload.event.type === "permission_resolved") {
         const requestId = payload.event.requestId;
-        setPermissionEvents((had) => ({ added: had.added.filter((p) => p.id !== requestId), resolved: new Set([...had.resolved, requestId]) }));
+        setPermissionEvents((had) => permissionResolved(had, requestId));
       }
       queueRef.current.push({ event: payload.event, seq: payload.seq, epoch: payload.epoch, timestamp: new Date(payload.timestamp) });
       if (timerRef.current === null) timerRef.current = setTimeout(flush, FLUSH_MS);
@@ -230,7 +202,7 @@ export function useAgentTimeline(agentId: string): AgentTimeline {
   const respond = useCallback(
     async (requestId: string, response: PermissionResponse) => {
       await handle.respondToPermission({ requestId, response: response as Parameters<AgentHandle["respondToPermission"]>[0]["response"] });
-      setPermissionEvents((had) => ({ added: had.added.filter((p) => p.id !== requestId), resolved: new Set([...had.resolved, requestId]) }));
+      setPermissionEvents((had) => permissionResolved(had, requestId));
     },
     [handle],
   );
@@ -239,12 +211,7 @@ export function useAgentTimeline(agentId: string): AgentTimeline {
     setLiveness((had) => (requestId === null ? { ...had, cancellationRequestId: null } : reduceTurnLiveness(had, { type: "cancellation_started", requestId })));
   }, []);
 
-  const permissions = useMemo(() => {
-    const byId = new Map<string, PermissionRequest>();
-    for (const permission of permissionsOf(agent)) if (!permissionEvents.resolved.has(permission.id)) byId.set(permission.id, permission);
-    for (const permission of permissionEvents.added) byId.set(permission.id, permission);
-    return [...byId.values()];
-  }, [agent, permissionEvents]);
+  const permissions = useMemo(() => pendingPermissions(agent, permissionEvents), [agent, permissionEvents]);
 
   return {
     agentId,
