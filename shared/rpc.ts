@@ -158,6 +158,24 @@ export const imageFile = defineRpc({
   output: z.union([z.object({ ok: z.literal(true), data: z.string(), mimeType: z.string() }), Failure]),
 });
 
+export const avatarUpload = defineRpc({
+  name: "pigmonitor.avatar-upload",
+  input: z.object({ data: z.string(), mimeType: z.string() }),
+  output: z.union([z.object({ ok: z.literal(true), id: z.string() }), Failure]),
+});
+
+export const avatarImage = defineRpc({
+  name: "pigmonitor.avatar-image",
+  input: z.object({ id: z.string() }),
+  output: z.union([z.object({ ok: z.literal(true), data: z.string(), mimeType: z.string() }), Failure]),
+});
+
+export const avatarDelete = defineRpc({
+  name: "pigmonitor.avatar-delete",
+  input: z.object({ id: z.string() }),
+  output: z.union([z.object({ ok: z.literal(true) }), Failure]),
+});
+
 export const upload = defineRpc({
   name: "pigmonitor.upload",
   input: z.object({ fileName: z.string().min(1), mimeType: z.string(), data: z.string() }),

@@ -41,7 +41,7 @@ PigMonitor then appears in Paseo's sidebar and as a workspace panel.
 - **piggery binary**: full path to piggery. Empty uses the piggery that installed the plugin, else `piggery` on PATH.
 - **piggery database**: the database Sessions reads. Empty means `~/.piggery/piggery.db`.
 - **Colours**: the colours of states, roles, mail and teams, as hex or Paseo theme tokens.
-- **Avatars**: off (initials), Manual (pick an icon per person) or Auto random (distinct icons within each role, with Reshuffle). When a role has more people than the 18 icons, the latest arrivals keep their initials.
+- **Avatars**: off (initials), Manual (pick an avatar per person) or Auto random (distinct avatars within each role, kept until Reshuffle). The pool is your uploaded pictures first, then 18 icons; when a role has more people than the pool, the latest arrivals keep their initials. Pictures: PNG, JPEG or WebP up to 5 MB and at least 128 x 128 px (512 x 512 or larger recommended), up to 64. They are drawn in a circle, so keep the subject centred with about 15% margin on each side; a non-square picture is centre-cropped, and each is stored at 256 x 256 as WebP (PNG or JPEG where WebP can't be encoded). Upload from Paseo desktop or web; the mobile app shows the pictures but can't upload them.
 
 ## Development
 

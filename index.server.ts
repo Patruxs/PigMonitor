@@ -17,12 +17,18 @@ import { notifyHooksSet } from "./server/notify.ts";
 import { StateRecorder, STATES_FILE } from "./server/states.ts";
 import { dictationReadiness, transcribe as transcribeRecording } from "./server/speech.ts";
 import { pastedImageSaver, readImage } from "./server/image.ts";
-import { agentConfig, avatarSettings, colourSettings, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, paseoLinks, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
+import { avatarStore } from "./server/avatar-images.ts";
+import { agentConfig, avatarDelete, avatarImage, avatarSettings, avatarUpload, colourSettings, usageReports, checkoutRemote, dictationStatus, dirSuggest, forgeSearch, imageFile, mail, models, notifyStatus, paseoLinks, person, promptImages, resume, sendMail, sessions, settings, snapshot, stepIn, stop, tail, timelinePrompts, rewind, timelineSearch, transcribe, transcript, upload, viewSettings } from "./shared/rpc.ts";
 import { messageOf } from "./shared/errors.ts";
 
 export function statesFileOf(observeOnly: boolean, paseoHome: string | undefined): string | null {
   if (!observeOnly) return STATES_FILE;
   return paseoHome ? path.join(paseoHome, "plugin-data", "pigmonitor", "states.json") : null;
+}
+
+export function avatarsDirOf(observeOnly: boolean, paseoHome: string | undefined): string | null {
+  const statesFile = statesFileOf(observeOnly, paseoHome);
+  return statesFile === null ? null : path.join(path.dirname(statesFile), "avatars");
 }
 
 export const OBSERVE_ONLY_REFUSAL = { ok: false as const, code: "denied" as const, error: "This Paseo daemon runs PigMonitor observe-only, so nothing is sent to piggery or Paseo." };
@@ -77,6 +83,11 @@ export default function contribute(server: PluginServerContext) {
     } catch {}
     return readImage(path, [...new Set([tmpdir(), "/tmp", ...places])]);
   });
+
+  const avatars = avatarStore(avatarsDirOf(observeOnly, process.env.PASEO_HOME));
+  server.handle(avatarUpload, async ({ data, mimeType }) => avatars.upload(data, mimeType));
+  server.handle(avatarImage, async ({ id }) => avatars.image(id));
+  server.handle(avatarDelete, async ({ id }) => avatars.delete(id));
 
   const prompts = new PromptImageReader(savePasted);
   server.handle(promptImages, async ({ id }) => prompts.read(db, await database(), id));
