@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { settings } from "../../shared/rpc.ts";
 import { RADIUS, SPACING, text } from "../kit/theme.ts";
+import { AvatarSettingsSection } from "./avatar-settings.tsx";
 import { ColourSettings } from "./colour-settings.tsx";
 import { NotifyHint } from "./notify.tsx";
 
@@ -55,6 +56,7 @@ export function PigMonitorSettings({ theme }: PluginSurfaceProps) {
       </Pressable>
       <NotifyHint theme={theme} />
       <ColourSettings theme={theme} />
+      <AvatarSettingsSection theme={theme} />
     </View>
   );
 }

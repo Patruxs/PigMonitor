@@ -6,6 +6,7 @@ All notable changes to PigMonitor are listed here. The format follows [Keep a Ch
 
 ### Added
 
+- Avatars for people with a role, set in Settings → Avatars: Manual picks an icon per person, and Auto random gives the people in each role different icons, kept until you reshuffle. When a role has more people than icons, the latest arrivals keep their initials. Off by default, so everyone shows initials until you choose a mode.
 - The manifest names the plugin and lists screenshots of the Overview, Graph and Sessions tabs for its page on paseo.sh/plugins. The screenshots ship in `docs/media`.
 
 ### Changed

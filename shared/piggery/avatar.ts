@@ -21,13 +21,17 @@ export type AvatarSettings = z.output<typeof AvatarSettings>;
 
 export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = { mode: "off", seed: 0, picks: {} };
 
-export type AvatarPerson = { id: string; role: string | undefined; joinedAt?: number };
+export type AvatarPerson = { id: string; role: string | undefined; joinedAt?: number; name?: string; team?: string };
+
+export type AvatarGroup = { role: RoleKey; people: AvatarPerson[] };
+
+const ROLE_RANK: Record<RoleKey, number> = { supervisor: 0, lead: 1, peer: 2, executor: 3, advisor: 4 };
 
 const RESHUFFLE_TRIES = 64;
 
 export function avatarPeopleOf(view: View): AvatarPerson[] {
   const people: AvatarPerson[] = [];
-  for (const list of [view.all, view.closed]) for (const dir of list.dirs) for (const block of dir.blocks) for (const row of block.rows) if (row.kind === "member") people.push({ id: row.id, role: row.role, joinedAt: row.created_at });
+  for (const list of [view.all, view.closed]) for (const dir of list.dirs) for (const block of dir.blocks) for (const row of block.rows) if (row.kind === "member") people.push({ id: row.id, role: row.role, joinedAt: row.created_at, name: row.name, team: block.head?.name });
   return people;
 }
 
@@ -59,7 +63,7 @@ function firstFreeIcon(id: string, seed: number, taken: ReadonlySet<AvatarIcon>)
   return undefined;
 }
 
-function groupByRole(people: readonly AvatarPerson[]): AvatarPerson[][] {
+export function groupByRole(people: readonly AvatarPerson[]): AvatarGroup[] {
   const groups = new Map<RoleKey, AvatarPerson[]>();
   const seen = new Set<string>();
   for (const person of people) {
@@ -70,13 +74,13 @@ function groupByRole(people: readonly AvatarPerson[]): AvatarPerson[][] {
     if (group) group.push(person);
     else groups.set(paint.value, [person]);
   }
-  return [...groups.values()];
+  return [...groups].sort(([a], [b]) => ROLE_RANK[a] - ROLE_RANK[b]).map(([role, group]) => ({ role, people: group.sort(byArrival) }));
 }
 
 export function assignAvatars(people: readonly AvatarPerson[], settings: AvatarSettings): ReadonlyMap<string, AvatarIcon> {
   const assigned = new Map<string, AvatarIcon>();
   if (settings.mode === "off") return assigned;
-  for (const group of groupByRole(people)) {
+  for (const { people: group } of groupByRole(people)) {
     const taken = new Set<AvatarIcon>();
     const unpicked: AvatarPerson[] = [];
     for (const person of group) {
@@ -87,7 +91,7 @@ export function assignAvatars(people: readonly AvatarPerson[], settings: AvatarS
       } else unpicked.push(person);
     }
     if (settings.mode !== "auto") continue;
-    for (const person of unpicked.sort(byArrival)) {
+    for (const person of unpicked) {
       const icon = firstFreeIcon(person.id, settings.seed, taken);
       if (icon === undefined) break;
       assigned.set(person.id, icon);

@@ -41,6 +41,7 @@ PigMonitor then appears in Paseo's sidebar and as a workspace panel.
 - **piggery binary**: full path to piggery. Empty uses the piggery that installed the plugin, else `piggery` on PATH.
 - **piggery database**: the database Sessions reads. Empty means `~/.piggery/piggery.db`.
 - **Colours**: the colours of states, roles, mail and teams, as hex or Paseo theme tokens.
+- **Avatars**: off (initials), Manual (pick an icon per person) or Auto random (distinct icons within each role, with Reshuffle). When a role has more people than the 18 icons, the latest arrivals keep their initials.
 
 ## Development
 
