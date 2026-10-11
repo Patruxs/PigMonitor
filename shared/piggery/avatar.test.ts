@@ -31,10 +31,11 @@ function picturesOf(avatars: ReadonlyMap<string, string>, people: readonly Avata
   return people.map((person) => avatars.get(person.id));
 }
 
-test("the human and pseudo ids never get a picture in either mode, and a new document starts in Manual", () => {
+test("the human and pseudo ids never get a picture in either mode, and a new document or one without a mode starts in Auto", () => {
   const people = [...crew("peer", 3), { id: "pat", role: "human" }, { id: "notify", role: "peer" }, { id: "x", role: undefined }];
   assert.deepEqual(AvatarSettings.parse({}), DEFAULT_AVATAR_SETTINGS);
-  assert.equal(DEFAULT_AVATAR_SETTINGS.mode, "manual");
+  assert.equal(DEFAULT_AVATAR_SETTINGS.mode, "auto");
+  for (const fromVersion of [1, 2, 3]) assert.equal(AvatarSettings.parse(migrateAvatarSettings({ assigned: {} }, fromVersion)).mode, "auto");
   const settings = withPictures({ peer: pictures("p", 1) });
   for (const mode of ["auto", "manual"] as const) assert.ok([...avatarsOf(people, { ...settings, mode }).keys()].every((id) => id.startsWith("peer-")));
 });

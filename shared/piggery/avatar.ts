@@ -36,14 +36,14 @@ function emptyLibraries(): Record<RoleKey, RoleLibrary> {
 }
 
 export const AvatarSettings = z.object({
-  mode: z.enum(AVATAR_MODES).default("manual"),
+  mode: z.enum(AVATAR_MODES).default("auto"),
   libraries: z.object(Object.fromEntries(AVATAR_ROLES.map((role) => [role, RoleLibrary.default(EMPTY_LIBRARY)])) as Record<RoleKey, z.ZodDefault<typeof RoleLibrary>>).default(emptyLibraries),
   assigned: z.record(z.string(), z.string()).default({}),
 });
 
 export type AvatarSettings = z.output<typeof AvatarSettings>;
 
-export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = { mode: "manual", libraries: emptyLibraries(), assigned: {} };
+export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = { mode: "auto", libraries: emptyLibraries(), assigned: {} };
 
 export type AvatarPerson = { id: string; role: string | undefined; joinedAt?: number; name?: string; team?: string };
 
@@ -214,12 +214,12 @@ function fromVersion1(values: unknown): Record<string, unknown> {
     const imageId = typeof ref === "string" && ref.startsWith("image:") ? ref.slice("image:".length) : null;
     if (imageId !== null && kept.has(imageId)) assigned[id] = imageId;
   }
-  return { mode: old.mode === "auto" || old.mode === "manual" ? "on" : "off", libraries: Object.fromEntries(AVATAR_ROLES.map((role) => [role, { images }])), assigned };
+  return { mode: old.mode === undefined ? undefined : old.mode === "auto" || old.mode === "manual" ? "on" : "off", libraries: Object.fromEntries(AVATAR_ROLES.map((role) => [role, { images }])), assigned };
 }
 
 function fromVersion2(values: unknown): Record<string, unknown> {
   const old = recordOf(values);
-  return { ...old, mode: old.mode === "on" ? "auto" : "manual" };
+  return { ...old, mode: old.mode === undefined ? undefined : old.mode === "on" ? "auto" : "manual" };
 }
 
 export function migrateAvatarSettings(values: unknown, fromVersion: number): unknown {
