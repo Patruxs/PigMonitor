@@ -72,7 +72,7 @@ interface Head {
   tabs?: string[];
 }
 
-interface Block {
+export interface Block {
   head?: Head;
   rows: Row[];
   no_members?: boolean;
