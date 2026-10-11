@@ -1,33 +1,32 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { openExternalUrl, usePaseo } from "@getpaseo/plugin/client";
+import { usePaseo } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, useWindowDimensions, View, type LayoutChangeEvent, type NativeSyntheticEvent, type PressableStateCallbackType, type TextInputSelectionChangeEventData, type TextStyle } from "react-native";
-import { editQueuedComposerMessage, queueComposerMessage, sendQueuedComposerMessageNow } from "./message-queue.ts";
-import { MIN_INPUT_HEIGHT, resolveMaxInputHeight } from "./input-height.ts";
-import { resolvePrimaryActionKind, submitAgentInput } from "./submit.ts";
-import { restoreComposerIfEmpty, type ComposerContent } from "./rewind-restore.ts";
-import { splitAttachmentsForSubmit, type ComposerAttachment } from "./attachment.ts";
-import { attachmentChoices, type AttachmentChoiceId } from "./attachment-menu.ts";
+import { useRef, useState, type ReactNode } from "react";
+import { ActivityIndicator, Pressable, Text, TextInput, View, type NativeSyntheticEvent, type PressableStateCallbackType, type TextStyle } from "react-native";
+import { MIN_INPUT_HEIGHT } from "./input-height.ts";
+import { resolvePrimaryActionKind } from "./submit.ts";
 import { type AttachmentData, type ImageData } from "../../shared/rpc.ts";
-import { withTranscript } from "../../shared/chat/speech.ts";
-import { generateMessageId } from "../../shared/stream/stream.ts";
-import { AttachmentTray, canAttach } from "./attachments.tsx";
-import { ForgeGlyph, ForgePicker } from "./attachments-forge.tsx";
+import { AttachmentTray } from "./attachments.tsx";
+import { ForgePicker } from "./attachments-forge.tsx";
 import { AutocompletePopover, useAgentAutocomplete } from "./autocomplete.tsx";
-import { clearDraft, readDraft, saveDraft } from "./drafts.ts";
 import { AttachmentLightbox } from "../kit/lightbox.tsx";
-import { AnchoredMenu, type MenuItem } from "../kit/menu.tsx";
-import { COMPACT_BELOW, CONTENT_FONT, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, SPACING, text } from "../kit/theme.ts";
-import { drainWhenIdle, queueWriter, useQueuedMessages } from "./queue.tsx";
-import { registerComposerRestore } from "../chat/rewind.tsx";
+import { AnchoredMenu } from "../kit/menu.tsx";
+import { CONTENT_FONT, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, SPACING, text } from "../kit/theme.ts";
+import { useQueueActions, useQueuedMessages } from "./queue.tsx";
 import type { AgentTimeline } from "../stream/timeline.ts";
 import { ComposerTracks } from "./tracks.tsx";
-import { DictationButton, useDictation } from "./dictation.tsx";
+import { DictationButton, useComposerDictation } from "./dictation.tsx";
 import { FOCUS_HINT, ModeCycleScope, useComposerKeys } from "./composer-keys.tsx";
-import { nodeOf, useComposerHeight } from "./composer-height.ts";
+import { useComposerHeight } from "./composer-height.ts";
 import { QueuedMessageRow } from "./queue.tsx";
 import { useComposerAttachments } from "./composer-attachments.ts";
+import { useComposerText } from "./composer-text.ts";
+import { useComposerLayout } from "./composer-layout.ts";
+import { useComposerFocus, useInitialFocus } from "./composer-focus.ts";
+import { useComposerSend } from "./composer-send.ts";
+import { useComposerDraft } from "./composer-draft.ts";
+import { useAgentCancel } from "./agent-cancel.ts";
+import { useAttachmentOverlays } from "./attachment-overlays.tsx";
 import { NO_OUTLINE, isWeb } from "../kit/platform.ts";
 
 
@@ -42,10 +41,7 @@ const BUTTON = 28;
 const BOX_RADIUS = 16;
 const CANCEL_RED = "#dc2626";
 const ERROR_RED = "#ef4444";
-const COMPACT_FORM_FACTOR_WIDTH = 500;
 
-const dom = globalThis as { document?: Document; window?: Window; navigator?: Navigator };
-const PLUGINS_CANNOT_ATTACH = "Paseo's mobile app doesn't let plugins attach photos or files yet";
 const DESKTOP_PLACEHOLDER = "Message the agent, tag @files, or use /commands and /skills";
 const MOBILE_PLACEHOLDER = "Message, @files, /commands";
 
@@ -56,204 +52,37 @@ function hoveredOf(state: PressableStateCallbackType): boolean {
 }
 
 
-function focusWithRetries(focus: () => void, isFocused: () => boolean, deferInitialAttempt: boolean): () => void {
-  let cancelled = false;
-  const deadline = Date.now() + 1500;
-  const tick = () => {
-    if (cancelled) return;
-    focus();
-    if (isFocused() || Date.now() >= deadline) return;
-    requestAnimationFrame(() => requestAnimationFrame(tick));
-  };
-  if (deferInitialAttempt) requestAnimationFrame(tick);
-  else tick();
-  return () => {
-    cancelled = true;
-  };
-}
-
-
-
 type ToolbarSlot = ReactNode | ((layout: { isCompactLayout: boolean }) => ReactNode);
 
 
 export function Composer({ theme, placeholder, disabled = false, hint, controls, trailing, draftKey, cwd, stop, agent, onSend }: { theme: PluginTheme; placeholder: string; disabled?: boolean; hint?: string; controls?: ToolbarSlot; trailing?: ToolbarSlot; draftKey?: string; cwd?: string; stop?: { running: boolean; onStop: () => Promise<string | null> }; agent?: ComposerAgent; onSend: (body: string, images: ImageData[], attachments: AttachmentData[]) => Promise<string | null> }) {
-  const initial = useMemo(() => (draftKey === undefined ? { text: "", attachments: [] } : readDraft(draftKey)), []);
-  const [value, setValue] = useState(initial.text);
-  const [cursor, setCursor] = useState(initial.text.length);
+  const { initial, value, setValue, cursor, setCursor, replaceText, onSelectionChange } = useComposerText(draftKey);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [localCancelling, setLocalCancelling] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [lightboxUri, setLightboxUri] = useState<string | undefined>(undefined);
-  const [isInputFocused, setIsInputFocused] = useState(false);
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const isCompactFormFactor = windowWidth < COMPACT_BELOW;
-  const [isCompactLayout, setIsCompactLayout] = useState(isCompactFormFactor);
+  const { isCompactFormFactor, isCompactLayout, maxInputHeight, onInputAreaLayout } = useComposerLayout();
   const input = useRef<TextInput>(null);
   const root = useRef<View>(null);
   const toast = useToast();
   const paseo = usePaseo();
-  const maxInputHeight = resolveMaxInputHeight(windowHeight);
   const composerHeight = useComposerHeight(input, value, maxInputHeight);
   const agentId = agent?.agentId;
   const timeline = agent?.timeline;
   const queueKey = agent?.participantId;
   const queuedMessages = useQueuedMessages(queueKey);
   const isAgentRunning = timeline ? timeline.turn.isActive : stop?.running === true;
-  const isCancellingAgent = timeline ? timeline.turn.isCancelling || localCancelling : localCancelling;
   const intake = useComposerAttachments({ initial: initial.attachments, text: value, cwd, field: input, disabled, isProcessing });
   const { attachments, setAttachments, pendingFiles } = intake;
-  const content = useRef<ComposerContent>({ text: value, attachments });
-  content.current = { text: value, attachments };
   const isSubmitLoading = isProcessing || pendingFiles.length > 0;
   const hasSendableContent = value.trim().length > 0 || attachments.length > 0;
   const onQueue = agentId !== undefined;
-
-  useEffect(() => {
-    if (agentId && queueKey && queueWriter.read(queueKey).length > 0) drainWhenIdle(paseo, queueKey, agentId);
-  }, [paseo, queueKey, agentId]);
-
-  useEffect(() => {
-    if (draftKey !== undefined) saveDraft(draftKey, { text: value, attachments });
-  }, [draftKey, value, attachments]);
-
-  const focusInput = useCallback(() => {
-    if (!isWeb) return;
-    focusWithRetries(
-      () => input.current?.focus(),
-      () => nodeOf(input) !== null && dom.document?.activeElement === nodeOf(input),
-      false,
-    );
-  }, []);
-
-  useEffect(() => {
-    if (draftKey === undefined) return;
-    return registerComposerRestore(draftKey, (rewound) => {
-      const next = restoreComposerIfEmpty(content.current, rewound);
-      if (next !== content.current) {
-        setValue(next.text);
-        setCursor(next.text.length);
-        setAttachments(next.attachments);
-      }
-      focusInput();
-    });
-  }, [draftKey, focusInput]);
-
-  useEffect(() => {
-    const hasFinePointer = dom.window?.matchMedia?.("(pointer: fine)").matches ?? false;
-    if (!isWeb || isCompactFormFactor || !hasFinePointer) return;
-    return focusWithRetries(
-      () => input.current?.focus(),
-      () => nodeOf(input) !== null && dom.document?.activeElement === nodeOf(input),
-      true,
-    );
-  }, []);
-
-  const replaceText = useCallback((next: string) => {
-    setValue(next);
-    setCursor(next.length);
-  }, []);
+  const { isInputFocused, setIsInputFocused, focusInput } = useComposerFocus(input);
+  const { sendError, setSendError, submitMessage, sendMessageWithContent, handleSendMessage } = useComposerSend({ onSend, draftKey, value, attachments, setAttachments, replaceText, setIsProcessing, isAgentRunning, agentId, queueKey, paseo, composerHeight });
+  const { handleQueueMessage, handleEditQueuedMessage, handleSendQueuedNow } = useQueueActions({ paseo, queueKey, agentId, value, attachments, setAttachments, replaceText, composerHeight, submitMessage, setSendError });
+  useComposerDraft({ draftKey, value, attachments, setValue, setCursor, setAttachments, focusInput });
+  useInitialFocus(input, isCompactFormFactor);
 
   const autocomplete = useAgentAutocomplete({ text: value, cursor, agentId, cwd, setText: replaceText, onApplied: focusInput });
-
-  const submitMessage = useCallback(
-    async (message: string, outgoing: ComposerAttachment[]) => {
-      const wire = splitAttachmentsForSubmit(outgoing);
-      const failed = await onSend(message, wire.images, wire.attachments);
-      if (failed) throw new Error(failed);
-    },
-    [onSend],
-  );
-
-  const sendMessageWithContent = useCallback(
-    async (message: string, outgoing: ComposerAttachment[], forceSend?: boolean) => {
-      await submitAgentInput({
-        message,
-        attachments: outgoing,
-        forceSend,
-        isAgentRunning,
-        canSubmit: true,
-        queueMessage: ({ message: queuedText, attachments: queuedAttachments }) => {
-          if (!agentId || !queueKey || !queueComposerMessage({ queueKey, id: generateMessageId(), text: queuedText, attachments: queuedAttachments, queue: queueWriter })) return;
-          drainWhenIdle(paseo, queueKey, agentId);
-        },
-        submitMessage: ({ message: submitText, attachments: submitAttachments }) => submitMessage(submitText, submitAttachments),
-        clearDraft: (lifecycle) => draftKey !== undefined && clearDraft(draftKey, lifecycle),
-        setUserInput: replaceText,
-        setAttachments,
-        setSendError,
-        setIsProcessing,
-      });
-    },
-    [isAgentRunning, agentId, queueKey, paseo, submitMessage, draftKey, replaceText],
-  );
-
-  const handleSendMessage = () => {
-    const trimmed = value.trim();
-    if (!trimmed && attachments.length === 0) return;
-    void sendMessageWithContent(trimmed, attachments, isAgentRunning || undefined);
-    composerHeight.reset();
-  };
-
-  const insertTranscript = (transcript: string) => {
-    replaceText(withTranscript(value, transcript));
-    focusInput();
-  };
-
-  const sendTranscript = (transcript: string) => {
-    const message = withTranscript(value, transcript).trim();
-    replaceText(message);
-    void sendMessageWithContent(message, attachments, isAgentRunning || undefined);
-    composerHeight.reset();
-  };
-
-  const dictation = useDictation({ onInsert: insertTranscript, onInsertAndSend: sendTranscript });
-  const isDictating = dictation.status !== "idle";
-
-  const handleQueueMessage = () => {
-    if (!agentId || !queueKey) return;
-    const trimmed = value.trim();
-    if (!trimmed && attachments.length === 0) return;
-    const queued = queueComposerMessage({ queueKey, id: generateMessageId(), text: trimmed, attachments, queue: queueWriter });
-    if (!queued) return;
-    drainWhenIdle(paseo, queueKey, agentId);
-    replaceText("");
-    setAttachments([]);
-    composerHeight.reset();
-  };
-
-  const handleEditQueuedMessage = (id: string) => {
-    if (!queueKey) return;
-    const result = editQueuedComposerMessage({ queueKey, messageId: id, queue: queueWriter });
-    if (!result) return;
-    replaceText(result.text);
-    setAttachments(result.attachments);
-  };
-
-  const handleSendQueuedNow = async (id: string) => {
-    if (!queueKey) return;
-    const result = await sendQueuedComposerMessageNow({ queueKey, messageId: id, queue: queueWriter, submitMessage: ({ text: queuedText, attachments: queuedAttachments }) => submitMessage(queuedText, queuedAttachments) });
-    if (result.status === "failed") setSendError(result.errorMessage);
-  };
-
-  const handleCancelAgent = useCallback(() => {
-    if (!stop || !isAgentRunning || isCancellingAgent) return;
-    const requestId = Date.now();
-    timeline?.cancelling(requestId);
-    setLocalCancelling(true);
-    void stop
-      .onStop()
-      .then((failed) => {
-        if (failed && failed.trim().length > 0) toast.error(failed);
-      })
-      .finally(() => {
-        timeline?.cancelling(null);
-        setLocalCancelling(false);
-      });
-    input.current?.focus();
-  }, [stop, isAgentRunning, isCancellingAgent, timeline, toast]);
+  const { dictation, isDictating } = useComposerDictation({ value, attachments, isAgentRunning, replaceText, focusInput, sendMessageWithContent, composerHeight });
+  const { isCancellingAgent, handleCancelAgent } = useAgentCancel({ stop, timeline, isAgentRunning, toast, input });
 
   const keys = useComposerKeys({
     field: input,
@@ -268,23 +97,7 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
     },
   });
 
-  const openAttachment = (attachment: ComposerAttachment) => {
-    if (attachment.kind === "image") return setLightboxUri(attachment.metadata.dataUrl);
-    if (attachment.kind === "file") return;
-    void openExternalUrl(attachment.item.url);
-  };
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
-  const closeLightbox = useCallback(() => setLightboxUri(undefined), []);
-  const menuIcon = (name: string) => <Icon name={name} size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />;
-  const menuEntries: Record<AttachmentChoiceId, Omit<MenuItem, "id" | "disabled">> = {
-    image: { label: "Add image", icon: menuIcon("Image"), onSelect: () => void intake.pickImage() },
-    "paste-image": { label: "Paste image", icon: menuIcon("ClipboardPaste"), onSelect: () => undefined },
-    github: { label: "Add issue or PR", icon: <ForgeGlyph size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />, onSelect: () => setPickerOpen(true) },
-    file: { label: "Upload file", icon: menuIcon("Paperclip"), onSelect: () => void intake.pickFile() },
-  };
-  const choices = attachmentChoices(!isWeb, canAttach);
-  const menuItems: MenuItem[] = choices.map((choice) => ({ id: choice.id, ...menuEntries[choice.id], disabled: !choice.enabled }));
-  const menuNote = choices.some((choice) => !choice.enabled) ? PLUGINS_CANNOT_ATTACH : undefined;
+  const { menuOpen, setMenuOpen, pickerOpen, setPickerOpen, lightboxUri, openAttachment, closeMenu, closeLightbox, menuItems, menuNote } = useAttachmentOverlays({ theme, intake });
 
   const onKeyPress = (event: KeyPressEvent) => {
     if (!isWeb) return;
@@ -302,15 +115,6 @@ export function Composer({ theme, placeholder, disabled = false, hint, controls,
     if (isDictating) return;
     if ((native.metaKey || native.ctrlKey) && isAgentRunning && onQueue) return handleQueueMessage();
     handleSendMessage();
-  };
-
-  const onSelectionChange = (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => setCursor(event.nativeEvent.selection?.start ?? 0);
-
-  const onInputAreaLayout = (event: LayoutChangeEvent) => {
-    const width = event.nativeEvent.layout.width;
-    if (!Number.isFinite(width) || width <= 0) return;
-    const below = width < COMPACT_FORM_FACTOR_WIDTH;
-    setIsCompactLayout((was) => (was === below ? was : below));
   };
 
   const primaryAction = resolvePrimaryActionKind({ hasSendableContent, isAgentRunning, isSubmitLoading, keepSendVisible: !isWeb || isCompactFormFactor });
