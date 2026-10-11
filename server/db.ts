@@ -27,7 +27,7 @@ const ParticipantRow = z.object({ id: text, name: text, role: maybeText, harness
 
 const SessionRow = z.object({ id: text, ref: maybeText, harness: maybeText, mode: maybeText, cwd: text, state: text, team_closed: z.number() });
 
-const TeammateRow = z.object({ name: text, role: text });
+const TeammateRow = z.object({ id: text, name: text, role: text });
 
 const KnownSessionRow = z.object({ id: text, ref: maybeText, transcript: maybeText });
 const PlaceRow = z.object({ dir: text });
@@ -156,12 +156,16 @@ export class PiggeryDb {
     return rowsOf(PlaceRow, this.open(file).prepare("SELECT cwd AS dir FROM participants UNION SELECT root_cwd AS dir FROM teams").all()).map((row) => row.dir);
   }
 
-  teammates(file: string, teamId: string): Record<string, string> {
-    if (!existsSync(file)) return {};
-    const rows = rowsOf(TeammateRow, this.open(file).prepare("SELECT name, role FROM participants WHERE team_id = ? AND role IS NOT NULL ORDER BY created_at").all(teamId));
-    const out: Record<string, string> = {};
-    for (const r of rows) out[r.name] = r.role;
-    return out;
+  teammates(file: string, teamId: string): { roles: Record<string, string>; ids: Record<string, string> } {
+    const roles: Record<string, string> = {};
+    const ids: Record<string, string> = {};
+    if (!existsSync(file)) return { roles, ids };
+    const rows = rowsOf(TeammateRow, this.open(file).prepare("SELECT id, name, role FROM participants WHERE team_id = ? AND role IS NOT NULL ORDER BY created_at").all(teamId));
+    for (const r of rows) {
+      roles[r.name] = r.role;
+      ids[r.name] = r.id;
+    }
+    return { roles, ids };
   }
 
   private query(db: DatabaseSync, filter: MailFilter): MailResult {

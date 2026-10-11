@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { roleColour } from "./mail.ts";
 import type { RoleKey } from "./palette.ts";
+import type { View } from "./view.ts";
 
 export const AVATAR_POOL = ["Cat", "Dog", "Rabbit", "Squirrel", "Rat", "Panda", "Bird", "Origami", "Fish", "Shrimp", "Turtle", "Snail", "Bug", "Worm", "PiggyBank", "Ghost", "Smile", "Baby"] as const;
 
@@ -23,6 +24,12 @@ export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = { mode: "off", seed: 0, p
 export type AvatarPerson = { id: string; role: string | undefined; joinedAt?: number };
 
 const RESHUFFLE_TRIES = 64;
+
+export function avatarPeopleOf(view: View): AvatarPerson[] {
+  const people: AvatarPerson[] = [];
+  for (const list of [view.all, view.closed]) for (const dir of list.dirs) for (const block of dir.blocks) for (const row of block.rows) if (row.kind === "member") people.push({ id: row.id, role: row.role, joinedAt: row.created_at });
+  return people;
+}
 
 function isPoolIcon(name: string | undefined): name is AvatarIcon {
   return name !== undefined && (AVATAR_POOL as readonly string[]).includes(name);

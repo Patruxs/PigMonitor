@@ -124,17 +124,17 @@ export class TranscriptReader {
       const shown = merged.map((item) => this.shownAs(item));
       logs.revs = shown.map((seen, k) => (seen === logs.shown[k] ? logs.revs[k] : rev));
       logs.shown = shown;
-      let roles: Record<string, string> | undefined;
+      let mates: { roles: Record<string, string>; ids: Record<string, string> } | undefined;
       if (who?.team_id) {
         try {
-          roles = this.db.teammates(dbFile, who.team_id);
+          mates = this.db.teammates(dbFile, who.team_id);
         } catch {}
       }
       const changed = since?.epoch === logs.epoch ? logs.revs.findIndex((at) => at > since.rev) : undefined;
       const from = changed === undefined ? undefined : changed < 0 ? merged.length : changed;
       const start = from ?? Math.max(0, merged.length - limit);
       const items = merged.slice(start).map((item, k) => ({ ...item, i: start + k, key: this.keyOf(item) }));
-      return { ok: true, items, total: merged.length, name: who?.name ?? id, role: who?.role ?? undefined, files: files.length, ...(roles ? { roles } : {}), ...(usage ? { usage } : {}), epoch: logs.epoch, rev, ...(from === undefined ? {} : { from }) };
+      return { ok: true, items, total: merged.length, name: who?.name ?? id, role: who?.role ?? undefined, files: files.length, ...(mates ? { roles: mates.roles, ids: mates.ids } : {}), ...(usage ? { usage } : {}), epoch: logs.epoch, rev, ...(from === undefined ? {} : { from }) };
     } catch (error) {
       return { ok: false, code: "failed", error: `Could not read the session log: ${messageOf(error)}` };
     }

@@ -35,7 +35,7 @@ function useTranscript(id: string, limit: number, refresh = 0) {
       const had = held.current?.key === key ? held.current.value : null;
       const r = await call({ id, limit, ...(had?.epoch !== undefined && had.rev !== undefined ? { since: { epoch: had.epoch, rev: had.rev } } : {}) });
       if (!r.ok) return r;
-      const value: Transcript = { items: withIncrement(had?.items ?? [], r, limit), total: r.total, name: r.name, role: r.role, files: r.files, roles: r.roles, usage: r.usage, epoch: r.epoch, rev: r.rev };
+      const value: Transcript = { items: withIncrement(had?.items ?? [], r, limit), total: r.total, name: r.name, role: r.role, files: r.files, roles: r.roles, ids: r.ids, usage: r.usage, epoch: r.epoch, rev: r.rev };
       held.current = { key, value };
       return { ok: true as const, value };
     },
@@ -65,12 +65,12 @@ function Message({ avatar, colour, children }: { avatar: ReactNode; colour: stri
   );
 }
 
-function MailBubble({ theme, mail, at, role, now }: { theme: PluginTheme; mail: PiggeryStreamItem["source"]; at: number; role: string | undefined; now: number }) {
+function MailBubble({ theme, mail, at, role, senderId, now }: { theme: PluginTheme; mail: PiggeryStreamItem["source"]; at: number; role: string | undefined; senderId: string | undefined; now: number }) {
   const palette = usePalette(theme);
   const from = mail.from ?? "mail";
   const colour = paint(palette, role, from);
   return (
-    <Message colour={colour} avatar={<RoleAvatar theme={theme} name={from} role={role} id={from} />}>
+    <Message colour={colour} avatar={<RoleAvatar theme={theme} name={from} role={role} id={senderId ?? from} />}>
       <Header
         theme={theme}
         who={from}
@@ -119,7 +119,7 @@ export function LogStream({ theme, id, refresh, working, workingSince, cwd, view
       if (source.kind === "run-start") return <Quiet theme={theme} icon="Play" label={`Session started${source.text ? ` · ${source.text}` : ""}`} />;
       if (source.kind === "wake") return <Quiet theme={theme} icon="Bell" label={source.text} />;
       if (source.kind === "turn-end") return null;
-      return <MailBubble theme={theme} mail={source} at={item.timestamp.getTime()} role={source.from ? value?.roles?.[source.from] : undefined} now={now} />;
+      return <MailBubble theme={theme} mail={source} at={item.timestamp.getTime()} role={source.from ? value?.roles?.[source.from] : undefined} senderId={source.from ? value?.ids?.[source.from] : undefined} now={now} />;
     },
     [theme, value, now],
   );

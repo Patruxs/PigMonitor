@@ -50,6 +50,7 @@ export const Transcript = z.object({
   role: z.string().optional(),
   files: z.number().int(),
   roles: z.record(z.string(), z.string()).optional(),
+  ids: z.record(z.string(), z.string()).optional(),
   usage: Usage.optional(),
   epoch: z.string().optional(),
   rev: z.number().int().optional(),

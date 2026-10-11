@@ -11,6 +11,7 @@ import { Header } from "./header.tsx";
 import { conversationsOf, HiddenProjects, SessionsPane } from "../sessions/sessions.tsx";
 import type { Navigation } from "../chat/chat-route.tsx";
 import { StoredPalette } from "../piggery/palette.tsx";
+import { StoredAvatars } from "../piggery/avatars.tsx";
 import { Notice } from "../piggery/notice.tsx";
 import { columnsFor } from "../piggery/row-layout.ts";
 import { TabBar } from "../kit/tab-bar.tsx";
@@ -107,37 +108,39 @@ export function Shell({ theme, compact, dir, empty, navigation, serverId }: { th
     </View>
   ) : null;
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.surface0 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-      {topBar}
-      {view && sessionsTab ? (
-        <SessionsPane theme={theme} view={view} dirs={dirs} width={width} selected={sessionId} opened={chatOpened} now={now} navigation={navigation} serverId={serverId} hidden={hidden} onSelect={setSession} onOpened={setChatOpened} onInfo={setOpened} onHide={hide} onShowHidden={unhide} />
-      ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: SPACING[6] }}>
-          <View>
-            {view ? (
-              <View style={{ paddingHorizontal: SPACING[4], paddingTop: SPACING[4] }}>
-                <Header theme={theme} summary={view.summary} daemon={view.daemon} at={at} now={now} />
-              </View>
-            ) : null}
-            {error && !view ? <Notice theme={theme} kind={error.code} detail={error.message} /> : null}
-            {!view && !error ? <Notice theme={theme} kind="loading" /> : null}
-            {view && dirs.length === 0 ? <Notice theme={theme} kind="empty" detail={empty} /> : null}
-            {view && !graph ? (
-              <View style={{ paddingHorizontal: SPACING[4], paddingTop: SPACING[4] }}>
-                <Overview theme={theme} view={view} segments={snap?.segments ?? {}} dirs={dirs} h={h} index={index} whole={whole} width={width} now={now} empty={empty} />
-              </View>
-            ) : null}
-            {view && hidden > 0 ? (
-              <View style={{ paddingHorizontal: SPACING[4] }}>
-                <HiddenProjects theme={theme} count={hidden} onShow={unhide} />
-              </View>
-            ) : null}
-            {view && graph ? <Graph theme={theme} view={view} dirs={whole ? undefined : dirs} open={setOpened} /> : null}
-          </View>
-        </ScrollView>
-      )}
-      {view ? <DetailDialog theme={theme} view={view} index={index} root={opened} onClose={() => setOpened(null)} /> : null}
-    </View>
+    <StoredAvatars view={view}>
+      <View style={{ flex: 1, backgroundColor: theme.colors.surface0 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+        {topBar}
+        {view && sessionsTab ? (
+          <SessionsPane theme={theme} view={view} dirs={dirs} width={width} selected={sessionId} opened={chatOpened} now={now} navigation={navigation} serverId={serverId} hidden={hidden} onSelect={setSession} onOpened={setChatOpened} onInfo={setOpened} onHide={hide} onShowHidden={unhide} />
+        ) : (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: SPACING[6] }}>
+            <View>
+              {view ? (
+                <View style={{ paddingHorizontal: SPACING[4], paddingTop: SPACING[4] }}>
+                  <Header theme={theme} summary={view.summary} daemon={view.daemon} at={at} now={now} />
+                </View>
+              ) : null}
+              {error && !view ? <Notice theme={theme} kind={error.code} detail={error.message} /> : null}
+              {!view && !error ? <Notice theme={theme} kind="loading" /> : null}
+              {view && dirs.length === 0 ? <Notice theme={theme} kind="empty" detail={empty} /> : null}
+              {view && !graph ? (
+                <View style={{ paddingHorizontal: SPACING[4], paddingTop: SPACING[4] }}>
+                  <Overview theme={theme} view={view} segments={snap?.segments ?? {}} dirs={dirs} h={h} index={index} whole={whole} width={width} now={now} empty={empty} />
+                </View>
+              ) : null}
+              {view && hidden > 0 ? (
+                <View style={{ paddingHorizontal: SPACING[4] }}>
+                  <HiddenProjects theme={theme} count={hidden} onShow={unhide} />
+                </View>
+              ) : null}
+              {view && graph ? <Graph theme={theme} view={view} dirs={whole ? undefined : dirs} open={setOpened} /> : null}
+            </View>
+          </ScrollView>
+        )}
+        {view ? <DetailDialog theme={theme} view={view} index={index} root={opened} onClose={() => setOpened(null)} /> : null}
+      </View>
+    </StoredAvatars>
   );
 }
 

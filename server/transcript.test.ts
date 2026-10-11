@@ -43,6 +43,7 @@ test("TranscriptReader joins a worker's runs in order and names it from the data
     assert.equal(r.role, "lead");
     assert.equal(r.files, 2);
     assert.deepEqual(r.roles, { gates: "supervisor", lead: "lead", ci: "peer" });
+    assert.deepEqual(r.ids, { gates: "S1", lead: "P1", ci: "X1" });
     assert.equal(r.total, 3);
     assert.deepEqual(r.items.map((i) => [i.i, i.text, i.run]), [
       [0, "first run", "RUN1"],
