@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/29efaaa3-40c8-463a-98e0-a167675429f4
 You need Paseo 0.11.0 or newer, piggery on the Paseo daemon's PATH, and Node 22.5 or newer.
 
 ```
-paseo plugin install github:Patruxs/PigMonitor
+paseo plugin install github:Patruxs/PigMonitor --ref v0.2.0
 ```
 
 Update to the latest commit on main, or add `--ref` with a release tag to move to that release:

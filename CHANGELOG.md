@@ -4,6 +4,8 @@ All notable changes to PigMonitor are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-11
+
 ### Added
 
 - Avatars for people with a role, set in Settings → Avatars: each role has its own library of pictures you upload, several at once by choosing, dropping or pasting them (PNG, JPEG or WebP, square-cropped and stored at 256 x 256), from Paseo desktop or web, and in Auto, the default, everyone gets a picture from their role's library by itself, each used once per role in a team, live teams first, newcomers included; when a team has more people in a role than pictures, its latest arrivals keep their initials. In Manual a role with one picture gives it to everyone, and a role with several lists its people so you pick each one's picture (pictures may be shared). Everyone shows initials until their role has pictures.
@@ -32,5 +34,6 @@ First release.
 - Settings for the piggery binary, the piggery database and the colour palette.
 - Looking only reads: `piggery ps --view` and `piggery tail --view` with `--no-start`, and piggery's database opened read-only. Stop, Kill, Switch model, Resume and Release held mail go through piggery, and the destructive ones ask first.
 
-[Unreleased]: https://github.com/Patruxs/PigMonitor/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Patruxs/PigMonitor/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Patruxs/PigMonitor/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Patruxs/PigMonitor/releases/tag/v0.1.0
