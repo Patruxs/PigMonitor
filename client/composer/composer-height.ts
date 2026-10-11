@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { MIN_INPUT_HEIGHT } from "../shared/composer.ts";
-import { isWeb } from "./kit/platform.ts";
+import { MIN_INPUT_HEIGHT } from "./composer-logic.ts";
+import { isWeb } from "../kit/platform.ts";
 
 const dom = globalThis as { document?: Document; window?: Window };
 const MIRRORED_STYLES = ["fontFamily", "fontSize", "fontWeight", "fontStyle", "fontVariant", "lineHeight", "letterSpacing", "wordSpacing", "textTransform", "textIndent", "whiteSpace", "wordWrap", "overflowWrap", "wordBreak", "tabSize", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft"] as const;

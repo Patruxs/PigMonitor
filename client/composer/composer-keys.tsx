@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
-import { resolveComposerKey, type ComposerFocus, type ComposerKeyAction } from "../shared/composer.ts";
-import type { DictationStatus } from "../shared/speech.ts";
-import { useChatPaneArea } from "./chat/chat-pane-scope.tsx";
+import { resolveComposerKey, type ComposerFocus, type ComposerKeyAction } from "./composer-logic.ts";
+import type { DictationStatus } from "../../shared/speech.ts";
+import { useChatPaneArea } from "../chat/chat-pane-scope.tsx";
 import { nodeOf } from "./composer-height.ts";
-import { dom, isMac } from "./kit/platform.ts";
+import { dom, isMac } from "../kit/platform.ts";
 
 type KeyChord = { key: string; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean };
 

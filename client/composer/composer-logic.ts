@@ -1,7 +1,7 @@
-import { forgeAttachment } from "./attach.ts";
-import type { AttachmentData, ForgeItemData, ImageData, UploadedFileData } from "./rpc.ts";
-import type { DictationStatus } from "./speech.ts";
-import { messageOf } from "./errors.ts";
+import { forgeAttachment } from "../../shared/attach.ts";
+import type { AttachmentData, ForgeItemData, ImageData, UploadedFileData } from "../../shared/rpc.ts";
+import type { DictationStatus } from "../../shared/speech.ts";
+import { messageOf } from "../../shared/errors.ts";
 
 export interface ImageMetadata {
   id: string;

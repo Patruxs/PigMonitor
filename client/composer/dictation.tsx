@@ -3,12 +3,12 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
-import { dictationStatus, transcribe } from "../shared/rpc.ts";
-import { stopwatch } from "../shared/format.ts";
-import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, pcmChunker, resampleToPcm16, volumeOf, type DictationStatus } from "../shared/speech.ts";
-import { ICON_SIZE, SPACING } from "./kit/theme.ts";
-import { messageOf } from "../shared/errors.ts";
-import { isWeb } from "./kit/platform.ts";
+import { dictationStatus, transcribe } from "../../shared/rpc.ts";
+import { stopwatch } from "../../shared/format.ts";
+import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, pcmChunker, resampleToPcm16, volumeOf, type DictationStatus } from "../../shared/speech.ts";
+import { ICON_SIZE, SPACING } from "../kit/theme.ts";
+import { messageOf } from "../../shared/errors.ts";
+import { isWeb } from "../kit/platform.ts";
 
 const BUTTON = 28;
 const PROCESSOR_FRAMES = 4096;

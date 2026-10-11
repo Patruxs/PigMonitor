@@ -15,28 +15,28 @@ import {
   submitAgentInput,
   type ComposerAttachment,
   type ComposerContent,
-} from "../shared/composer.ts";
-import { attachmentChoices, type AttachmentChoiceId } from "../shared/attachment-menu.ts";
-import { type AttachmentData, type ImageData } from "../shared/rpc.ts";
-import { withTranscript } from "../shared/speech.ts";
-import { generateMessageId } from "../shared/stream.ts";
+} from "./composer-logic.ts";
+import { attachmentChoices, type AttachmentChoiceId } from "./attachment-menu.ts";
+import { type AttachmentData, type ImageData } from "../../shared/rpc.ts";
+import { withTranscript } from "../../shared/speech.ts";
+import { generateMessageId } from "../../shared/stream.ts";
 import { AttachmentTray, canAttach } from "./attachments.tsx";
 import { ForgeGlyph, ForgePicker } from "./attachments-forge.tsx";
 import { AutocompletePopover, useAgentAutocomplete } from "./autocomplete.tsx";
 import { clearDraft, readDraft, saveDraft } from "./drafts.ts";
-import { AttachmentLightbox } from "./kit/lightbox.tsx";
-import { AnchoredMenu, type MenuItem } from "./kit/menu.tsx";
-import { COMPACT_BELOW, CONTENT_FONT, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, SPACING, text } from "./kit/theme.ts";
+import { AttachmentLightbox } from "../kit/lightbox.tsx";
+import { AnchoredMenu, type MenuItem } from "../kit/menu.tsx";
+import { COMPACT_BELOW, CONTENT_FONT, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, SPACING, text } from "../kit/theme.ts";
 import { drainWhenIdle, queueWriter, useQueuedMessages } from "./queue.tsx";
-import { registerComposerRestore } from "./chat/rewind.tsx";
-import type { AgentTimeline } from "./timeline.ts";
-import { ComposerTracks } from "./tracks.tsx";
+import { registerComposerRestore } from "../chat/rewind.tsx";
+import type { AgentTimeline } from "../timeline.ts";
+import { ComposerTracks } from "../tracks.tsx";
 import { DictationButton, useDictation } from "./dictation.tsx";
 import { FOCUS_HINT, ModeCycleScope, useComposerKeys } from "./composer-keys.tsx";
 import { nodeOf, useComposerHeight } from "./composer-height.ts";
 import { QueuedMessageRow } from "./queue.tsx";
 import { useComposerAttachments } from "./composer-attachments.ts";
-import { NO_OUTLINE, isWeb } from "./kit/platform.ts";
+import { NO_OUTLINE, isWeb } from "../kit/platform.ts";
 
 
 interface ComposerAgent {

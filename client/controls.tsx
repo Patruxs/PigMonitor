@@ -7,7 +7,7 @@ import { buildSelectorProviders, filterAndRankOptions, filterSelectableModels, f
 import type { Usage } from "../shared/context-meter.ts";
 import { agentConfig } from "../shared/rpc.ts";
 import { useLiveAgent } from "./chat/agent-live.ts";
-import { useRegisterModeCycle } from "./composer-keys.tsx";
+import { useRegisterModeCycle } from "./composer/composer-keys.tsx";
 import { ContextWindowMeter } from "./context-meter.tsx";
 import { Anchored, ComboList, ControlTrigger, PALETTE, SearchRow, sidebarColour, ToolbarGlyph, TooltipText, useComboKeys, type ComboOption } from "./controls-kit.tsx";
 import { ProviderGlyph } from "./controls-provider-icons.tsx";

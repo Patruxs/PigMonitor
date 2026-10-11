@@ -1,4 +1,4 @@
-import { createDraftStore, type DraftStorage } from "../shared/drafts.ts";
+import { createDraftStore, type DraftStorage } from "./draft-store.ts";
 
 const drafts = createDraftStore({
   storage: () => {

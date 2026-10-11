@@ -2,10 +2,10 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useSyncExternalStore } from "react";
 import { Pressable, Text, View } from "react-native";
-import { createQueueDrainer, splitAttachmentsForSubmit, type QueuedComposerMessage, type QueueWriter } from "../shared/composer.ts";
-import { agentStatusFeed, type PaseoApi } from "./chat/agent-live.ts";
-import { mountedTimeline, submitToAgent } from "./chat/chat-send.ts";
-import { ICON_SIZE, SPACING } from "./kit/theme.ts";
+import { createQueueDrainer, splitAttachmentsForSubmit, type QueuedComposerMessage, type QueueWriter } from "./composer-logic.ts";
+import { agentStatusFeed, type PaseoApi } from "../chat/agent-live.ts";
+import { mountedTimeline, submitToAgent } from "../chat/chat-send.ts";
+import { ICON_SIZE, SPACING } from "../kit/theme.ts";
 
 const QUEUE_BUTTON = 32;
 

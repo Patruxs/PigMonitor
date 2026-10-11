@@ -2,9 +2,9 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Text, View, type ViewStyle } from "react-native";
-import { rasterImageMimeType, type ImageMetadata } from "../shared/composer.ts";
+import { rasterImageMimeType, type ImageMetadata } from "./composer-logic.ts";
 import { readImageFile } from "./attachments.tsx";
-import { SPACING } from "./kit/theme.ts";
+import { SPACING } from "../kit/theme.ts";
 
 interface FileDropSink {
   onFiles: (images: ImageMetadata[]) => void;

@@ -1,9 +1,9 @@
 import { useRpc } from "@getpaseo/plugin/client";
 import { useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MAX_UPLOAD_BYTES } from "../shared/attach.ts";
-import { toggleForgeAttachment, type ComposerAttachment, type ImageMetadata } from "../shared/composer.ts";
-import { MAX_IMAGES, upload, type ForgeItemData } from "../shared/rpc.ts";
+import { MAX_UPLOAD_BYTES } from "../../shared/attach.ts";
+import { toggleForgeAttachment, type ComposerAttachment, type ImageMetadata } from "./composer-logic.ts";
+import { MAX_IMAGES, upload, type ForgeItemData } from "../../shared/rpc.ts";
 import { canAttach, chooseFiles, clipboardImageFiles, readBase64, readImageFiles, type PendingFile } from "./attachments.tsx";
 import { useFileDrop } from "./attachments-drop.tsx";
 import { useForgeAutoAttach } from "./attachments-forge.tsx";

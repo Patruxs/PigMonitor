@@ -15,11 +15,11 @@ import {
   orderAboveInput,
   type AgentSlashCommand,
   type DirectoryEntry,
-} from "../shared/autocomplete.ts";
-import { dirSuggest } from "../shared/rpc.ts";
-import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
-import { boundedMap } from "../shared/bounded-map.ts";
-import { messageOf } from "../shared/errors.ts";
+} from "../../shared/autocomplete.ts";
+import { dirSuggest } from "../../shared/rpc.ts";
+import { hostColours, RADIUS, SPACING } from "../kit/theme.ts";
+import { boundedMap } from "../../shared/bounded-map.ts";
+import { messageOf } from "../../shared/errors.ts";
 
 const COMMAND_CACHE_LIMIT = 50;
 const DIRECTORY_CACHE_LIMIT = 100;

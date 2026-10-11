@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDraftStore, FINALIZED_DRAFT_TTL_MS, type DraftClock, type DraftStorage } from "./drafts.ts";
+import { createDraftStore, FINALIZED_DRAFT_TTL_MS, type DraftClock, type DraftStorage } from "./draft-store.ts";
 
 function memoryStorage(accept: (value: string) => boolean = () => true): DraftStorage & { items: Map<string, string> } {
   const items = new Map<string, string>();

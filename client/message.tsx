@@ -12,7 +12,7 @@ import { buildToolCallPresentation, type PlanOutcome, type ToolCallDetail, type 
 import type { TodoEntry } from "../shared/todos.ts";
 import { AttachmentLightbox } from "./kit/lightbox.tsx";
 import { Markdown, usePicture } from "./markdown.tsx";
-import { AttachmentFrame, AttachmentLabel, AttachmentThumbnail } from "./attachment-pill.tsx";
+import { AttachmentFrame, AttachmentLabel, AttachmentThumbnail } from "./composer/attachment-pill.tsx";
 import { isWeb, useCompact } from "./kit/platform.ts";
 import { CONTENT_FONT, CONTENT_LINE, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH, RADIUS, SPACING, STREAM_METADATA_FONT } from "./kit/theme.ts";
 import { ToolCallDetailsContent } from "./tool-details.tsx";

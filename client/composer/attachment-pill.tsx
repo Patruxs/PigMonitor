@@ -2,8 +2,8 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useState, type ReactNode } from "react";
 import { Image, Pressable, Text, View } from "react-native";
-import { useCompact } from "./kit/platform.ts";
-import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
+import { useCompact } from "../kit/platform.ts";
+import { hostColours, RADIUS, SPACING } from "../kit/theme.ts";
 
 const CONTENT_HEIGHT = 48;
 const LABEL_MAX_WIDTH = 260;

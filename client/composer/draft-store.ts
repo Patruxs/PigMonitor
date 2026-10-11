@@ -1,4 +1,4 @@
-import type { ComposerAttachment } from "./composer.ts";
+import type { ComposerAttachment } from "./composer-logic.ts";
 
 export interface DraftInput {
   text: string;

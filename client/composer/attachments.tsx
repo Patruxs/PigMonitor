@@ -1,10 +1,10 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { ActivityIndicator, View } from "react-native";
-import { fileTypeLabel, forgeAttachmentKey, rasterImageMimeType, type ComposerAttachment, type ImageMetadata } from "../shared/composer.ts";
-import { forgeOf } from "../shared/attach.ts";
-import type { ForgeItemData } from "../shared/rpc.ts";
+import { fileTypeLabel, forgeAttachmentKey, rasterImageMimeType, type ComposerAttachment, type ImageMetadata } from "./composer-logic.ts";
+import { forgeOf } from "../../shared/attach.ts";
+import type { ForgeItemData } from "../../shared/rpc.ts";
 import { AttachmentFrame, AttachmentLabel, AttachmentPill, AttachmentThumbnail } from "./attachment-pill.tsx";
-import { SPACING } from "./kit/theme.ts";
+import { SPACING } from "../kit/theme.ts";
 
 export interface PendingFile {
   id: number;
