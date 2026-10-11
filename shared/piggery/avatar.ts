@@ -45,7 +45,7 @@ export type AvatarSettings = z.output<typeof AvatarSettings>;
 
 export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = { mode: "auto", libraries: emptyLibraries(), assigned: {} };
 
-export type AvatarPerson = { id: string; role: string | undefined; joinedAt?: number; name?: string; team?: string };
+export type AvatarPerson = { id: string; role: string | undefined; joinedAt?: number; name?: string; team?: string; teamId?: string; live?: boolean };
 
 export type AvatarGroup = { role: RoleKey; people: AvatarPerson[] };
 
@@ -60,8 +60,27 @@ export type CropRect = { x: number; y: number; side: number };
 const ROLE_RANK: Record<RoleKey, number> = { supervisor: 0, lead: 1, peer: 2, executor: 3, advisor: 4 };
 
 export function avatarPeopleOf(view: View): AvatarPerson[] {
+  const teamNames = new Map<string, string>();
+  const closedTeams = new Set<string>();
+  for (const list of [view.all, view.closed])
+    for (const dir of list.dirs)
+      for (const block of dir.blocks) {
+        if (block.head) teamNames.set(block.head.id, block.head.name);
+        for (const row of block.rows) {
+          if (row.kind !== "team" || row.team === undefined) continue;
+          teamNames.set(row.team, row.name);
+          if (list === view.closed || row.closed) closedTeams.add(row.team);
+        }
+      }
   const people: AvatarPerson[] = [];
-  for (const list of [view.all, view.closed]) for (const dir of list.dirs) for (const block of dir.blocks) for (const row of block.rows) if (row.kind === "member") people.push({ id: row.id, role: row.role, joinedAt: row.created_at, name: row.name, team: block.head?.name });
+  for (const list of [view.all, view.closed])
+    for (const dir of list.dirs)
+      for (const block of dir.blocks)
+        for (const row of block.rows) {
+          if (row.kind !== "member") continue;
+          const live = list === view.all && row.status !== "gone" && !(row.team !== undefined && closedTeams.has(row.team));
+          people.push({ id: row.id, role: row.role, joinedAt: row.created_at, name: row.name, team: row.team === undefined ? block.head?.name : teamNames.get(row.team), teamId: row.team, live });
+        }
   return people;
 }
 
@@ -131,38 +150,51 @@ function showPicks(groups: readonly AvatarGroup[], settings: AvatarSettings): Av
   return { settings, avatars, changed: false, needsPick };
 }
 
+function teamsOf(group: readonly AvatarPerson[]): AvatarPerson[][] {
+  const teams = new Map<string, AvatarPerson[]>();
+  for (const person of group) {
+    const key = person.teamId ?? "";
+    const team = teams.get(key);
+    if (team) team.push(person);
+    else teams.set(key, [person]);
+  }
+  return [...teams.values()];
+}
+
 function settleAuto(groups: readonly AvatarGroup[], settings: AvatarSettings): AvatarSettlement {
   const avatars = new Map<string, string>();
-  const present = new Set(groups.flatMap((group) => group.people.map((person) => person.id)));
+  const live = new Set(groups.flatMap((group) => group.people.filter((person) => person.live ?? true).map((person) => person.id)));
   const assigned: Record<string, string> = {};
-  for (const [id, imageId] of Object.entries(settings.assigned)) if (!present.has(id) && imageInUse(settings, imageId)) assigned[id] = imageId;
+  for (const [id, imageId] of Object.entries(settings.assigned)) if (!live.has(id) && imageInUse(settings, imageId)) assigned[id] = imageId;
+  const give = (person: AvatarPerson, imageId: string, taken: Set<string>) => {
+    avatars.set(person.id, imageId);
+    taken.add(imageId);
+    if (live.has(person.id)) assigned[person.id] = imageId;
+  };
   for (const { role, people: group } of groups) {
     const imageIds = imageIdsOf(settings.libraries[role]);
-    const taken = new Set<string>();
-    const duplicates: [AvatarPerson, string][] = [];
-    const unassigned: AvatarPerson[] = [];
-    for (const person of group) {
-      const kept = settings.assigned[person.id];
-      if (kept === undefined || !imageIds.includes(kept)) unassigned.push(person);
-      else if (taken.has(kept)) duplicates.push([person, kept]);
-      else {
-        avatars.set(person.id, kept);
-        taken.add(kept);
-        assigned[person.id] = kept;
+    for (const team of teamsOf(group)) {
+      const taken = new Set<string>();
+      for (const claimingLive of [true, false]) {
+        const duplicates: [AvatarPerson, string][] = [];
+        const unassigned: AvatarPerson[] = [];
+        for (const person of team) {
+          if (live.has(person.id) !== claimingLive) continue;
+          const kept = settings.assigned[person.id];
+          if (kept === undefined || !imageIds.includes(kept)) unassigned.push(person);
+          else if (taken.has(kept)) duplicates.push([person, kept]);
+          else give(person, kept, taken);
+        }
+        for (const [person, kept] of duplicates) {
+          const imageId = firstFree(person.id, imageIds, taken) ?? (claimingLive ? kept : undefined);
+          if (imageId !== undefined) give(person, imageId, taken);
+        }
+        for (const person of unassigned) {
+          const imageId = firstFree(person.id, imageIds, taken);
+          if (imageId === undefined) break;
+          give(person, imageId, taken);
+        }
       }
-    }
-    for (const [person, kept] of duplicates) {
-      const imageId = firstFree(person.id, imageIds, taken) ?? kept;
-      avatars.set(person.id, imageId);
-      taken.add(imageId);
-      assigned[person.id] = imageId;
-    }
-    for (const person of unassigned) {
-      const imageId = firstFree(person.id, imageIds, taken);
-      if (imageId === undefined) break;
-      avatars.set(person.id, imageId);
-      taken.add(imageId);
-      assigned[person.id] = imageId;
     }
   }
   const needsPick: ReadonlySet<string> = new Set();

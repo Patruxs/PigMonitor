@@ -31,7 +31,7 @@ const MODES: { id: AvatarMode; label: string }[] = [
 ];
 
 const MODE_HINTS: Record<AvatarMode, string> = {
-  auto: "Everyone gets a picture from their role's library by itself, each used once per role, and newcomers get a free one. When a role has more people than pictures, the latest arrivals show their initials.",
+  auto: "Everyone gets a picture from their role's library by itself, each used once per role in a team, and newcomers get a free one. Live teams come first; when a team has more people in a role than pictures, its latest arrivals show their initials.",
   manual: "You pick each person's picture. A role with one picture gives it to everyone; a role with several lists its people under its pictures, and a picture can be shared.",
 };
 
@@ -139,8 +139,8 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
   const manual = values.mode === "manual";
   const listed = view !== null && !known.error;
   const colours = Object.fromEntries(AVATAR_ROLES.map((role) => [role, palette[role]])) as Record<RoleKey, string>;
-  const groupOf = (role: RoleKey) => groups.find((group) => group.role === role)?.people ?? NO_PEOPLE;
-  const usersOf = (role: RoleKey, imageId: string) => groupOf(role).filter((person) => settled.avatars.get(person.id) === imageId).map(nameOf);
+  const groupOf = (role: RoleKey) => groups.find((group) => group.role === role)?.people.filter((person) => person.live ?? true) ?? NO_PEOPLE;
+  const usersOf = (role: RoleKey, imageId: string) => groupOf(role).filter((person) => settled.avatars.get(person.id) === imageId).map((person) => (person.team ? `${nameOf(person)} (${person.team})` : nameOf(person)));
   const addTo = async (role: RoleKey, image: EncodedAvatar): Promise<string | null> => {
     const stored = await upload(image.data, image.mimeType);
     if (!stored.ok) return stored.error;

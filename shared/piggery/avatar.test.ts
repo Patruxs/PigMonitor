@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGE_BYTES, MAX_AVATAR_IMAGES, addAvatarImage, assignAvatars, avatarUploadError, centreSquare, imageInUse, migrateAvatarSettings, pickAvatar, removeAvatarImage, type AvatarPerson } from "./avatar.ts";
+import { AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGE_BYTES, MAX_AVATAR_IMAGES, addAvatarImage, assignAvatars, avatarUploadError, centreSquare, imageInUse, avatarPeopleOf, migrateAvatarSettings, pickAvatar, removeAvatarImage, type AvatarPerson } from "./avatar.ts";
 import type { RoleKey } from "./palette.ts";
+import type { Row, View } from "./view.ts";
 
 function crew(role: string, count: number, prefix = role): AvatarPerson[] {
   return Array.from({ length: count }, (_, index) => ({ id: `${prefix}-${index}`, role, joinedAt: 1000 + index }));
+}
+
+function inTeam(teamId: string, people: readonly AvatarPerson[], live = true): AvatarPerson[] {
+  return people.map((person) => ({ ...person, id: `${teamId}/${person.id}`, teamId, live }));
 }
 
 function pictures(prefix: string, count: number): string[] {
@@ -40,7 +45,7 @@ test("the human and pseudo ids never get a picture in either mode, and a new doc
   for (const mode of ["auto", "manual"] as const) assert.ok([...avatarsOf(people, { ...settings, mode }).keys()].every((id) => id.startsWith("peer-")));
 });
 
-test("each role draws only from its own library, people of one role never share a picture, and an empty library shows initials", () => {
+test("each role draws only from its own library, people of one role in a team never share a picture, and an empty library shows initials", () => {
   const supervisors = [...crew("supervisor", 2), ...crew("chair", 2)];
   const leads = crew("lead", 3);
   const peers = crew("peer", 2);
@@ -67,11 +72,11 @@ test("when a role has more people than pictures the earliest arrivals keep uniqu
   assert.deepEqual(shown.slice(3), [undefined, undefined]);
 });
 
-test("people joining or leaving never move anyone else's picture, and a leaver's picture is free again", () => {
-  const team = crew("peer", 4);
+test("people joining or leaving a live team never move anyone else's picture, and a newcomer takes a free one at once", () => {
+  const team = inTeam("t", crew("peer", 4));
   const saved = assignAvatars(team, withPictures({ peer: pictures("p", 4) })).settings;
   const [leaver, ...stayers] = team;
-  const after = assignAvatars([{ id: "newcomer", role: "peer", joinedAt: 1 }, ...stayers], saved);
+  const after = assignAvatars([{ id: "newcomer", role: "peer", joinedAt: 1, teamId: "t", live: true }, ...stayers], saved);
   assert.deepEqual(picturesOf(after.avatars, stayers), stayers.map((person) => saved.assigned[person.id]));
   assert.equal(after.avatars.get("newcomer"), saved.assigned[leaver.id]);
   assert.equal(after.settings.assigned.newcomer, saved.assigned[leaver.id]);
@@ -178,6 +183,74 @@ test("old documents migrate to the newest version: the Human's version 2 documen
   assert.deepEqual(fromOne.libraries.executor, { images: [{ id: "a" }] });
   assert.deepEqual(fromOne.assigned, { "peer-2": "a" });
   assert.deepEqual(AvatarSettings.parse(migrateAvatarSettings("garbage", 1)), DEFAULT_AVATAR_SETTINGS);
+});
+
+test("two live teams may show the same picture, but never twice among one team's people of a role", () => {
+  const red = inTeam("red", crew("peer", 3));
+  const blue = inTeam("blue", crew("peer", 3));
+  const avatars = avatarsOf([...red, ...blue], withPictures({ peer: pictures("p", 3) }));
+  for (const team of [red, blue]) assert.equal(new Set(picturesOf(avatars, team)).size, 3);
+  assert.deepEqual(new Set(picturesOf(avatars, red)), new Set(picturesOf(avatars, blue)));
+});
+
+test("ended members never block a live one: a gone teammate's picture goes to the live peer, and a closed team's members change nothing elsewhere", () => {
+  const ended = inTeam("t", crew("peer", 1, "old"), false);
+  const live = inTeam("t", [{ id: "new", role: "peer", joinedAt: 5000 }]);
+  const closed = inTeam("c", crew("peer", 2, "closed"), false);
+  const settings = { ...withPictures({ peer: ["p0"] }), assigned: { [ended[0].id]: "p0", [closed[0].id]: "p0" } };
+  const settled = assignAvatars([...ended, ...live, ...closed], settings);
+  assert.equal(settled.avatars.get(live[0].id), "p0");
+  assert.equal(settled.avatars.get(ended[0].id), undefined);
+  assert.equal(settled.avatars.get(closed[0].id), "p0");
+  assert.deepEqual(settled.settings.assigned, { ...settings.assigned, [live[0].id]: "p0" });
+});
+
+test("ended members' leftover pictures are shown but never stored, so a settle that only finds leftovers changes nothing", () => {
+  const ended = inTeam("old", crew("peer", 3), false);
+  const settings = withPictures({ peer: pictures("p", 3) });
+  const settled = assignAvatars(ended, settings);
+  assert.equal(new Set(picturesOf(settled.avatars, ended)).size, 3);
+  assert.equal(settled.changed, false);
+  assert.equal(settled.settings, settings);
+});
+
+test("closing a team frees its pictures for live people at once and leaves its members theirs", () => {
+  const first = inTeam("first", crew("peer", 2));
+  const open = assignAvatars(first, withPictures({ peer: pictures("p", 2) })).settings;
+  const closed = first.map((person) => ({ ...person, live: false }));
+  const next = inTeam("next", crew("peer", 2, "next"));
+  const after = assignAvatars([...closed, ...next], open);
+  assert.deepEqual(new Set(picturesOf(after.avatars, next)), new Set(["p0", "p1"]));
+  assert.deepEqual(picturesOf(after.avatars, closed), first.map((person) => open.assigned[person.id]));
+});
+
+function row(kind: Row["kind"], id: string, fields: Partial<Row> = {}): Row {
+  return { kind, id, depth: 0, name: id, state: "", state_text: "", status: "idle", unacked: 0, ...fields };
+}
+
+test("the Human's real view gives PigMonitor-9 pictures on the first settle while the old teams keep theirs", () => {
+  const old = (team: string, id: string, role: string, created_at: number) => row("member", id, { team, role, created_at, status: "gone" });
+  const view = {
+    all: { dirs: [{ path: "/p", label: "p", blocks: [
+      { rows: [row("team", "team:ember", { team: "ember", status: "gone" }), old("ember", "ember-sup", "supervisor", 1), old("ember", "ember-lead", "lead", 2), old("ember", "ember-peer", "peer", 3)] },
+      { head: { id: "pm9", name: "PigMonitor-9", detail: "", line: true, open: true }, rows: [row("member", "nebula", { team: "pm9", role: "supervisor", created_at: 100 }), row("member", "avatar-lead", { team: "pm9", role: "lead", created_at: 101 }), ...["avatar-logic", "avatar-ui", "avatar-store"].map((id, index) => row("member", id, { team: "pm9", role: "peer", created_at: 102 + index, status: "working" }))] },
+    ] }] },
+    closed: { dirs: [{ path: "/q", label: "q", blocks: [{ rows: [row("team", "team:mango", { team: "mango", status: "gone", closed: "yesterday" }), ...["mango-a", "mango-b", "mango-c"].map((id, index) => old("mango", id, "peer", 10 + index))] }] }] },
+  } as unknown as View;
+  const people = avatarPeopleOf(view);
+  assert.deepEqual(people.filter((person) => person.live).map((person) => person.id), ["nebula", "avatar-lead", "avatar-logic", "avatar-ui", "avatar-store"]);
+  assert.equal(people.find((person) => person.id === "nebula")?.team, "PigMonitor-9");
+  const stored = { "ember-sup": "s0", "ember-lead": "l0", "ember-peer": "p0", "mango-a": "p1", "mango-b": "p2", "mango-c": "p3" };
+  const settings = { ...withPictures({ supervisor: ["s0"], lead: ["l0"], peer: pictures("p", 4) }), assigned: stored };
+  const first = assignAvatars(people, settings);
+  assert.equal(first.avatars.get("nebula"), "s0");
+  assert.equal(first.avatars.get("avatar-lead"), "l0");
+  const peers = ["avatar-logic", "avatar-ui", "avatar-store"].map((id) => first.avatars.get(id));
+  assert.ok(peers.every((id) => id !== undefined));
+  assert.equal(new Set(peers).size, 3);
+  for (const [id, imageId] of Object.entries(stored)) assert.equal(first.avatars.get(id), imageId);
+  assert.deepEqual(Object.keys(first.settings.assigned).sort(), [...Object.keys(stored), "nebula", "avatar-lead", "avatar-logic", "avatar-ui", "avatar-store"].sort());
+  assert.equal(assignAvatars(people, first.settings).changed, false);
 });
 
 test("an upload is a PNG, JPEG or WebP of at most 5 MB, decodable, and at least 128 px on its short side, into a library of at most 64", () => {

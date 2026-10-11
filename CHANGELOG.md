@@ -6,7 +6,7 @@ All notable changes to PigMonitor are listed here. The format follows [Keep a Ch
 
 ### Added
 
-- Avatars for people with a role, set in Settings → Avatars: each role has its own library of pictures you upload, several at once by choosing, dropping or pasting them (PNG, JPEG or WebP, square-cropped and stored at 256 x 256), from Paseo desktop or web, and in Auto, the default, everyone gets a picture from their role's library by itself, each used once per role, newcomers included; when a role has more people than pictures, the latest arrivals keep their initials. In Manual a role with one picture gives it to everyone, and a role with several lists its people so you pick each one's picture (pictures may be shared). Everyone shows initials until their role has pictures.
+- Avatars for people with a role, set in Settings → Avatars: each role has its own library of pictures you upload, several at once by choosing, dropping or pasting them (PNG, JPEG or WebP, square-cropped and stored at 256 x 256), from Paseo desktop or web, and in Auto, the default, everyone gets a picture from their role's library by itself, each used once per role in a team, live teams first, newcomers included; when a team has more people in a role than pictures, its latest arrivals keep their initials. In Manual a role with one picture gives it to everyone, and a role with several lists its people so you pick each one's picture (pictures may be shared). Everyone shows initials until their role has pictures.
 - The manifest names the plugin and lists screenshots of the Overview, Graph and Sessions tabs for its page on paseo.sh/plugins. The screenshots ship in `docs/media`.
 
 ### Changed

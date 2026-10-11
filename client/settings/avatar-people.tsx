@@ -101,7 +101,7 @@ export function RolePeople({ theme, people, images, colour, picks, needsPick, on
   const [onlyUnpicked, setOnlyUnpicked] = useState(false);
   const unpicked = people.filter((person) => needsPick.has(person.id)).length;
   const shown = onlyUnpicked ? people.filter((person) => needsPick.has(person.id)) : people;
-  const holdersOf = (imageId: string) => people.filter((person) => picks.get(person.id) === imageId).map(nameOf);
+  const holdersOf = (imageId: string, of: AvatarPerson) => people.filter((person) => person.teamId === of.teamId && picks.get(person.id) === imageId).map(nameOf);
   if (people.length === 0) return null;
   return (
     <View style={{ gap: SPACING[1], borderRadius: RADIUS.md }}>
@@ -114,7 +114,7 @@ export function RolePeople({ theme, people, images, colour, picks, needsPick, on
       </View>
       <Rows theme={theme}>
         {shown.map((person) => (
-          <PersonRow key={person.id} theme={theme} person={person} images={images} colour={colour} current={picks.get(person.id)} needsPick={needsPick.has(person.id)} holdersOf={holdersOf} onPick={(imageId) => onPick(person.id, imageId)} onClear={() => onClear(person.id)} />
+          <PersonRow key={person.id} theme={theme} person={person} images={images} colour={colour} current={picks.get(person.id)} needsPick={needsPick.has(person.id)} holdersOf={(imageId) => holdersOf(imageId, person)} onPick={(imageId) => onPick(person.id, imageId)} onClear={() => onClear(person.id)} />
         ))}
       </Rows>
     </View>

@@ -212,7 +212,7 @@ export function RoleLibrary({
     setBusy(false);
   };
   const showInitials = (n: number) => (n === 1 ? "1 shows their initials" : `${n} show their initials`);
-  const shortage = people === null ? null : count === 0 ? (people === 0 ? null : people === 1 ? "No pictures yet, so they show their initials." : `No pictures yet, so all ${people} show their initials.`) : withoutPicture > 0 ? `${count} ${count === 1 ? "picture" : "pictures"} for ${people} people, so ${showInitials(withoutPicture)}.` : null;
+  const shortage = people === null ? null : count === 0 ? (people === 0 ? null : people === 1 ? "No pictures yet, so they show their initials." : `No pictures yet, so all ${people} show their initials.`) : withoutPicture > 0 ? `Some teams have more people here than ${count === 1 ? "the 1 picture" : `${count} pictures`}, so ${showInitials(withoutPicture)}.` : null;
   const body = (
     <View style={{ gap: SPACING[2] }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], flexWrap: "wrap" }}>
