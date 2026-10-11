@@ -1,1 +1,1 @@
-export type { Navigation } from "./chat-route.tsx";
+export type { Navigation } from "./chat/chat-route.tsx";

@@ -1,5 +1,5 @@
 import { Platform, useWindowDimensions, type TextStyle } from "react-native";
-import { isMacLike } from "../../shared/composer.ts";
+import { isMacLike } from "../composer/composer-logic.ts";
 import { COMPACT_BELOW } from "./theme.ts";
 
 export const isWeb = Platform.OS === "web";
