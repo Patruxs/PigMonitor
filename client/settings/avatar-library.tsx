@@ -1,6 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Text, TextInput, View } from "react-native";
+import { Text, View } from "react-native";
 import { MAX_AVATAR_IMAGES, type AvatarImage } from "../../shared/piggery/avatar.ts";
 import { chooseFiles, clipboardImageFiles } from "../composer/attachments.tsx";
 import { FileDropZone, useFileDrop } from "../composer/attachments-drop.tsx";
@@ -24,9 +24,9 @@ const dom = globalThis as { document?: Document };
 
 const FORMAT_NAMES: Record<string, string> = { "image/webp": "WebP", "image/jpeg": "JPEG", "image/png": "PNG" };
 
-export function pictureName(image: AvatarImage, index: number): string {
-  return image.label?.trim() || `Picture ${index + 1}`;
-}
+export type ReshuffleOutcome = "changed" | "same" | "failed";
+
+const RESHUFFLE_NOTE_MS = 4000;
 
 function kilobytes(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
@@ -116,27 +116,18 @@ function BatchStatus({ theme, roleName, batch, onDismiss }: { theme: PluginTheme
   );
 }
 
-export function Preview({ theme, image, colour, busy, ready = true, destination, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; colour: string; busy: boolean; ready?: boolean; destination?: ReactNode; onAdd: (label: string) => void; onCancel: () => void }) {
-  const [label, setLabel] = useState("");
+export function Preview({ theme, image, colour, busy, ready = true, destination, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; colour: string; busy: boolean; ready?: boolean; destination?: ReactNode; onAdd: () => void; onCancel: () => void }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[3], padding: SPACING[3], borderWidth: 1, borderColor: theme.colors.border, borderRadius: RADIUS.lg, backgroundColor: theme.colors.surface1, flexWrap: "wrap" }}>
-      <Avatar theme={theme} name={label || "Preview"} colour={colour} size={PREVIEW} imageUri={image.uri} />
-      <Avatar theme={theme} name={label || "Preview"} colour={colour} size={AVATAR} imageUri={image.uri} />
+      <Avatar theme={theme} name="Preview" colour={colour} size={PREVIEW} imageUri={image.uri} />
+      <Avatar theme={theme} name="Preview" colour={colour} size={AVATAR} imageUri={image.uri} />
       <View style={{ flex: 1, minWidth: 200, gap: SPACING[2] }}>
         <Text style={text(theme, "label")}>
           {[image.name, `${FORMAT_NAMES[image.mimeType] ?? image.mimeType} · ${kilobytes(image.bytes)}`].filter(Boolean).join(" · ")}
         </Text>
         {destination}
-        <TextInput
-          value={label}
-          onChangeText={setLabel}
-          accessibilityLabel="Picture label"
-          placeholder="Label (optional)"
-          placeholderTextColor={theme.colors.foregroundMuted}
-          style={[text(theme, "rowTitle"), { borderWidth: 1, borderColor: theme.colors.border, borderRadius: RADIUS.md, paddingHorizontal: SPACING[2], paddingVertical: SPACING[1.5] }]}
-        />
         <View style={{ flexDirection: "row", gap: SPACING[2] }}>
-          <Button theme={theme} label="Add to library" icon="Check" tone="primary" busy={busy} disabled={!ready} onPress={() => onAdd(label.trim())} />
+          <Button theme={theme} label="Add to library" icon="Check" tone="primary" busy={busy} disabled={!ready} onPress={onAdd} />
           <Button theme={theme} label="Cancel" disabled={busy} onPress={onCancel} />
         </View>
       </View>
@@ -144,25 +135,10 @@ export function Preview({ theme, image, colour, busy, ready = true, destination,
   );
 }
 
-function Tile({ theme, image, index, colour, users, onRename, onDelete }: { theme: PluginTheme; image: AvatarImage; index: number; colour: string; users: string[]; onRename: (label: string) => void; onDelete: () => void }) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const commitLabel = () => {
-    if (draft !== null && draft.trim() !== (image.label ?? "")) onRename(draft.trim());
-    setDraft(null);
-  };
+function Tile({ theme, image, index, colour, users, onDelete }: { theme: PluginTheme; image: AvatarImage; index: number; colour: string; users: string[]; onDelete: () => void }) {
   return (
     <View style={{ width: TILE, alignItems: "center", gap: SPACING[1], padding: SPACING[1.5], borderRadius: RADIUS.md, borderWidth: 1, borderColor: theme.colors.border }}>
-      <Avatar theme={theme} name={pictureName(image, index)} colour={colour} size={AVATAR_LG} imageId={image.id} />
-      <TextInput
-        value={draft ?? image.label ?? ""}
-        onChangeText={setDraft}
-        onBlur={commitLabel}
-        onSubmitEditing={commitLabel}
-        accessibilityLabel={`Label for ${pictureName(image, index)}`}
-        placeholder={`Picture ${index + 1}`}
-        placeholderTextColor={theme.colors.foregroundMuted}
-        style={[text(theme, "label", "foreground"), { width: "100%", textAlign: "center", borderBottomWidth: 1, borderColor: theme.colors.border, paddingVertical: 2 }]}
-      />
+      <Avatar theme={theme} name={`Picture ${index + 1}`} colour={colour} size={AVATAR_LG} imageId={image.id} />
       <Text style={text(theme, "label", users.length > 0 ? "foreground" : "foregroundMuted")} numberOfLines={2}>
         {users.length > 0 ? users.join(", ") : "Unused"}
       </Text>
@@ -182,8 +158,8 @@ export function RoleLibrary({
   withoutPicture,
   usersOf,
   onAdd,
-  onRename,
   onDelete,
+  reshuffleHint,
   onReshuffle,
   batch,
   onBatch,
@@ -198,10 +174,10 @@ export function RoleLibrary({
   people: number | null;
   withoutPicture: number;
   usersOf: (imageId: string) => string[];
-  onAdd: (image: EncodedAvatar, label: string) => Promise<string | null>;
-  onRename: (imageId: string, label: string) => void;
+  onAdd: (image: EncodedAvatar) => Promise<string | null>;
   onDelete: (imageId: string) => Promise<boolean>;
-  onReshuffle: () => Promise<void>;
+  reshuffleHint: string | null;
+  onReshuffle: () => Promise<ReshuffleOutcome>;
   batch: BatchProgress | undefined;
   onBatch: (items: NamedSource[]) => void;
   onDismissBatch: () => void;
@@ -210,6 +186,10 @@ export function RoleLibrary({
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<{ image: AvatarImage; index: number } | null>(null);
+  const [shuffling, setShuffling] = useState(false);
+  const [shuffled, setShuffled] = useState<ReshuffleOutcome | null>(null);
+  const noteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(noteTimer.current), []);
   const count = images.length;
   const latest = useRef({ count, busy });
   latest.current = { count, busy };
@@ -227,9 +207,9 @@ export function RoleLibrary({
     if (files.length === 1) await prepare(Promise.resolve(sourceOfFile(files[0])));
     else onBatch(files.map(namedFile));
   };
-  const add = async (image: EncodedAvatar, label: string) => {
+  const add = async (image: EncodedAvatar) => {
     setBusy(true);
-    const failed = await onAdd(image, label);
+    const failed = await onAdd(image);
     setBusy(false);
     if (failed) setProblem(failed);
     else setPending(null);
@@ -240,10 +220,15 @@ export function RoleLibrary({
     setBusy(false);
   };
   const reshuffle = async () => {
-    setBusy(true);
-    await onReshuffle();
-    setBusy(false);
+    clearTimeout(noteTimer.current);
+    setShuffled(null);
+    setShuffling(true);
+    const outcome = await onReshuffle();
+    setShuffling(false);
+    setShuffled(outcome);
+    noteTimer.current = setTimeout(() => setShuffled(null), RESHUFFLE_NOTE_MS);
   };
+  const reshuffleNote = shuffled === "changed" ? { words: `${title} reshuffled`, colour: "statusSuccess" as const } : shuffled === "same" ? { words: "Same result, try again", colour: "foregroundMuted" as const } : shuffled === "failed" ? { words: "Could not reshuffle. Try again.", colour: "statusDanger" as const } : null;
   const showInitials = (n: number) => (n === 1 ? "1 shows their initials" : `${n} show their initials`);
   const shortage = people === null ? null : count === 0 ? (people === 0 ? null : people === 1 ? "No pictures yet, so they show their initials." : `No pictures yet, so all ${people} show their initials.`) : withoutPicture > 0 ? `${count} ${count === 1 ? "picture" : "pictures"} for ${people} people, so ${showInitials(withoutPicture)}.` : null;
   const body = (
@@ -254,8 +239,10 @@ export function RoleLibrary({
           {count} of {maxImages} pictures{people === null ? "" : ` · ${people} ${people === 1 ? "person" : "people"}`}
         </Text>
         <View style={{ flex: 1 }} />
-        <Button theme={theme} label="Reshuffle" icon="Shuffle" busy={busy && !pending && !deleting} disabled={count === 0 || !people} onPress={() => void reshuffle()} />
+        {reshuffleNote ? <Text style={text(theme, "label", reshuffleNote.colour)}>{reshuffleNote.words}</Text> : null}
+        <Button theme={theme} label={shuffling ? "Reshuffling…" : "Reshuffle"} icon="Shuffle" busy={shuffling} disabled={reshuffleHint !== null} onPress={() => void reshuffle()} />
       </View>
+      {reshuffleHint ? <Text style={[text(theme, "label"), { alignSelf: "flex-end" }]}>{reshuffleHint}</Text> : null}
       {shortage ? <Text style={text(theme, "label", "statusWarning")}>{shortage}</Text> : null}
       {canEncodeAvatars ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], flexWrap: "wrap" }}>
@@ -265,16 +252,16 @@ export function RoleLibrary({
       ) : null}
       {problem ? <Text style={text(theme, "meta", "statusDanger")}>{problem}</Text> : null}
       {batch ? <BatchStatus theme={theme} roleName={roleName} batch={batch} onDismiss={onDismissBatch} /> : null}
-      {pending ? <Preview theme={theme} image={pending} colour={colour} busy={busy} onAdd={(label) => void add(pending, label)} onCancel={() => setPending(null)} /> : null}
+      {pending ? <Preview theme={theme} image={pending} colour={colour} busy={busy} onAdd={() => void add(pending)} onCancel={() => setPending(null)} /> : null}
       {count > 0 ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACING[2] }}>
           {images.map((image, index) => (
-            <Tile key={image.id} theme={theme} image={image} index={index} colour={colour} users={usersOf(image.id)} onRename={(label) => onRename(image.id, label)} onDelete={() => (usersOf(image.id).length > 0 ? setDeleting({ image, index }) : void destroy(image.id))} />
+            <Tile key={image.id} theme={theme} image={image} index={index} colour={colour} users={usersOf(image.id)} onDelete={() => (usersOf(image.id).length > 0 ? setDeleting({ image, index }) : void destroy(image.id))} />
           ))}
         </View>
       ) : null}
       <ConfirmDialog theme={theme} title="Delete picture?" icon="Trash2" tone="danger" confirmLabel="Delete" busy={busy} open={deleting !== null} onConfirm={() => deleting && void destroy(deleting.image.id)} onClose={() => setDeleting(null)}>
-        <Text style={text(theme, "meta")}>{deleting ? `${pictureName(deleting.image, deleting.index)} is in use by ${usersOf(deleting.image.id).join(", ")}. They get another free ${roleName} picture, or their initials if none is left.` : ""}</Text>
+        <Text style={text(theme, "meta")}>{deleting ? `This picture is in use by ${usersOf(deleting.image.id).join(", ")}. They get another free ${roleName} picture, or their initials if none is left.` : ""}</Text>
       </ConfirmDialog>
     </View>
   );

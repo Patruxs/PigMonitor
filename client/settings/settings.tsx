@@ -55,8 +55,8 @@ export function PigMonitorSettings({ theme }: PluginSurfaceProps) {
         <Text style={text(theme, "meta", changed ? "foreground" : "foregroundMuted")}>{state.saving ? "Saving…" : "Save"}</Text>
       </Pressable>
       <NotifyHint theme={theme} />
-      <ColourSettings theme={theme} />
       <AvatarSettingsSection theme={theme} />
+      <ColourSettings theme={theme} />
     </View>
   );
 }

@@ -21,7 +21,7 @@ export const AVATAR_MODES = ["off", "on"] as const;
 
 export type AvatarMode = (typeof AVATAR_MODES)[number];
 
-export const AvatarImage = z.object({ id: z.string(), label: z.string().optional() });
+export const AvatarImage = z.object({ id: z.string() });
 
 export type AvatarImage = z.output<typeof AvatarImage>;
 
@@ -152,6 +152,16 @@ function sameEntries(a: Readonly<Record<string, string>>, b: Readonly<Record<str
 
 function withLibrary(settings: AvatarSettings, role: RoleKey, library: RoleLibrary): AvatarSettings {
   return { ...settings, libraries: { ...settings.libraries, [role]: library } };
+}
+
+export type ReshuffleBlock = "off" | "nobody" | "no-pictures" | "one-picture";
+
+export function reshuffleBlock(people: readonly AvatarPerson[], settings: AvatarSettings, role: RoleKey): ReshuffleBlock | null {
+  if (settings.mode === "off") return "off";
+  const pictures = settings.libraries[role].images.length;
+  if (pictures === 0) return "no-pictures";
+  if (!groupByRole(people).some((group) => group.role === role)) return "nobody";
+  return pictures === 1 ? "one-picture" : null;
 }
 
 export function reshuffleAvatars(people: readonly AvatarPerson[], settings: AvatarSettings, role: RoleKey): AvatarSettings {

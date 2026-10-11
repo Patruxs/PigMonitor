@@ -3,7 +3,7 @@ import { useRpc, useSettings, type SettingsState } from "@getpaseo/plugin/client
 import { useToast } from "@getpaseo/plugin/client/react-native";
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
-import { AVATAR_ROLES, AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGES, addAvatarImage, avatarPeopleOf, groupByRole, imageInUse, removeAvatarImage, reshuffleAvatars, type AvatarMode, type AvatarPerson } from "../../shared/piggery/avatar.ts";
+import { AVATAR_ROLES, AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGES, addAvatarImage, assignAvatars, avatarPeopleOf, groupByRole, imageInUse, removeAvatarImage, reshuffleAvatars, reshuffleBlock, type AvatarMode, type AvatarPerson, type ReshuffleBlock } from "../../shared/piggery/avatar.ts";
 import type { RoleKey } from "../../shared/piggery/palette.ts";
 import { readView } from "../../shared/piggery/view.ts";
 import { avatarSettings, snapshot } from "../../shared/rpc.ts";
@@ -18,7 +18,7 @@ import { useSettledAvatars } from "../piggery/avatars.tsx";
 import { resolvePalette, useStoredPalette } from "../piggery/palette.tsx";
 import { useAvatarBatches } from "./avatar-batch-run.ts";
 import { canEncodeAvatars, type EncodedAvatar } from "./avatar-encode.ts";
-import { Preview, RoleLibrary, usePastedAvatar } from "./avatar-library.tsx";
+import { Preview, RoleLibrary, usePastedAvatar, type ReshuffleOutcome } from "./avatar-library.tsx";
 
 type Change = (current: AvatarSettings) => AvatarSettings | null;
 
@@ -42,6 +42,14 @@ const ROLE_TITLES: Record<RoleKey, string> = {
   peer: "Peer",
   executor: "Executor",
   advisor: "Advisor",
+};
+
+const RESHUFFLE_HINTS: Record<ReshuffleBlock | "unlisted", string> = {
+  off: "Turn avatars on to reshuffle.",
+  unlisted: "Reshuffle needs the team list, which hasn't loaded.",
+  "no-pictures": "Add pictures to reshuffle.",
+  nobody: "Nobody has this role, so there's nothing to reshuffle.",
+  "one-picture": "With one picture the earliest arrival always gets it. Add another to reshuffle.",
 };
 
 const MAX_SAVE_TRIES = 3;
@@ -109,10 +117,10 @@ function PasteManyCard({ theme, count, colours, onAdd, onCancel }: { theme: Plug
   );
 }
 
-function PasteCard({ theme, image, colours, busy, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; colours: Record<RoleKey, string>; busy: boolean; onAdd: (role: RoleKey, label: string) => void; onCancel: () => void }) {
+function PasteCard({ theme, image, colours, busy, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; colours: Record<RoleKey, string>; busy: boolean; onAdd: (role: RoleKey) => void; onCancel: () => void }) {
   const [role, setRole] = useState<RoleKey | null>(null);
   const destination = <RoleChoice theme={theme} role={role} colours={colours} onPick={setRole} />;
-  return <Preview theme={theme} image={image} colour={role ? colours[role] : theme.colors.accent} busy={busy} ready={role !== null} destination={destination} onAdd={(label) => role && onAdd(role, label)} onCancel={onCancel} />;
+  return <Preview theme={theme} image={image} colour={role ? colours[role] : theme.colors.accent} busy={busy} ready={role !== null} destination={destination} onAdd={() => role && onAdd(role)} onCancel={onCancel} />;
 }
 
 export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
@@ -140,12 +148,12 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
   const colours = Object.fromEntries(AVATAR_ROLES.map((role) => [role, palette[role]])) as Record<RoleKey, string>;
   const groupOf = (role: RoleKey) => groups.find((group) => group.role === role)?.people ?? NO_PEOPLE;
   const usersOf = (role: RoleKey, imageId: string) => groupOf(role).filter((person) => settled.avatars.get(person.id) === imageId).map(nameOf);
-  const addTo = async (role: RoleKey, image: EncodedAvatar, label: string): Promise<string | null> => {
+  const addTo = async (role: RoleKey, image: EncodedAvatar): Promise<string | null> => {
     const stored = await upload(image.data, image.mimeType);
     if (!stored.ok) return stored.error;
     const refusal: { error: string | null } = { error: null };
     const saved = await commit((current) => {
-      const added = addAvatarImage(current, role, label ? { id: stored.id, label } : { id: stored.id });
+      const added = addAvatarImage(current, role, { id: stored.id });
       refusal.error = added.ok ? null : added.error;
       return added.ok ? added.settings : null;
     });
@@ -154,12 +162,6 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
     toast.show(`Picture added to ${ROLE_TITLES[role]}`);
     return null;
   };
-  const rename = (role: RoleKey, imageId: string, label: string) =>
-    void commit((current) => {
-      const library = current.libraries[role];
-      const images = library.images.map((image) => (image.id !== imageId ? image : label ? { ...image, label } : { id: image.id }));
-      return { ...current, libraries: { ...current.libraries, [role]: { ...library, images } } };
-    }).then((saved) => saved === false && toast.error("Could not save the label."));
   const deleteFrom = async (role: RoleKey, imageId: string): Promise<boolean> => {
     const saved = await commit((current) => (current.libraries[role].images.some((image) => image.id === imageId) ? removeAvatarImage(current, role, imageId) : null));
     if (saved === false) {
@@ -175,15 +177,23 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
     toast.show(gone.ok ? "Picture deleted" : "Picture removed; its file stays until the next clean-up");
     return true;
   };
-  const reshuffle = async (role: RoleKey) => {
+  const roleResult = (role: RoleKey, avatars: ReadonlyMap<string, string>) => groupOf(role).map((person) => avatars.get(person.id) ?? "").join("\n");
+  const reshuffle = async (role: RoleKey): Promise<ReshuffleOutcome> => {
+    const before = roleResult(role, settled.avatars);
     const saved = await commit((current) => reshuffleAvatars(people, current, role));
-    if (saved === false) toast.error("Could not reshuffle. Try again.");
-    else toast.show(`${ROLE_TITLES[role]} pictures reshuffled`);
+    if (saved === false) return "failed";
+    if (saved === null || roleResult(role, assignAvatars(people, saved).avatars) === before) return "same";
+    return "changed";
   };
-  const addPasted = async (role: RoleKey, label: string) => {
+  const reshuffleHint = (role: RoleKey): string | null => {
+    if (on && !listed) return RESHUFFLE_HINTS.unlisted;
+    const block = reshuffleBlock(people, values, role);
+    return block === null ? null : RESHUFFLE_HINTS[block];
+  };
+  const addPasted = async (role: RoleKey) => {
     if (!paste.pasted) return;
     setPasteBusy(true);
-    const failed = await addTo(role, paste.pasted, label);
+    const failed = await addTo(role, paste.pasted);
     setPasteBusy(false);
     setPasteProblem(failed);
     if (!failed) paste.dismiss();
@@ -206,7 +216,7 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
           image={paste.pasted}
           colours={colours}
           busy={pasteBusy}
-          onAdd={(role, label) => void addPasted(role, label)}
+          onAdd={(role) => void addPasted(role)}
           onCancel={() => {
             setPasteProblem(null);
             paste.dismiss();
@@ -239,9 +249,9 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
             people={listed ? members.length : null}
             withoutPicture={members.filter((person) => !settled.avatars.has(person.id)).length}
             usersOf={(imageId) => usersOf(role, imageId)}
-            onAdd={(image, label) => addTo(role, image, label)}
-            onRename={(imageId, label) => rename(role, imageId, label)}
+            onAdd={(image) => addTo(role, image)}
             onDelete={(imageId) => deleteFrom(role, imageId)}
+            reshuffleHint={reshuffleHint(role)}
             onReshuffle={() => reshuffle(role)}
             batch={batches.progress[role]}
             onBatch={(items) => batches.run(role, items)}
