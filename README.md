@@ -26,17 +26,15 @@ PigMonitor then appears in Paseo's sidebar and as a workspace panel.
 
 - **Overview**: a timeline of every team and agent, coloured by state, with who needs you and unread mail.
 
-<img width="2140" height="1242" alt="Screenshot_20261010_160944" src="https://github.com/user-attachments/assets/2a687c15-3ecd-4ccf-9160-8605a12f2350" />
-
+![Overview tab](docs/media/overview.png)
 
 - **Graph**: each team as an org chart. Open any agent or team for its details.
 
-<img width="2118" height="1178" alt="Screenshot_20261010_161016" src="https://github.com/user-attachments/assets/edb7ca32-c19f-477e-bb08-d343d1656aea" />
+![Graph tab](docs/media/graph.png)
 
 - **Sessions**: read an agent's transcript and mail, write to it, stop its turn or resume an ended session.
 
-<img width="2135" height="1164" alt="Screenshot_20261010_162814" src="https://github.com/user-attachments/assets/7a88566d-10a1-419c-b6a1-2ac8b72187ab" />
-
+![Sessions tab](docs/media/sessions.png)
 
 ## Settings
 

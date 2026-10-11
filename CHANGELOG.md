@@ -4,6 +4,10 @@ All notable changes to PigMonitor are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- The manifest names the plugin and lists screenshots of the Overview, Graph and Sessions tabs for its page on paseo.sh/plugins. The screenshots ship in `docs/media`.
+
 ### Changed
 
 - Events on the Overview timeline sit at the time piggery logged them, and events that fall close together share one dot that shows how many there are, coloured by the most serious of them.
