@@ -18,7 +18,7 @@ import {
 } from "../shared/autocomplete.ts";
 import { dirSuggest } from "../shared/rpc.ts";
 import { hostColours, RADIUS, SPACING } from "./kit/theme.ts";
-import { BoundedMap } from "../shared/bounded-map.ts";
+import { boundedMap } from "../shared/bounded-map.ts";
 import { messageOf } from "../shared/errors.ts";
 
 const COMMAND_CACHE_LIMIT = 50;
@@ -54,8 +54,8 @@ const BOLT_GLYPH_PATTERN = /⚡|️/gu;
 
 type Loaded<T> = { at: number; value: T } | { at: number; error: string };
 
-const commandCache = new BoundedMap<string, Loaded<AgentSlashCommand[]>>(COMMAND_CACHE_LIMIT);
-const directoryCache = new BoundedMap<string, Loaded<DirectoryEntry[]>>(DIRECTORY_CACHE_LIMIT);
+const commandCache = boundedMap<string, Loaded<AgentSlashCommand[]>>(COMMAND_CACHE_LIMIT);
+const directoryCache = boundedMap<string, Loaded<DirectoryEntry[]>>(DIRECTORY_CACHE_LIMIT);
 
 
 function useCommands(agentId: string | undefined, enabled: boolean): { commands: AgentSlashCommand[]; isLoading: boolean; error: string | null } {

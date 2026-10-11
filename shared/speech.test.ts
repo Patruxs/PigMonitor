@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PcmChunker, resampleToPcm16 } from "./speech.ts";
+import { pcmChunker, resampleToPcm16 } from "./speech.ts";
 
 function samplesOf(base64: string): Int16Array {
   const bytes = Buffer.from(base64, "base64");
@@ -21,7 +21,7 @@ test("resampling clamps samples outside [-1, 1] and passes equal rates through",
 });
 
 test("the chunker cuts whole chunks as audio arrives and flushes the remainder on finish, as little-endian PCM16", () => {
-  const chunker = new PcmChunker(4);
+  const chunker = pcmChunker(4);
   chunker.push(Int16Array.from([1, 2, 3]));
   chunker.push(Int16Array.from([4, 5, 6, 7, 8, 9, 10]));
   const chunks = chunker.finish();

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { ActivityIndicator, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { dictationStatus, transcribe } from "../shared/rpc.ts";
 import { stopwatch } from "../shared/format.ts";
-import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, PcmChunker, resampleToPcm16, volumeOf, type DictationStatus } from "../shared/speech.ts";
+import { DICTATION_FORMAT, MAX_DICTATION_CHUNKS, pcmChunker, resampleToPcm16, volumeOf, type DictationStatus } from "../shared/speech.ts";
 import { ICON_SIZE, SPACING } from "./kit/theme.ts";
 import { messageOf } from "../shared/errors.ts";
 import { isWeb } from "./kit/platform.ts";
@@ -24,48 +24,55 @@ function errorMessageOf(error: unknown): string {
   return messageOf(error);
 }
 
-class MicrophoneCapture {
-  private stream: MediaStream | null = null;
-  private context: AudioContext | null = null;
-  private source: MediaStreamAudioSourceNode | null = null;
-  private processor: ScriptProcessorNode | null = null;
-  private silencer: GainNode | null = null;
-  private chunker = new PcmChunker();
+type MicrophoneCapture = {
+  start(onVolume: (volume: number) => void): Promise<void>;
+  stop(): Promise<string[]>;
+};
 
-  async start(onVolume: (volume: number) => void): Promise<void> {
+function microphoneCapture(): MicrophoneCapture {
+  let stream: MediaStream | null = null;
+  let context: AudioContext | null = null;
+  let source: MediaStreamAudioSourceNode | null = null;
+  let processor: ScriptProcessorNode | null = null;
+  let silencer: GainNode | null = null;
+  let chunker = pcmChunker();
+
+  async function stop(): Promise<string[]> {
+    if (processor) processor.onaudioprocess = null;
+    for (const node of [processor, source, silencer]) node?.disconnect();
+    stream?.getTracks().forEach((track) => track.stop());
+    await context?.close().catch(() => undefined);
+    stream = context = source = processor = silencer = null;
+    return chunker.finish();
+  }
+
+  async function start(onVolume: (volume: number) => void): Promise<void> {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone capture is not supported in this browser.");
     if (!window.isSecureContext) throw new Error(`Microphone access requires HTTPS or localhost. Current origin: ${window.location.origin}`);
-    this.chunker = new PcmChunker();
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, noiseSuppression: true, echoCancellation: true, autoGainControl: true } });
+    chunker = pcmChunker();
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, noiseSuppression: true, echoCancellation: true, autoGainControl: true } });
     try {
-      const context = new AudioContext();
-      this.context = context;
-      this.source = context.createMediaStreamSource(this.stream);
-      this.processor = context.createScriptProcessor(PROCESSOR_FRAMES, 1, 1);
-      this.silencer = context.createGain();
-      this.silencer.gain.value = 0;
-      this.processor.onaudioprocess = (event) => {
+      const audio = new AudioContext();
+      context = audio;
+      source = audio.createMediaStreamSource(stream);
+      processor = audio.createScriptProcessor(PROCESSOR_FRAMES, 1, 1);
+      silencer = audio.createGain();
+      silencer.gain.value = 0;
+      processor.onaudioprocess = (event) => {
         const samples = event.inputBuffer.getChannelData(0);
         onVolume(volumeOf(samples));
-        this.chunker.push(resampleToPcm16(samples, context.sampleRate));
+        chunker.push(resampleToPcm16(samples, audio.sampleRate));
       };
-      this.source.connect(this.processor);
-      this.processor.connect(this.silencer);
-      this.silencer.connect(context.destination);
+      source.connect(processor);
+      processor.connect(silencer);
+      silencer.connect(audio.destination);
     } catch (error) {
-      await this.stop();
+      await stop();
       throw error;
     }
   }
 
-  async stop(): Promise<string[]> {
-    if (this.processor) this.processor.onaudioprocess = null;
-    for (const node of [this.processor, this.source, this.silencer]) node?.disconnect();
-    this.stream?.getTracks().forEach((track) => track.stop());
-    await this.context?.close().catch(() => undefined);
-    this.stream = this.context = this.source = this.processor = this.silencer = null;
-    return this.chunker.finish();
-  }
+  return { start, stop };
 }
 
 export function useDictation({ onInsert, onInsertAndSend }: { onInsert: (text: string) => void; onInsertAndSend: (text: string) => void }) {
@@ -138,7 +145,7 @@ export function useDictation({ onInsert, onInsertAndSend }: { onInsert: (text: s
         toast.error(ready.reason || "Dictation is not available.");
         return;
       }
-      const microphone = new MicrophoneCapture();
+      const microphone = microphoneCapture();
       await microphone.start(setVolume);
       capture.current = microphone;
       setDuration(0);

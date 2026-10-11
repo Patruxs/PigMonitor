@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpat
 import { createRequire, isBuiltin } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import ts from "typescript";
 
 const CLIENT_SDK = ["@getpaseo/plugin/client", "@getpaseo/plugin/client/ui", "@getpaseo/plugin/client/react-native"];
 const SERVER_SDK = ["@getpaseo/plugin/server", "@getpaseo/plugin/server/provider", "@getpaseo/plugin/server/usage", "@getpaseo/plugin/server/acp"];
@@ -110,9 +111,27 @@ function bundle(entry, target) {
   });
 }
 
+function classSyntaxErrors(code) {
+  const parsed = ts.createSourceFile("client.js", code, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  const modules = [...code.matchAll(/^\/\/ (.+)$/gm)].map((match) => ({ at: match.index, file: path.relative(root, path.resolve(match[1])) }));
+  const errors = [];
+  const visit = (node) => {
+    if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
+      const start = node.getStart(parsed);
+      const file = modules.findLast((module) => module.at < start)?.file ?? "client bundle";
+      const name = node.name?.text ?? (ts.isVariableDeclaration(node.parent) ? node.parent.name.getText(parsed) : "(anonymous)");
+      errors.push(`${file}: class ${name} reaches the client bundle, where Paseo's native app (Hermes) evaluates class syntax to undefined; use a function or factory instead`);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(parsed);
+  return errors;
+}
+
 const results = await Promise.allSettled([bundle("index.client.tsx", "client"), bundle("index.server.ts", "server")]);
 rmSync(root, { recursive: true, force: true });
 const failures = results.flatMap((result) => (result.status === "rejected" ? (result.reason.errors?.map((error) => `${error.location ? `${error.location.file}:${error.location.line}: ` : ""}${error.text}`) ?? [String(result.reason)]) : []));
+if (results[0].status === "fulfilled") failures.push(...classSyntaxErrors(results[0].value.outputFiles[0].text));
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);

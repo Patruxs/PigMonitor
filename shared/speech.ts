@@ -38,32 +38,32 @@ export function int16ToBase64(pcm: Int16Array): string {
   return btoa(binary);
 }
 
-export class PcmChunker {
-  private pending = new Int16Array(0);
-  private readonly chunks: string[] = [];
-  private readonly chunkSamples: number;
+export type PcmChunker = {
+  push(pcm: Int16Array): void;
+  finish(): string[];
+};
 
-  constructor(chunkSamples: number = DICTATION_CHUNK_SAMPLES) {
-    this.chunkSamples = chunkSamples;
-  }
-
-  push(pcm: Int16Array): void {
-    const joined = new Int16Array(this.pending.length + pcm.length);
-    joined.set(this.pending, 0);
-    joined.set(pcm, this.pending.length);
-    let offset = 0;
-    while (joined.length - offset >= this.chunkSamples) {
-      this.chunks.push(int16ToBase64(joined.subarray(offset, offset + this.chunkSamples)));
-      offset += this.chunkSamples;
-    }
-    this.pending = joined.slice(offset);
-  }
-
-  finish(): string[] {
-    if (this.pending.length > 0) this.chunks.push(int16ToBase64(this.pending));
-    this.pending = new Int16Array(0);
-    return this.chunks.splice(0);
-  }
+export function pcmChunker(chunkSamples: number = DICTATION_CHUNK_SAMPLES): PcmChunker {
+  let pending = new Int16Array(0);
+  const chunks: string[] = [];
+  return {
+    push(pcm) {
+      const joined = new Int16Array(pending.length + pcm.length);
+      joined.set(pending, 0);
+      joined.set(pcm, pending.length);
+      let offset = 0;
+      while (joined.length - offset >= chunkSamples) {
+        chunks.push(int16ToBase64(joined.subarray(offset, offset + chunkSamples)));
+        offset += chunkSamples;
+      }
+      pending = joined.slice(offset);
+    },
+    finish() {
+      if (pending.length > 0) chunks.push(int16ToBase64(pending));
+      pending = new Int16Array(0);
+      return chunks.splice(0);
+    },
+  };
 }
 
 export function withTranscript(draft: string, transcript: string): string {

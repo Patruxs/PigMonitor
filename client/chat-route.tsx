@@ -9,7 +9,7 @@ import { useLiveAgent, type PaseoApi } from "./agent-live.ts";
 import { SPACING, text } from "./kit/theme.ts";
 import { QUIET_MS, usePoll } from "./poll.ts";
 import { messageOf } from "../shared/errors.ts";
-import { BoundedMap } from "../shared/bounded-map.ts";
+import { boundedMap } from "../shared/bounded-map.ts";
 
 export type Navigation = PluginSurfaceProps["navigation"];
 
@@ -36,7 +36,7 @@ const VERIFIED_LIMIT = 200;
 
 type ListedSession = PaseoListing["sessions"][number];
 
-const verified = new BoundedMap<string, { at: number; agent: { session: ListedSession | null; listed: ListedAgent } | null }>(VERIFIED_LIMIT);
+const verified = boundedMap<string, { at: number; agent: { session: ListedSession | null; listed: ListedAgent } | null }>(VERIFIED_LIMIT);
 
 async function verifyAgents(paseo: PaseoApi, agentIds: string[]): Promise<{ sessions: ListedSession[]; listed: ListedAgent[]; missing: string[] }> {
   const out = { sessions: [] as ListedSession[], listed: [] as ListedAgent[], missing: [] as string[] };

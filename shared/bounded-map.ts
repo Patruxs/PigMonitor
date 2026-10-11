@@ -1,34 +1,33 @@
-export class BoundedMap<K, V> {
+export type BoundedMap<K, V> = {
   readonly limit: number;
-  private readonly entries = new Map<K, V>();
+  get(key: K): V | undefined;
+  set(key: K, value: V): BoundedMap<K, V>;
+  delete(key: K): boolean;
+  keys(): IterableIterator<K>;
+};
 
-  constructor(limit: number) {
-    this.limit = limit;
-  }
-
-  get(key: K): V | undefined {
-    if (!this.entries.has(key)) return undefined;
-    const value = this.entries.get(key) as V;
-    this.entries.delete(key);
-    this.entries.set(key, value);
-    return value;
-  }
-
-  set(key: K, value: V): this {
-    this.entries.delete(key);
-    this.entries.set(key, value);
-    for (const oldest of this.entries.keys()) {
-      if (this.entries.size <= this.limit) break;
-      this.entries.delete(oldest);
-    }
-    return this;
-  }
-
-  delete(key: K): boolean {
-    return this.entries.delete(key);
-  }
-
-  keys(): IterableIterator<K> {
-    return this.entries.keys();
-  }
+export function boundedMap<K, V>(limit: number): BoundedMap<K, V> {
+  const entries = new Map<K, V>();
+  const map: BoundedMap<K, V> = {
+    limit,
+    get(key) {
+      if (!entries.has(key)) return undefined;
+      const value = entries.get(key) as V;
+      entries.delete(key);
+      entries.set(key, value);
+      return value;
+    },
+    set(key, value) {
+      entries.delete(key);
+      entries.set(key, value);
+      for (const oldest of entries.keys()) {
+        if (entries.size <= limit) break;
+        entries.delete(oldest);
+      }
+      return map;
+    },
+    delete: (key) => entries.delete(key),
+    keys: () => entries.keys(),
+  };
+  return map;
 }
