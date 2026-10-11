@@ -43,8 +43,14 @@ export function FileDropZone({ theme, style, children }: { theme: PluginTheme; s
   const ctx = useMemo(() => ({ registerSink, setSuppressed }), [registerSink, setSuppressed]);
   useEffect(() => {
     const element = container.current as unknown as HTMLElement | null;
-    if (!dom.document || !element?.addEventListener) return;
+    const page = dom.document;
+    if (!page || !element?.addEventListener) return;
     const accepts = (e: DragEvent) => new Set(e.dataTransfer?.types ?? []).has("Files");
+    const onStrayFileDrag = (e: DragEvent) => {
+      if (!accepts(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+    };
     const onDragEnter = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -88,7 +94,11 @@ export function FileDropZone({ theme, style, children }: { theme: PluginTheme; s
     element.addEventListener("dragover", onDragOver);
     element.addEventListener("dragleave", onDragLeave);
     element.addEventListener("drop", onDrop);
+    page.addEventListener("dragover", onStrayFileDrag);
+    page.addEventListener("drop", onStrayFileDrag);
     return () => {
+      page.removeEventListener("dragover", onStrayFileDrag);
+      page.removeEventListener("drop", onStrayFileDrag);
       element.removeEventListener("dragenter", onDragEnter);
       element.removeEventListener("dragover", onDragOver);
       element.removeEventListener("dragleave", onDragLeave);

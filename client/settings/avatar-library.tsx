@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Text, TextInput, View } from "react-native";
-import type { AvatarImage, AvatarSettings } from "../../shared/piggery/avatar.ts";
+import { MAX_AVATAR_IMAGES, type AvatarImage } from "../../shared/piggery/avatar.ts";
 import { chooseFiles, clipboardImageFiles } from "../composer/attachments.tsx";
 import { FileDropZone, useFileDrop } from "../composer/attachments-drop.tsx";
 import type { ImageMetadata } from "../composer/attachment.ts";
@@ -9,11 +9,8 @@ import { AVATAR, Avatar } from "../kit/avatar.tsx";
 import { Button } from "../kit/button.tsx";
 import { ConfirmDialog } from "../kit/confirm.tsx";
 import { AVATAR_LG, RADIUS, SPACING, text } from "../kit/theme.ts";
+import { namedDropped, namedFile, type BatchProgress, type NamedSource } from "./avatar-batch-run.ts";
 import { canEncodeAvatars, encodeAvatar, sourceOfDropped, sourceOfFile, type AvatarSource, type EncodedAvatar } from "./avatar-encode.ts";
-
-export type AvatarChange = (current: AvatarSettings) => AvatarSettings | null;
-
-export type AvatarCommit = (change: AvatarChange) => Promise<boolean | null>;
 
 export type PictureUse = { names: string[] };
 
@@ -44,8 +41,9 @@ async function encodeFrom(source: Promise<AvatarSource>, librarySize: number): P
   }
 }
 
-export function usePastedAvatar(): { pasted: EncodedAvatar | null; problem: string | null; busy: boolean; dismiss: () => void } {
+export function usePastedAvatar(): { pasted: EncodedAvatar | null; pastedMany: NamedSource[] | null; problem: string | null; busy: boolean; dismiss: () => void } {
   const [pasted, setPasted] = useState<EncodedAvatar | null>(null);
+  const [pastedMany, setPastedMany] = useState<NamedSource[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -55,8 +53,14 @@ export function usePastedAvatar(): { pasted: EncodedAvatar | null; problem: stri
       const files = clipboardImageFiles(event.clipboardData);
       if (files.length === 0) return;
       event.preventDefault();
-      setBusy(true);
       setProblem(null);
+      if (files.length > 1) {
+        setPasted(null);
+        setPastedMany(files.map(namedFile));
+        return;
+      }
+      setPastedMany(null);
+      setBusy(true);
       void encodeFrom(Promise.resolve(sourceOfFile(files[0])), 0).then((result) => {
         setBusy(false);
         if ("image" in result) setPasted(result.image);
@@ -68,18 +72,48 @@ export function usePastedAvatar(): { pasted: EncodedAvatar | null; problem: stri
   }, []);
   return {
     pasted,
+    pastedMany,
     problem,
     busy,
     dismiss: () => {
       setPasted(null);
+      setPastedMany(null);
       setProblem(null);
     },
   };
 }
 
-function DropSink({ onSource }: { onSource: (source: Promise<AvatarSource>) => void }) {
-  useFileDrop({ onFiles: (images: ImageMetadata[]) => images[0] && onSource(sourceOfDropped(images[0])), onGenericFiles: (files: File[]) => files[0] && onSource(Promise.resolve(sourceOfFile(files[0]))) }, { disabled: false });
+function DropSink({ onSource, onBatch }: { onSource: (source: Promise<AvatarSource>) => void; onBatch: (items: NamedSource[]) => void }) {
+  useFileDrop({ onFiles: (images: ImageMetadata[]) => (images.length === 1 ? onSource(sourceOfDropped(images[0])) : onBatch(images.map(namedDropped))), onGenericFiles: (files: File[]) => onBatch(files.map(namedFile)) }, { disabled: false });
   return null;
+}
+
+function BatchStatus({ theme, roleName, batch, onDismiss }: { theme: PluginTheme; roleName: string; batch: BatchProgress; onDismiss: () => void }) {
+  const { added, duplicates, refused, full } = batch.report;
+  if (batch.running) return <Text style={text(theme, "meta")}>Adding pictures: {batch.done} of {batch.total}…</Text>;
+  return (
+    <View style={{ gap: SPACING[1], padding: SPACING[2], borderRadius: RADIUS.md, backgroundColor: theme.colors.surface1 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
+        <Text style={[text(theme, "meta", "foreground"), { flex: 1 }]}>
+          Added {added.length} of {batch.total} {batch.total === 1 ? "picture" : "pictures"}.
+        </Text>
+        <Button theme={theme} label="Close" onPress={onDismiss} />
+      </View>
+      {duplicates.length > 0 ? <Text style={text(theme, "label")}>Already in {roleName}, skipped: {duplicates.join(", ")}</Text> : null}
+      {full.length > 0 ? (
+        <Text style={text(theme, "label", "statusWarning")}>
+          {full.length} didn't fit, because a role's library holds at most {MAX_AVATAR_IMAGES} pictures: {full.join(", ")}
+        </Text>
+      ) : null}
+      {refused.length > 0 ? <Text style={text(theme, "label", "statusDanger")}>Not added:</Text> : null}
+      {refused.map((refusal, index) => (
+        <Text key={index} style={text(theme, "label", "statusDanger")}>
+          {refusal.name}: {refusal.reason}
+        </Text>
+      ))}
+      {batch.problem ? <Text style={text(theme, "label", "statusDanger")}>{batch.problem}</Text> : null}
+    </View>
+  );
 }
 
 export function Preview({ theme, image, colour, busy, ready = true, destination, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; colour: string; busy: boolean; ready?: boolean; destination?: ReactNode; onAdd: (label: string) => void; onCancel: () => void }) {
@@ -151,6 +185,9 @@ export function RoleLibrary({
   onRename,
   onDelete,
   onReshuffle,
+  batch,
+  onBatch,
+  onDismissBatch,
 }: {
   theme: PluginTheme;
   title: string;
@@ -165,6 +202,9 @@ export function RoleLibrary({
   onRename: (imageId: string, label: string) => void;
   onDelete: (imageId: string) => Promise<boolean>;
   onReshuffle: () => Promise<void>;
+  batch: BatchProgress | undefined;
+  onBatch: (items: NamedSource[]) => void;
+  onDismissBatch: () => void;
 }) {
   const [pending, setPending] = useState<EncodedAvatar | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -184,7 +224,8 @@ export function RoleLibrary({
   };
   const choose = async () => {
     const files = await chooseFiles(ACCEPT);
-    if (files[0]) await prepare(Promise.resolve(sourceOfFile(files[0])));
+    if (files.length === 1) await prepare(Promise.resolve(sourceOfFile(files[0])));
+    else onBatch(files.map(namedFile));
   };
   const add = async (image: EncodedAvatar, label: string) => {
     setBusy(true);
@@ -218,11 +259,12 @@ export function RoleLibrary({
       {shortage ? <Text style={text(theme, "label", "statusWarning")}>{shortage}</Text> : null}
       {canEncodeAvatars ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], flexWrap: "wrap" }}>
-          <Button theme={theme} label="Add picture" icon="ImagePlus" busy={busy && !pending && !deleting} disabled={count >= maxImages || pending !== null} onPress={() => void choose()} />
-          <Text style={text(theme, "label")}>or drop one here</Text>
+          <Button theme={theme} label="Add picture" icon="ImagePlus" busy={busy && !pending && !deleting} disabled={count >= maxImages || pending !== null || batch?.running === true} onPress={() => void choose()} />
+          <Text style={text(theme, "label")}>one or several, or drop them here</Text>
         </View>
       ) : null}
       {problem ? <Text style={text(theme, "meta", "statusDanger")}>{problem}</Text> : null}
+      {batch ? <BatchStatus theme={theme} roleName={roleName} batch={batch} onDismiss={onDismissBatch} /> : null}
       {pending ? <Preview theme={theme} image={pending} colour={colour} busy={busy} onAdd={(label) => void add(pending, label)} onCancel={() => setPending(null)} /> : null}
       {count > 0 ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACING[2] }}>
@@ -240,7 +282,7 @@ export function RoleLibrary({
   if (!canEncodeAvatars) return framed;
   return (
     <FileDropZone theme={theme}>
-      <DropSink onSource={(source) => void prepare(source)} />
+      <DropSink onSource={(source) => void prepare(source)} onBatch={onBatch} />
       {framed}
     </FileDropZone>
   );

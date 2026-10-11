@@ -3,18 +3,20 @@ import { useRpc, useSettings, type SettingsState } from "@getpaseo/plugin/client
 import { useToast } from "@getpaseo/plugin/client/react-native";
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
-import { AVATAR_ROLES, AvatarSettings, MAX_AVATAR_IMAGES, addAvatarImage, avatarPeopleOf, groupByRole, imageInUse, removeAvatarImage, reshuffleAvatars, type AvatarMode, type AvatarPerson } from "../../shared/piggery/avatar.ts";
+import { AVATAR_ROLES, AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGES, addAvatarImage, avatarPeopleOf, groupByRole, imageInUse, removeAvatarImage, reshuffleAvatars, type AvatarMode, type AvatarPerson } from "../../shared/piggery/avatar.ts";
 import type { RoleKey } from "../../shared/piggery/palette.ts";
 import { readView } from "../../shared/piggery/view.ts";
 import { avatarSettings, snapshot } from "../../shared/rpc.ts";
 import { useAvatarDelete, useAvatarUpload } from "../kit/avatar-pictures.ts";
+import { Button } from "../kit/button.tsx";
 import { Pill } from "../kit/pill.tsx";
 import { QUIET_MS, usePoll } from "../kit/poll.ts";
 import { SectionTitle } from "../kit/section.tsx";
 import { TabBar } from "../kit/tab-bar.tsx";
-import { SPACING, text } from "../kit/theme.ts";
+import { RADIUS, SPACING, text } from "../kit/theme.ts";
 import { useSettledAvatars } from "../piggery/avatars.tsx";
 import { resolvePalette, useStoredPalette } from "../piggery/palette.tsx";
+import { useAvatarBatches } from "./avatar-batch-run.ts";
 import { canEncodeAvatars, type EncodedAvatar } from "./avatar-encode.ts";
 import { Preview, RoleLibrary, usePastedAvatar } from "./avatar-library.tsx";
 
@@ -82,16 +84,34 @@ function useCommit(state: SettingsState<typeof AvatarSettings>): Commit {
   };
 }
 
-function PasteCard({ theme, image, colours, busy, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; colours: Record<RoleKey, string>; busy: boolean; onAdd: (role: RoleKey, label: string) => void; onCancel: () => void }) {
-  const [role, setRole] = useState<RoleKey | null>(null);
-  const destination = (
+function RoleChoice({ theme, role, colours, onPick }: { theme: PluginTheme; role: RoleKey | null; colours: Record<RoleKey, string>; onPick: (role: RoleKey) => void }) {
+  return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5], flexWrap: "wrap" }}>
       <Text style={text(theme, "label")}>Add to</Text>
       {AVATAR_ROLES.map((key) => (
-        <Pill key={key} theme={theme} label={ROLE_TITLES[key]} colour={colours[key]} filled={role === key} icon={role === key ? "Check" : undefined} onPress={() => setRole(key)} />
+        <Pill key={key} theme={theme} label={ROLE_TITLES[key]} colour={colours[key]} filled={role === key} icon={role === key ? "Check" : undefined} onPress={() => onPick(key)} />
       ))}
     </View>
   );
+}
+
+function PasteManyCard({ theme, count, colours, onAdd, onCancel }: { theme: PluginTheme; count: number; colours: Record<RoleKey, string>; onAdd: (role: RoleKey) => void; onCancel: () => void }) {
+  const [role, setRole] = useState<RoleKey | null>(null);
+  return (
+    <View style={{ gap: SPACING[2], padding: SPACING[3], borderWidth: 1, borderColor: theme.colors.border, borderRadius: RADIUS.lg, backgroundColor: theme.colors.surface1 }}>
+      <Text style={text(theme, "meta", "foreground")}>{count} pictures pasted. Each is centre-cropped and added without a preview; you can delete any afterwards.</Text>
+      <RoleChoice theme={theme} role={role} colours={colours} onPick={setRole} />
+      <View style={{ flexDirection: "row", gap: SPACING[2] }}>
+        <Button theme={theme} label="Add all" icon="Check" tone="primary" disabled={role === null} onPress={() => role && onAdd(role)} />
+        <Button theme={theme} label="Cancel" onPress={onCancel} />
+      </View>
+    </View>
+  );
+}
+
+function PasteCard({ theme, image, colours, busy, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; colours: Record<RoleKey, string>; busy: boolean; onAdd: (role: RoleKey, label: string) => void; onCancel: () => void }) {
+  const [role, setRole] = useState<RoleKey | null>(null);
+  const destination = <RoleChoice theme={theme} role={role} colours={colours} onPick={setRole} />;
   return <Preview theme={theme} image={image} colour={role ? colours[role] : theme.colors.accent} busy={busy} ready={role !== null} destination={destination} onAdd={(label) => role && onAdd(role, label)} onCancel={onCancel} />;
 }
 
@@ -110,6 +130,7 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
   const groups = useMemo(() => groupByRole(people), [people]);
   const commit = useCommit(state);
   const settled = useSettledAvatars(known.error ? NO_PEOPLE : people);
+  const batches = useAvatarBatches(commit, state.status === "ready" ? state.values : DEFAULT_AVATAR_SETTINGS);
   if (state.status !== "ready") {
     return <Text style={text(theme, "meta", state.status === "loading" ? "foregroundMuted" : "statusDanger")}>{state.status === "loading" ? "Loading avatars…" : state.error}</Text>;
   }
@@ -175,7 +196,7 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
       <TabBar theme={theme} tabs={MODES} active={values.mode} onPick={(mode) => mode !== values.mode && void commit((current) => ({ ...current, mode })).then((saved) => (saved === false ? toast.error("Could not save the avatars. Try again.") : toast.show(mode === "on" ? "Avatars on" : "Avatars off")))} />
       <Text style={text(theme, "meta")}>{MODE_HINTS[values.mode]}</Text>
       <Text style={text(theme, "meta")}>{HINT}</Text>
-      <Text style={text(theme, "meta")}>{canEncodeAvatars ? "Add pictures in a role below, drop them onto it, or paste one anywhere here and choose its role." : "Upload pictures from Paseo desktop or web. Pictures already in the libraries show here too."}</Text>
+      <Text style={text(theme, "meta")}>{canEncodeAvatars ? "Add pictures in a role below, drop them onto it, or paste one or several anywhere here and choose their role." : "Upload pictures from Paseo desktop or web. Pictures already in the libraries show here too."}</Text>
       {on && !listed ? <Text style={text(theme, "meta", known.error ? "statusWarning" : "foregroundMuted")}>{known.error ? `Can't list the team members: ${known.error.message}` : "Reading piggery…"}</Text> : null}
       {paste.busy ? <Text style={text(theme, "meta", "foregroundMuted")}>Preparing the pasted picture…</Text> : null}
       {paste.problem || pasteProblem ? <Text style={text(theme, "meta", "statusDanger")}>{paste.problem ?? pasteProblem}</Text> : null}
@@ -190,6 +211,18 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
             setPasteProblem(null);
             paste.dismiss();
           }}
+        />
+      ) : null}
+      {paste.pastedMany ? (
+        <PasteManyCard
+          theme={theme}
+          count={paste.pastedMany.length}
+          colours={colours}
+          onAdd={(role) => {
+            if (paste.pastedMany) batches.run(role, paste.pastedMany);
+            paste.dismiss();
+          }}
+          onCancel={paste.dismiss}
         />
       ) : null}
       {AVATAR_ROLES.map((role) => {
@@ -210,6 +243,9 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
             onRename={(imageId, label) => rename(role, imageId, label)}
             onDelete={(imageId) => deleteFrom(role, imageId)}
             onReshuffle={() => reshuffle(role)}
+            batch={batches.progress[role]}
+            onBatch={(items) => batches.run(role, items)}
+            onDismissBatch={() => batches.dismiss(role)}
           />
         );
       })}
