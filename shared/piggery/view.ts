@@ -103,6 +103,7 @@ export interface BoardView {
 
 export interface EventRow {
   time: string;
+  at?: UnixMs;
   who: string;
   type: string;
   target?: string;

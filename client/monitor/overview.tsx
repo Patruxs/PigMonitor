@@ -15,7 +15,7 @@ import { PressRow } from "../kit/press.tsx";
 import type { Columns } from "../piggery/row-layout.ts";
 import { Rows } from "../kit/rows.tsx";
 import { CARD_RADIUS, ICON_SIZE, ROW_ONE, SPACING, text, tint } from "../kit/theme.ts";
-import { Axis, ChartLegend, currentWordFits, Grid, type Group, groupsOfView, LABEL_W, LABEL_W_NARROW, LaneHead, lastSibling, MIN_TICK_PX, NOW_PAD, parseClock, type Scale, TimeSlider, Track, TrackLabel, WINDOWS } from "./overview-chart.tsx";
+import { Axis, ChartLegend, currentWordFits, Grid, type Group, groupsOfView, LABEL_W, LABEL_W_NARROW, LaneHead, lastSibling, MIN_TICK_PX, NOW_PAD, type Scale, TimeSlider, Track, TrackLabel, WINDOWS } from "./overview-chart.tsx";
 
 export interface Handlers {
   folds: Folds;
@@ -40,8 +40,8 @@ export function Overview({ theme, view, segments, dirs, h, index, whole, width, 
   const sticky = { transform: [{ translateX: scrollX }], zIndex: 2, backgroundColor: theme.colors.surface0 };
   const scroller = useRef<NativeScrollView>(null);
   const { groups, sleepers } = groupsOfView(view, dirs, scale.start);
-  const stamped = view.events.map((e) => ({ ...e, t: parseClock(e.time, now) })).filter((e): e is EventRow & { t: number } => e.t !== undefined && e.t >= scale.start);
-  const eventsOf = (name: string) => stamped.filter((e) => e.who === name || e.target === name).map((e) => ({ t: e.t, tone: e.tone, type: e.type }));
+  const stamped = view.events.filter((e): e is EventRow & { at: number } => e.at !== undefined && e.at >= scale.start);
+  const eventsOf = (name: string) => stamped.filter((e) => e.who === name || e.target === name).map((e) => ({ t: e.at, tone: e.tone, type: e.type }));
   const sleeping = sleepers.reduce((n, s) => n + s.agents, 0);
   const laneOpen = (g: Group) => teamOpen(h.folds, g.key, true);
   const openCount = groups.filter(laneOpen).length;

@@ -5,6 +5,7 @@ import path from "node:path";
 import { z } from "zod";
 import { TAIL_KINDS, TAIL_VERSION } from "../shared/piggery/view.ts";
 import { adminCall, type AdminResult } from "./admin.ts";
+import { loggedEventsOf, type LoggedEvent } from "./event-times.ts";
 
 export type Result = { ok: true; out: string } | { ok: false; code: "missing" | "down" | "older" | "failed"; error: string };
 
@@ -72,6 +73,11 @@ export async function psViewDoc(bin: string): Promise<{ ok: true; view: Record<s
   const r = await psView(bin);
   if (!r.ok) return r;
   return { ok: true, view: PsView.parse(parsedJson(r.out)) };
+}
+
+export async function psEvents(bin: string): Promise<LoggedEvent[] | null> {
+  const r = await runPiggery(bin, ["ps", "--json"]);
+  return r.ok ? loggedEventsOf(r.out) : null;
 }
 
 export async function tailView(bin: string, id: string, lines: number): Promise<{ ok: true; lines: TailLine[] } | Failed> {

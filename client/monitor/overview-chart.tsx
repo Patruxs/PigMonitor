@@ -3,7 +3,8 @@ import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useRef, useState } from "react";
 import { Animated, PanResponder, Text, View } from "react-native";
 import { basenameOf, countStatuses } from "../piggery/events.ts";
-import { keptAxisSteps } from "./axis.ts";
+import { keptAxisSteps, localTicks } from "./axis.ts";
+import { currentBar, eventDots, EVENT_DOT, EXIT_DOT, exitMark, type Scale, xOf } from "./track-geometry.ts";
 import { clockText, type Detail, type Dir, type Row, type Status, type Tone, type View as PigView } from "../../shared/piggery/view.ts";
 import { barColours, PastSegments } from "./gantt.tsx";
 import { piecesIn, uncoveredIn, type Segment } from "../../shared/piggery/segments.ts";
@@ -39,16 +40,6 @@ interface Sleeper {
 }
 
 const RANK: Record<Status, number> = { waiting: 0, working: 1, idle: 2, gone: 3 };
-
-export function parseClock(time: string, now: number): number | undefined {
-  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(time.trim());
-  if (!m) return undefined;
-  const d = new Date(now);
-  d.setHours(Number(m[1]), Number(m[2]), Number(m[3] ?? 0), 0);
-  let t = d.getTime();
-  if (t > now + 60_000) t -= 86_400_000;
-  return t;
-}
 
 export function groupsOfView(view: PigView, dirs: Dir[], start: number): { groups: Group[]; sleepers: Sleeper[] } {
   const groups: Group[] = [];
@@ -103,19 +94,9 @@ const AXIS_H = 36;
 const WORD_MIN = 88;
 const DOING_MIN = 260;
 
-export interface Scale {
-  start: number;
-  now: number;
-  width: number;
-}
+export type { Scale };
 
-const xOf = (s: Scale, t: number) => Math.max(0, Math.min(s.width, ((t - s.start) / (s.now - s.start)) * s.width));
-
-function ticksOf(scale: Scale, tick: number, margin: number): number[] {
-  const out: number[] = [];
-  for (let t = Math.ceil(scale.start / tick) * tick; t < scale.now - tick * margin; t += tick) out.push(t);
-  return out;
-}
+const ticksOf = (scale: Scale, tick: number) => localTicks(scale.start, scale.now, tick);
 
 const LABEL_GAP = SPACING[2];
 const LABEL_BOX_W = 160;
@@ -123,7 +104,7 @@ const NOW_PILL_HALF = 20;
 
 export function Axis({ theme, scale, tick }: { theme: PluginTheme; scale: Scale; tick: number }) {
   const [labelWidths, setLabelWidths] = useState<Record<string, number>>({});
-  const ticks = ticksOf(scale, tick, 0).map((t) => ({ t, step: Math.round(t / tick), x: xOf(scale, t), label: clockText(t, scale.now) }));
+  const ticks = ticksOf(scale, tick).map(({ t, step }) => ({ t, step, x: xOf(scale, t), label: clockText(t, scale.now) }));
   const measured = ticks.flatMap((m) => (labelWidths[m.label] === undefined ? [] : [{ step: m.step, x: m.x - labelWidths[m.label] / 2, width: labelWidths[m.label] }]));
   const kept = new Set(keptAxisSteps(measured, scale.width - NOW_PILL_HALF - LABEL_GAP, LABEL_GAP));
   const measure = (label: string, width: number) => setLabelWidths((widths) => (widths[label] === width ? widths : { ...widths, [label]: width }));
@@ -148,7 +129,7 @@ export function Axis({ theme, scale, tick }: { theme: PluginTheme; scale: Scale;
 export function Grid({ theme, scale, tick }: { theme: PluginTheme; scale: Scale; tick: number }) {
   return (
     <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}>
-      {ticksOf(scale, tick, 0).map((t) => (
+      {ticksOf(scale, tick).map(({ t }) => (
         <View key={t} style={{ position: "absolute", left: xOf(scale, t), top: 0, bottom: 0, width: 1, backgroundColor: theme.colors.border, opacity: 0.7 }} />
       ))}
       <View style={{ position: "absolute", left: scale.width - 1, top: 0, bottom: 0, width: 2, backgroundColor: theme.colors.accent, opacity: 0.8 }} />
@@ -174,7 +155,9 @@ export function Track({ theme, member, segments, scale, events, onPress }: { the
   const end = gone ? since : scale.now;
   const lifeX = xOf(scale, Math.max(born, scale.start));
   const stateX = xOf(scale, Math.max(since, scale.start));
-  const stateW = Math.max(6, xOf(scale, scale.now) - stateX);
+  const { left: stateLeft, width: stateW } = currentBar(scale, since);
+  const { x: exitX, labelSide } = exitMark(scale, since);
+  const exitLabelLeft = labelSide === "right";
   const { word, since: sinceText } = stateWords(row);
   const doing = member.detail?.task ? member.detail.task.title.replace(/^#\d+\s*/, "").trim() : "";
   const own = paint(palette, row.role, row.id);
@@ -189,10 +172,10 @@ export function Track({ theme, member, segments, scale, events, onPress }: { the
         <View key={gap.start} style={{ position: "absolute", left: xOf(scale, gap.start), width: Math.max(2, xOf(scale, gap.end) - xOf(scale, gap.start)), top: TRACK_H / 2 - LIFE_H / 2, height: LIFE_H, borderRadius: LIFE_H / 2, backgroundColor: own, opacity: gone ? 0.25 : 0.55 }} />
       ))}
       {born >= scale.start && !gone ? <View style={{ position: "absolute", left: lifeX - 1, top: TRACK_H / 2 - 7, width: 3, height: 14, borderRadius: 1.5, backgroundColor: own }} /> : null}
-      <PastSegments theme={theme} pieces={pieces} xOf={(t) => xOf(scale, t)} top={top} height={BAR_H} own={own} />
+      <PastSegments theme={theme} pieces={pieces} xOf={(t) => xOf(scale, t)} until={gone ? exitX : stateLeft} top={top} height={BAR_H} own={own} />
       {!gone ? (
         <>
-          <View style={{ position: "absolute", left: stateX, width: stateW, top, height: BAR_H, borderRadius: 6, backgroundColor: colours.fill, borderWidth: 1, borderColor: colours.border, overflow: "hidden", justifyContent: "center", paddingHorizontal: inside ? SPACING[2] : 0 }}>
+          <View style={{ position: "absolute", left: stateLeft, width: stateW, top, height: BAR_H, borderRadius: 6, backgroundColor: colours.fill, borderWidth: 1, borderColor: colours.border, overflow: "hidden", justifyContent: "center", paddingHorizontal: inside ? SPACING[2] : 0 }}>
             {inside ? (
               <Text style={[text(theme, "label"), { color: colours.ink, fontWeight: "700", lineHeight: 16 }]} numberOfLines={1}>
                 {word}
@@ -203,14 +186,19 @@ export function Track({ theme, member, segments, scale, events, onPress }: { the
           </View>
         </>
       ) : (
-        <View style={{ position: "absolute", left: Math.min(xOf(scale, since), scale.width - 120), top, height: BAR_H, flexDirection: "row", alignItems: "center", gap: SPACING[1.5], paddingHorizontal: SPACING[2], borderRadius: 6, backgroundColor: tint(palette.gone, "1f"), borderWidth: 1, borderColor: tint(palette.gone, "88") }}>
-          <View style={{ width: DOT, height: DOT, borderRadius: DOT, backgroundColor: palette.gone }} />
-          <Text style={[text(theme, "label"), { color: palette.gone, fontWeight: "600", lineHeight: 16, fontVariant: ["tabular-nums"] }]} numberOfLines={1}>{`exited ${clockText(since, scale.now)}`}</Text>
-        </View>
+        <>
+          <View style={[{ position: "absolute", top, height: BAR_H, flexDirection: "row", alignItems: "center", paddingHorizontal: SPACING[2], borderRadius: 6, backgroundColor: tint(palette.gone, "1f"), borderWidth: 1, borderColor: tint(palette.gone, "88") }, exitLabelLeft ? { left: exitX + EXIT_DOT / 2 + SPACING[1] } : { right: scale.width - exitX + EXIT_DOT / 2 + SPACING[1] }]}>
+            <Text style={[text(theme, "label"), { color: palette.gone, fontWeight: "600", lineHeight: 16, fontVariant: ["tabular-nums"] }]} numberOfLines={1}>{`exited ${clockText(since, scale.now)}`}</Text>
+          </View>
+          <View style={{ position: "absolute", left: exitX - EXIT_DOT / 2, top: TRACK_H / 2 - EXIT_DOT / 2, width: EXIT_DOT, height: EXIT_DOT, borderRadius: EXIT_DOT / 2, borderWidth: 2, borderColor: theme.colors.surface0, backgroundColor: palette.gone }} />
+        </>
       )}
       {row.last_turn_end && row.last_turn_end >= scale.start && !gone && row.status === "idle" ? <View style={{ position: "absolute", left: xOf(scale, row.last_turn_end) - 1, top: top - 3, width: 2, height: BAR_H + 6, borderRadius: 1, backgroundColor: palette.waiting, opacity: 0.9 }} /> : null}
-      {events.map((e, i) => (
-        <View key={i} style={{ position: "absolute", left: xOf(scale, e.t) - 5, top: top - 6, width: 11, height: 11, borderRadius: 6, borderWidth: 2, borderColor: theme.colors.surface0, backgroundColor: e.tone === "danger" ? theme.colors.statusDanger : e.tone === "warning" ? theme.colors.statusWarning : theme.colors.accent }} />
+      {eventDots(events, (t) => xOf(scale, t)).map((dot) => (
+        <View key={dot.x} pointerEvents="none" style={{ position: "absolute", left: dot.x - (EVENT_DOT - 1) / 2, top: top - 6, flexDirection: "row", alignItems: "center", gap: 2 }}>
+          <View style={{ width: EVENT_DOT, height: EVENT_DOT, borderRadius: 6, borderWidth: 2, borderColor: theme.colors.surface0, backgroundColor: dot.tone === "danger" ? theme.colors.statusDanger : dot.tone === "warning" ? theme.colors.statusWarning : theme.colors.accent }} />
+          {dot.count > 1 ? <Text style={[text(theme, "label"), { fontSize: 10, lineHeight: 12, fontWeight: "700", fontVariant: ["tabular-nums"], color: theme.colors.foreground, backgroundColor: theme.colors.surface0, borderRadius: 6, paddingHorizontal: 3 }]}>{`+${dot.count - 1}`}</Text> : null}
+        </View>
       ))}
     </PressRow>
   );

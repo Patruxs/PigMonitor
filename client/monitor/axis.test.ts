@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { keptAxisSteps } from "./axis.ts";
+import { keptAxisSteps, localTicks } from "./axis.ts";
 
 const ticks = (widths: number[], spacing: number, firstStep = 0) => widths.map((width, i) => ({ step: firstStep + i, x: i * spacing, width }));
 
@@ -27,4 +27,17 @@ test("a label that would run past the end is dropped instead of clipped", () => 
 
 test("a label that would run past the start is dropped instead of clipped", () => {
   assert.deepEqual(keptAxisSteps(ticks([36, 36, 36], 64).map((label) => ({ ...label, x: label.x - 18 })), 1000, 8), [1, 2]);
+});
+
+test("in a UTC+5:30 zone, hourly ticks land on the local hour", (t) => {
+  const zone = process.env.TZ;
+  process.env.TZ = "Asia/Kolkata";
+  t.after(() => {
+    if (zone === undefined) delete process.env.TZ;
+    else process.env.TZ = zone;
+  });
+  const now = Date.UTC(2026, 9, 11, 7, 20);
+  const ticks = localTicks(now - 6 * 3_600_000, now, 3_600_000);
+  assert.equal(ticks.length, 6);
+  for (const { t } of ticks) assert.equal(new Date(t).getMinutes(), 0);
 });

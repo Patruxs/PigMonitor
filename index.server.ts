@@ -5,7 +5,8 @@ import type { PluginServerContext } from "@getpaseo/plugin/server";
 import type { input as ZodInput, output as ZodOutput, ZodType } from "zod";
 import { piggeryPath } from "./server/installed.ts";
 import { PiggeryDb, pickDatabase } from "./server/db.ts";
-import { abort, listModels, piggeryHome, pickBin, psView, psViewDoc, realDir, runStepIn, tailView } from "./server/piggery.ts";
+import { abort, listModels, piggeryHome, pickBin, psEvents, psView, psViewDoc, realDir, runStepIn, tailView } from "./server/piggery.ts";
+import { EventTimes } from "./server/event-times.ts";
 import { Person } from "./server/person.ts";
 import { checkoutRemoteUrl, configureAgent, listTimelinePrompts, listUsageReports, resumeInPaseo, rewindAgent, searchTimeline, searchForge, stopAgent, suggestEntries, uploadFile } from "./server/paseo.ts";
 import { ATTACH_ROOT, mailBody, uploadTooLarge } from "./server/attach.ts";
@@ -41,9 +42,11 @@ export default function contribute(server: PluginServerContext) {
   const statesFile = statesFileOf(observeOnly, process.env.PASEO_HOME);
   const states = statesFile === null ? null : new StateRecorder(statesFile, async () => psView(await bin()));
   states?.start();
+  const eventTimes = new EventTimes(async () => psEvents(await bin()));
   server.handle(snapshot, async ({ dir }) => {
     const r = states ? await states.snapshot() : await psViewDoc(await bin());
     if (!r.ok) return r;
+    await eventTimes.stamp(r.view);
     return { ok: true as const, view: r.view, segments: states?.segments() ?? {}, dir: dir === undefined ? undefined : await realDir(dir) };
   });
   server.handle(tail, async ({ id, lines }) => tailView(await bin(), id, lines));

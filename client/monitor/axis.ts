@@ -12,3 +12,15 @@ export function keptAxisSteps(labels: AxisLabel[], end: number, gap: number): nu
     if (clear || kept.length <= 1) return kept.map((label) => label.step);
   }
 }
+
+const offsetAt = (t: number) => -new Date(t).getTimezoneOffset() * 60_000;
+
+export function localTicks(start: number, end: number, tick: number): { t: number; step: number }[] {
+  const out: { t: number; step: number }[] = [];
+  for (let step = Math.ceil((start + offsetAt(start)) / tick); ; step++) {
+    const wall = step * tick;
+    const t = wall - offsetAt(wall - offsetAt(wall));
+    if (t >= end) return out;
+    if (t >= start && (out.length === 0 || t > out[out.length - 1].t)) out.push({ t, step });
+  }
+}

@@ -6,7 +6,6 @@ import { statusColour, usePalette, type Palette } from "../piggery/palette.tsx";
 import { SPACING, text, tint } from "../kit/theme.ts";
 
 const PAST_WORD_MIN = 64;
-const PIECE_GAP = 1;
 
 const STATE_WORDS: Record<Status, string> = { working: "working", waiting: "waiting", idle: "idle", gone: "gone" };
 
@@ -16,13 +15,14 @@ export function barColours(theme: PluginTheme, palette: Palette, status: Status,
   return { fill: c, ink: theme.colors.surface0, border: c };
 }
 
-export function PastSegments({ theme, pieces, xOf, top, height, own }: { theme: PluginTheme; pieces: Piece[]; xOf: (t: number) => number; top: number; height: number; own: string }) {
+export function PastSegments({ theme, pieces, xOf, until, top, height, own }: { theme: PluginTheme; pieces: Piece[]; xOf: (t: number) => number; until: number; top: number; height: number; own: string }) {
   const palette = usePalette(theme);
   return (
     <>
-      {pieces.map((piece) => {
+      {pieces.map((piece, i) => {
         const left = xOf(piece.start);
-        const width = Math.max(2, xOf(piece.end) - left - PIECE_GAP);
+        const room = (i + 1 < pieces.length ? xOf(pieces[i + 1].start) : until) - left;
+        const width = Math.min(room, Math.max(2, xOf(piece.end) - left));
         const colours = barColours(theme, palette, piece.state, own);
         return (
           <View key={piece.start} pointerEvents="none" style={{ position: "absolute", left, width, top, height, borderRadius: 6, backgroundColor: colours.fill, borderWidth: 1, borderColor: colours.border, opacity: 0.85, overflow: "hidden", justifyContent: "center", paddingHorizontal: width >= PAST_WORD_MIN ? SPACING[2] : 0 }}>
