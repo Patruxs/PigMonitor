@@ -2,11 +2,11 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Modal } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
 import { Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
-import { clampPercent, sessionCostText } from "../shared/format.ts";
-import { formatTokenCount, meterGeometry, meterState, progressTone, type Usage } from "../shared/context-meter.ts";
+import { clampPercent, sessionCostText } from "../../shared/format.ts";
+import { formatTokenCount, meterGeometry, meterState, progressTone, type Usage } from "../../shared/context-meter.ts";
 import { Anchored, FONT_BASE, FONT_SM, PALETTE } from "./controls-kit.tsx";
-import { ProgressRing } from "./kit/progress-ring.tsx";
-import { COMPACT_BELOW, hostColours, SPACING } from "./kit/theme.ts";
+import { ProgressRing } from "../kit/progress-ring.tsx";
+import { COMPACT_BELOW, hostColours, SPACING } from "../kit/theme.ts";
 import { AgentUsage, useHostReportsUsage } from "./usage.tsx";
 
 const SHOW_PERCENTAGE = false;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSelectorProviders, filterAndRankModelRows, allProviderModelRows, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveInitialModelBrowserView, resolveModelBrowserAllView, resolveSelectedModelLabel, type ProviderEntry } from "./controls.ts";
+import { buildSelectorProviders, filterAndRankModelRows, allProviderModelRows, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveInitialModelBrowserView, resolveModelBrowserAllView, resolveSelectedModelLabel, type ProviderEntry } from "./controls-logic.ts";
 
 const selection = (input: Partial<Parameters<typeof resolveAgentModelSelection>[0]>) => resolveAgentModelSelection({ models: [], runtimeModelId: null, configuredModelId: null, runtimeThinkingOptionId: null, explicitThinkingOptionId: null, ...input });
 

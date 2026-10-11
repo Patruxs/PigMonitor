@@ -3,12 +3,12 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useState } from "react";
 import { Image, Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
-import { clampPercent, percent } from "../shared/format.ts";
-import { usageReports } from "../shared/rpc.ts";
-import { formatResetLabel, formatUsageFreshness, replaceReport, reportContent, reportMessages, resolveAgentUsageView, resolveBalance, statusText, USAGE_COPY, usedPercent, windowTone, windowTrailing, type UsageBalanceData, type UsageReportEntryData, type UsageTone, type UsageWindowData } from "../shared/usage.ts";
+import { clampPercent, percent } from "../../shared/format.ts";
+import { usageReports } from "../../shared/rpc.ts";
+import { formatResetLabel, formatUsageFreshness, replaceReport, reportContent, reportMessages, resolveAgentUsageView, resolveBalance, statusText, USAGE_COPY, usedPercent, windowTone, windowTrailing, type UsageBalanceData, type UsageReportEntryData, type UsageTone, type UsageWindowData } from "./usage-reports.ts";
 import { Anchored, FONT_BASE, FONT_SM, hoveredOf } from "./controls-kit.tsx";
-import { COMPACT_BELOW, hostColours, RADIUS, SPACING } from "./kit/theme.ts";
-import { messageOf } from "../shared/errors.ts";
+import { COMPACT_BELOW, hostColours, RADIUS, SPACING } from "../kit/theme.ts";
+import { messageOf } from "../../shared/errors.ts";
 
 const isNative = Platform.OS !== "web";
 const RED_300 = "#fca5a5";

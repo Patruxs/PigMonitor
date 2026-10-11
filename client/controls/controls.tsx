@@ -3,17 +3,17 @@ import { usePaseo, useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
-import { buildSelectorProviders, filterAndRankOptions, filterSelectableModels, formatAgentModeLabel, formatThinkingOptionLabel, getAgentFeatureIcon, getAgentModeIcon, getAgentModeOptionIcon, getFeatureHighlightColor, getFeatureTooltip, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveControlPresentation, resolveToolbarGlyphSize, selectorOpenRefetchDecision, shortModelLabel, type ControlDensity, type ControlPresentation, type Feature, type Mode, type ProviderEntry, type SelectorProvider } from "../shared/controls.ts";
-import type { Usage } from "../shared/context-meter.ts";
-import { agentConfig } from "../shared/rpc.ts";
-import { useLiveAgent } from "./chat/agent-live.ts";
-import { useRegisterModeCycle } from "./composer/composer-keys.tsx";
+import { buildSelectorProviders, filterAndRankOptions, filterSelectableModels, formatAgentModeLabel, formatThinkingOptionLabel, getAgentFeatureIcon, getAgentModeIcon, getAgentModeOptionIcon, getFeatureHighlightColor, getFeatureTooltip, isFeatureActive, nextModeId, resolveAgentModelSelection, resolveControlDensity, resolveControlPresentation, resolveToolbarGlyphSize, selectorOpenRefetchDecision, shortModelLabel, type ControlDensity, type ControlPresentation, type Feature, type Mode, type ProviderEntry, type SelectorProvider } from "./controls-logic.ts";
+import type { Usage } from "../../shared/context-meter.ts";
+import { agentConfig } from "../../shared/rpc.ts";
+import { useLiveAgent } from "../chat/agent-live.ts";
+import { useRegisterModeCycle } from "../composer/composer-keys.tsx";
 import { ContextWindowMeter } from "./context-meter.tsx";
 import { Anchored, ComboList, ControlTrigger, PALETTE, SearchRow, sidebarColour, ToolbarGlyph, TooltipText, useComboKeys, type ComboOption } from "./controls-kit.tsx";
 import { ProviderGlyph } from "./controls-provider-icons.tsx";
 import { COMPACT_MODEL_VIEWPORT, CompactModelTrigger, DesktopModelSelector, ModelBrowserBody, useModelBrowser, type IconSvgs, type ModelBrowserState } from "./controls-model.tsx";
-import { COMPACT_BELOW, SPACING } from "./kit/theme.ts";
-import { messageOf } from "../shared/errors.ts";
+import { COMPACT_BELOW, SPACING } from "../kit/theme.ts";
+import { messageOf } from "../../shared/errors.ts";
 
 
 const isNative = Platform.OS !== "web";

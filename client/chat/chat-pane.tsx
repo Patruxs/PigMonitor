@@ -15,8 +15,8 @@ import { submitToAgent, useMountedTimeline, useSendMailTo } from "./chat-send.ts
 import { ChatPaneScope } from "./chat-pane-scope.tsx";
 import { canAttach } from "../composer/attachments.tsx";
 import { Composer } from "../composer/composer.tsx";
-import { SessionContextMeter } from "../context-meter.tsx";
-import { AgentContextMeter, AgentControls } from "../controls.tsx";
+import { SessionContextMeter } from "../controls/context-meter.tsx";
+import { AgentContextMeter, AgentControls } from "../controls/controls.tsx";
 import { KeyboardAvoidingPane } from "../kit/keyboard-pane.tsx";
 import { hovered } from "../kit/press.tsx";
 import { RADIUS, SPACING, text, tint } from "../kit/theme.ts";

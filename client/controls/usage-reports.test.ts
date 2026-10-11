@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { replaceReport, reportMessages, resolveAgentUsageView, resolveBalance, usedPercent, windowTone, type UsageReportEntryData } from "./usage.ts";
+import { replaceReport, reportMessages, resolveAgentUsageView, resolveBalance, usedPercent, windowTone, type UsageReportEntryData } from "./usage-reports.ts";
 
 const now = new Date("2026-10-01T12:00:00Z");
 

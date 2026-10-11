@@ -2,8 +2,8 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions, type PressableStateCallbackType, type TextStyle, type ViewStyle } from "react-native";
-import { hostColours, mix, SPACING } from "./kit/theme.ts";
-import { NO_OUTLINE } from "./kit/platform.ts";
+import { hostColours, mix, SPACING } from "../kit/theme.ts";
+import { NO_OUTLINE } from "../kit/platform.ts";
 
 export const FONT_BASE = 14;
 export const FONT_SM = 12;

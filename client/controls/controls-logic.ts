@@ -1,4 +1,4 @@
-import { compareMatchScores, scoreTextFields } from "./match.ts";
+import { compareMatchScores, scoreTextFields } from "../../shared/match.ts";
 
 export interface SelectOption {
   id: string;
