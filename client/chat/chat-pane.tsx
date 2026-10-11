@@ -28,7 +28,7 @@ import { KillDialog, ModelDialog, ReleaseDialog, ResumeDialog, StepInNotice, ste
 import { StreamView } from "../stream/stream.tsx";
 import type { ViewportHandle } from "../stream/stream-viewport.tsx";
 import { useAgentTimeline, type AgentTimeline } from "../stream/timeline.ts";
-import { useHasComposerTracks } from "../stream/tracks.tsx";
+import { useHasComposerTracks } from "../composer/tracks.tsx";
 import { LogStream } from "../stream/transcript.tsx";
 
 function useThread(me: Me | null, id: string, bump: number): MailMessage[] {

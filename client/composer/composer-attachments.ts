@@ -2,7 +2,7 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MAX_UPLOAD_BYTES } from "../../shared/chat/attach.ts";
-import { toggleForgeAttachment, type ComposerAttachment, type ImageMetadata } from "./composer-input.ts";
+import { toggleForgeAttachment, type ComposerAttachment, type ImageMetadata } from "./attachment.ts";
 import { MAX_IMAGES, upload, type ForgeItemData } from "../../shared/rpc.ts";
 import { canAttach, chooseFiles, clipboardImageFiles, readBase64, readImageFiles, type PendingFile } from "./attachments.tsx";
 import { useFileDrop } from "./attachments-drop.tsx";

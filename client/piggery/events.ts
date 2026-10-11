@@ -74,10 +74,6 @@ export function countStatuses(rows: { kind: string; status: string }[]): StatusC
   }
   return out;
 }
-export function countsText(c: StatusCounts): string {
-  const parts = [c.working && `${c.working} working`, c.waiting && `${c.waiting} waiting`, c.idle && `${c.idle} idle`, c.gone && `${c.gone} gone`].filter(Boolean) as string[];
-  return parts.join(" · ");
-}
 export function agents(n: number): string {
   return `${n} ${n === 1 ? "agent" : "agents"}`;
 }

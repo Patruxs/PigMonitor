@@ -5,7 +5,6 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { PiggeryDb } from "./db.ts";
-import { streamOfLog } from "../client/stream/log-stream.ts";
 import { withIncrement } from "../shared/stream/transcript.ts";
 import { logsDirOf, runLogs, TranscriptReader } from "./transcript.ts";
 
@@ -202,10 +201,10 @@ test("a log row keeps its id when mail lands before it, so the row is not remoun
     const after = reader.read(db, "X1", { limit: 100, person: "ME", since: before.ok ? before : undefined });
     assert.ok(before.ok && after.ok);
     if (!before.ok || !after.ok) return;
-    const idOf = (items: typeof before.items, text: string) => streamOfLog(items).find((row) => "text" in row && row.text === text)?.id;
+    const keyOf = (items: typeof before.items, text: string) => items.find((item) => item.text === text)?.key;
     const shown = withIncrement(before.items, after, 100);
     assert.deepEqual(shown.map((i) => i.text), ["one", "between", "two"]);
-    assert.equal(idOf(shown, "two"), idOf(before.items, "two"));
+    assert.equal(keyOf(shown, "two"), keyOf(before.items, "two"));
   } finally {
     piggery.close();
     rmSync(dir, { recursive: true, force: true });

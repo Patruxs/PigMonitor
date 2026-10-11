@@ -16,19 +16,11 @@ export const ROW_ONE = 36;
 
 export const DOT = 8;
 
-export const BAR = 3;
-
 export const SEGMENT = { height: 32, inset: 2, paddingX: 8 } as const;
-
-export const INDENT = SPACING[4];
-
-export const CHEVRON_SLOT = ICON_SIZE.sm + SPACING[2];
 
 export const CARD_RADIUS = 12;
 
 export const ORG_CARD = 216;
-
-export const ASIDE = SPACING[2] + ICON_SIZE.md;
 
 export const READABLE = 680;
 

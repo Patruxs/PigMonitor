@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createStreamPresentation, getStreamItemMessageId } from "../../client/stream/stream-presentation.ts";
 import { appendSubmittedUserMessage, applyStreamEvent, createUserMessage, type AgentStreamEvent, type StreamItem } from "./stream.ts";
 
 const at = (s: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, s));
@@ -31,14 +30,4 @@ test("the agent's own copy of a message sent from the composer replaces the pend
   assert.equal(users.length, 1);
   assert.equal(users[0].kind === "user_message" && users[0].messageId, "server-1");
   assert.deepEqual(result.acknowledgedClientMessageIds, ["m1"]);
-});
-
-test("a streaming answer's finished markdown blocks show as their own rows above the block still streaming, as Paseo's presentation splits them", () => {
-  const present = createStreamPresentation();
-  const result = run([timeline({ type: "assistant_message", text: "First block\n\nSecond" })]);
-  assert.deepEqual(result.tail, []);
-  const shown = present(result);
-  assert.deepEqual(shown.tail.map((item) => item.kind === "assistant_message" && item.text), ["First block"]);
-  assert.deepEqual(shown.head.map((item) => item.kind === "assistant_message" && item.text), ["Second"]);
-  assert.equal(getStreamItemMessageId(shown.tail[0]), getStreamItemMessageId(shown.head[0]));
 });

@@ -3,19 +3,11 @@ import { openExternalUrl, usePaseo } from "@getpaseo/plugin/client";
 import { Icon, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, useWindowDimensions, View, type LayoutChangeEvent, type NativeSyntheticEvent, type PressableStateCallbackType, type TextInputSelectionChangeEventData, type TextStyle } from "react-native";
-import {
-  editQueuedComposerMessage,
-  MIN_INPUT_HEIGHT,
-  queueComposerMessage,
-  resolveMaxInputHeight,
-  resolvePrimaryActionKind,
-  restoreComposerIfEmpty,
-  sendQueuedComposerMessageNow,
-  splitAttachmentsForSubmit,
-  submitAgentInput,
-  type ComposerAttachment,
-  type ComposerContent,
-} from "./composer-input.ts";
+import { editQueuedComposerMessage, queueComposerMessage, sendQueuedComposerMessageNow } from "./message-queue.ts";
+import { MIN_INPUT_HEIGHT, resolveMaxInputHeight } from "./input-height.ts";
+import { resolvePrimaryActionKind, submitAgentInput } from "./submit.ts";
+import { restoreComposerIfEmpty, type ComposerContent } from "./rewind-restore.ts";
+import { splitAttachmentsForSubmit, type ComposerAttachment } from "./attachment.ts";
 import { attachmentChoices, type AttachmentChoiceId } from "./attachment-menu.ts";
 import { type AttachmentData, type ImageData } from "../../shared/rpc.ts";
 import { withTranscript } from "../../shared/chat/speech.ts";
@@ -30,7 +22,7 @@ import { COMPACT_BELOW, CONTENT_FONT, hostColours, ICON_SIZE, MAX_CONTENT_WIDTH,
 import { drainWhenIdle, queueWriter, useQueuedMessages } from "./queue.tsx";
 import { registerComposerRestore } from "../chat/rewind.tsx";
 import type { AgentTimeline } from "../stream/timeline.ts";
-import { ComposerTracks } from "../stream/tracks.tsx";
+import { ComposerTracks } from "./tracks.tsx";
 import { DictationButton, useDictation } from "./dictation.tsx";
 import { FOCUS_HINT, ModeCycleScope, useComposerKeys } from "./composer-keys.tsx";
 import { nodeOf, useComposerHeight } from "./composer-height.ts";

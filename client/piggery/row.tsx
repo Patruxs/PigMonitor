@@ -1,59 +1,11 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import type { ReactNode } from "react";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
-import { NAME_MIN, SHARE, STATE_MIN, tailWidth, type Columns } from "./row-layout.ts";
 import { taskWords, type Row } from "../../shared/piggery/view.ts";
-import { Pill } from "../kit/pill.tsx";
-import { hovered, PressRow } from "../kit/press.tsx";
-import { CARD_RADIUS, DOT, ROW_ONE, SPACING, text, tint } from "../kit/theme.ts";
+import { hovered } from "../kit/press.tsx";
+import { CARD_RADIUS, DOT, SPACING, text, tint } from "../kit/theme.ts";
 import { paint, statusColour, usePalette } from "./palette.tsx";
 import { RoleAvatar } from "./role.tsx";
-import { StatusPill } from "./status.tsx";
-
-export function Lead({ left, children }: { left: number; children: ReactNode }) {
-  return <View style={{ flex: 1, minWidth: left + NAME_MIN, flexDirection: "row", alignItems: "center", gap: SPACING[2], paddingLeft: left, paddingRight: SPACING[2], overflow: "hidden" }}>{children}</View>;
-}
-
-export function Tail({ theme, row, columns, dim }: { theme: PluginTheme; row: Row; columns: Columns; dim?: boolean }) {
-  const palette = usePalette(theme);
-  const num = { fontVariant: ["tabular-nums" as const] };
-  const cell = { minWidth: 0 };
-  const faded = dim ?? row.dim === true;
-  return (
-    <View style={{ width: tailWidth(columns), flexShrink: 0, flexDirection: "row", alignItems: "center", gap: SPACING[2] }}>
-      {columns === "both" ? (
-        <View style={{ flex: SHARE.role, minWidth: 0, flexDirection: "row" }}>{row.role ? <Pill theme={theme} label={row.role} colour={faded ? theme.colors.foregroundMuted : paint(palette, row.role, row.id)} filled={!faded} /> : null}</View>
-      ) : null}
-      <View style={{ flex: SHARE.state, minWidth: STATE_MIN, flexDirection: "row" }}>
-        <StatusPill theme={theme} status={row.status} word={row.state_text} dim={faded} />
-      </View>
-      {columns !== "none" ? <Text style={[text(theme, "label"), cell, num, { flex: SHARE.ctx, textAlign: "right" }]} numberOfLines={1}>{row.ctx ?? ""}</Text> : null}
-      <Text style={[text(theme, "label"), cell, num, { flex: SHARE.since, textAlign: "right" }]} numberOfLines={1}>{row.since ? `for ${row.since}` : ""}</Text>
-    </View>
-  );
-}
-
-export function AgentRow({ theme, row, left, slot, columns, onPress }: { theme: PluginTheme; row: Row; left: number; slot: number; columns: Columns; onPress: () => void }) {
-  const palette = usePalette(theme);
-  const dim = row.dim === true;
-  return (
-    <PressRow theme={theme} onPress={onPress} label={`${row.name}, ${row.state_text}`} style={{ flexDirection: "row", minHeight: ROW_ONE + SPACING[1] }}>
-      <View style={{ flex: 1, minWidth: 0, flexDirection: "row" }}>
-        <Lead left={left}>
-          <RoleAvatar theme={theme} name={row.name} role={row.role} id={row.id} size={24} dim={dim} />
-          <Text style={[text(theme, "rowTitle", dim ? "foregroundMuted" : "foreground"), { fontWeight: dim ? "400" : "500", flexShrink: 1, minWidth: 0 }]} numberOfLines={1}>
-            {row.name}
-          </Text>
-          {row.gate ? <Pill theme={theme} label="gate" icon="DoorOpen" /> : null}
-          {columns !== "both" && row.role ? <Text style={[text(theme, "label"), { color: dim ? theme.colors.foregroundMuted : paint(palette, row.role, row.id) }]} numberOfLines={1}>{row.role}</Text> : null}
-        </Lead>
-        <Tail theme={theme} row={row} columns={columns} />
-      </View>
-      <View style={{ width: slot }} />
-    </PressRow>
-  );
-}
 
 export function AgentCard({ theme, row, task, onPress }: { theme: PluginTheme; row: Row; task?: string; onPress: () => void }) {
   const palette = usePalette(theme);
