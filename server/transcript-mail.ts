@@ -1,5 +1,5 @@
-import type { MailMessage } from "./mail.ts";
-import type { Item, ShownItem } from "./transcript.ts";
+import type { MailMessage } from "../shared/mail.ts";
+import type { Item, ShownItem } from "../shared/transcript.ts";
 
 function isShown(item: Item): item is ShownItem {
   return item.kind !== "delivery";

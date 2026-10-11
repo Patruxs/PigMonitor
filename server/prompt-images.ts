@@ -1,6 +1,6 @@
 import { existsSync, statSync } from "node:fs";
 import { promptKeys, type Prompt, type PromptImage } from "../shared/prompt-images.ts";
-import type { SaveImage } from "../shared/claude-log.ts";
+import type { SaveImage } from "./claude-log.ts";
 import { JsonlTail } from "./jsonl-tail.ts";
 import type { PiggeryDb } from "./db.ts";
 import { messageOf } from "../shared/errors.ts";

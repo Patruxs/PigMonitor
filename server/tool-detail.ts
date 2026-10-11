@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { ToolResultBlock } from "../shared/claude-log.ts";
+import type { ToolResultBlock } from "./claude-log.ts";
 import type { ToolCall } from "../shared/transcript.ts";
 import { isRecord } from "../shared/guards.ts";
 import { isSpeakToolName, type ToolCallDetail } from "../shared/tool-call.ts";
