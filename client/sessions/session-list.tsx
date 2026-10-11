@@ -12,7 +12,7 @@ import { STATUS_WORD, StatusDot, StatusWord } from "../piggery/status.tsx";
 import { hovered, PressRow } from "../kit/press.tsx";
 import { AVATAR_LG, ICON_SIZE, RADIUS, ROW_CHAT, ROW_MIN, SPACING, text, tint } from "../kit/theme.ts";
 import { TreeGuides, treeIndent, treeSpotsOf, type TreeSpot } from "../kit/tree.tsx";
-import { NotifyHint } from "../notify.tsx";
+import { NotifyHint } from "../settings/notify.tsx";
 import type { ProjectActions } from "./project.tsx";
 
 const BAR = 3;

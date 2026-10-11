@@ -3,11 +3,11 @@ import { useSettings } from "@getpaseo/plugin/client";
 import { useToast } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { exportPalette, importPalette, mergePalette, PALETTE_KEYS, parseTeamHues, resetPalette, resetPaletteValue, setPaletteValue, valueError, type PaletteKey, type PaletteOverrides } from "../shared/palette.ts";
-import { colourSettings } from "../shared/rpc.ts";
-import { SectionTitle } from "./kit/section.tsx";
-import { RADIUS, SPACING, text } from "./kit/theme.ts";
-import { resolveColour } from "./piggery/palette.tsx";
+import { exportPalette, importPalette, mergePalette, PALETTE_KEYS, parseTeamHues, resetPalette, resetPaletteValue, setPaletteValue, valueError, type PaletteKey, type PaletteOverrides } from "../../shared/palette.ts";
+import { colourSettings } from "../../shared/rpc.ts";
+import { SectionTitle } from "../kit/section.tsx";
+import { RADIUS, SPACING, text } from "../kit/theme.ts";
+import { resolveColour } from "../piggery/palette.tsx";
 
 const LABELS: Record<PaletteKey, string> = {
   working: "Working",

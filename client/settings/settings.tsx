@@ -2,8 +2,8 @@ import { useSettings, type PluginSurfaceProps } from "@getpaseo/plugin/client";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { settings } from "../shared/rpc.ts";
-import { RADIUS, SPACING, text } from "./kit/theme.ts";
+import { settings } from "../../shared/rpc.ts";
+import { RADIUS, SPACING, text } from "../kit/theme.ts";
 import { ColourSettings } from "./colour-settings.tsx";
 import { NotifyHint } from "./notify.tsx";
 
