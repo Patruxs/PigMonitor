@@ -2,13 +2,13 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { headlineOf, readAgo } from "./piggery/events.ts";
-import type { ColourKey } from "../shared/palette.ts";
-import { tileWidth } from "../shared/tiles.ts";
-import type { Daemon, Summary } from "../shared/view.ts";
-import { DOT, RADIUS, SPACING, text, tint } from "./kit/theme.ts";
-import { usePalette } from "./piggery/palette.tsx";
-import { GRACE_MS, pollEvery } from "./kit/poll.ts";
+import { headlineOf, readAgo } from "../piggery/events.ts";
+import type { ColourKey } from "../../shared/palette.ts";
+import { tileWidth } from "./tiles.ts";
+import type { Daemon, Summary } from "../../shared/view.ts";
+import { DOT, RADIUS, SPACING, text, tint } from "../kit/theme.ts";
+import { usePalette } from "../piggery/palette.tsx";
+import { GRACE_MS, pollEvery } from "../kit/poll.ts";
 
 type Colour = keyof PluginTheme["colors"];
 

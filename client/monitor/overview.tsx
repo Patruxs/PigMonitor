@@ -5,7 +5,7 @@ import { Animated, ScrollView as NativeScrollView, Text, View } from "react-nati
 import { sentenceOf } from "../piggery/events.ts";
 import { setTeam, teamOpen, type Folds } from "../../shared/folds.ts";
 import type { Dir, EventRow, Row, View as PigView } from "../../shared/view.ts";
-import type { Index } from "../dialog.tsx";
+import type { Index } from "./dialog.tsx";
 import type { Segment } from "../../shared/segments.ts";
 import { Pill } from "../kit/pill.tsx";
 import { RoleAvatar } from "../piggery/role.tsx";

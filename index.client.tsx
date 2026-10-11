@@ -2,7 +2,7 @@ import type { PluginClientContext } from "@getpaseo/plugin/client";
 import { FarmPanel } from "./client/monitor/farm-panel.tsx";
 import { PigMonitorSurface } from "./client/monitor/surface.tsx";
 import { PigMonitorSettings } from "./client/settings.tsx";
-import { PigMonitorSidebarItem, SCREEN_ID } from "./client/sidebar-item.tsx";
+import { PigMonitorSidebarItem, SCREEN_ID } from "./client/monitor/sidebar-item.tsx";
 
 export default function contribute(client: PluginClientContext) {
   const cleanups = [
