@@ -1,6 +1,7 @@
 import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { messageOf } from "../shared/errors.ts";
+import { imageInUse, type AvatarSettings } from "../shared/piggery/avatar.ts";
 import { pastedImageSaver, readImage, type ImageResult } from "./image.ts";
 
 export const MAX_STORED_AVATAR_BYTES = 512 * 1024;
@@ -25,7 +26,7 @@ function badId(id: string): Refusal | null {
   return AVATAR_ID.test(id) ? null : { ok: false, code: "denied", error: `${JSON.stringify(id.slice(0, 40))} is not an avatar picture id.` };
 }
 
-export function avatarStore(dir: string | null) {
+export function avatarStore(dir: string | null, readSettings: () => Promise<AvatarSettings | null>) {
   const save = dir === null ? null : pastedImageSaver(dir);
   const filesOf = (id: string) => (dir === null ? [] : KINDS.map((kind) => path.join(dir, `${id}.${kind.extension}`)));
 
@@ -54,10 +55,13 @@ export function avatarStore(dir: string | null) {
       return readImage(file, [dir], MAX_STORED_AVATAR_BYTES);
     },
 
-    delete(id: string): { ok: true } | Refusal {
+    async delete(id: string): Promise<{ ok: true } | Refusal> {
       const refused = badId(id);
       if (refused) return refused;
       if (dir === null) return NO_HOME;
+      const settings = await readSettings().catch(() => null);
+      if (settings === null) return { ok: false, code: "failed", error: `Could not read the avatar settings, so avatar picture ${id} is kept in case a role still uses it.` };
+      if (imageInUse(settings, id)) return { ok: false, code: "denied", error: `Avatar picture ${id} is still in a role's library, so it is kept.` };
       try {
         for (const file of filesOf(id)) rmSync(file, { force: true });
         return { ok: true };

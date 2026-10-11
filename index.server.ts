@@ -40,7 +40,7 @@ export default function contribute(server: PluginServerContext) {
   const stored = server.registerSettings(settings);
   server.registerSettings(viewSettings);
   server.registerSettings(colourSettings);
-  server.registerSettings(avatarSettings);
+  const storedAvatars = server.registerSettings(avatarSettings);
   const bin = async () => {
     const state = await stored.read();
     return pickBin(state.status === "ready" ? state.values.path : "", piggeryPath);
@@ -84,7 +84,10 @@ export default function contribute(server: PluginServerContext) {
     return readImage(path, [...new Set([tmpdir(), "/tmp", ...places])]);
   });
 
-  const avatars = avatarStore(avatarsDirOf(observeOnly, process.env.PASEO_HOME));
+  const avatars = avatarStore(avatarsDirOf(observeOnly, process.env.PASEO_HOME), async () => {
+    const state = await storedAvatars.read();
+    return state.status === "ready" ? state.values : null;
+  });
   server.handle(avatarUpload, async ({ data, mimeType }) => avatars.upload(data, mimeType));
   server.handle(avatarImage, async ({ id }) => avatars.image(id));
   server.handle(avatarDelete, async ({ id }) => avatars.delete(id));

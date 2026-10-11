@@ -1,13 +1,11 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { useToast } from "@getpaseo/plugin/client/react-native";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Text, TextInput, View } from "react-native";
-import { MAX_AVATAR_IMAGES, removeAvatarImage, type AvatarImage, type AvatarSettings } from "../../shared/piggery/avatar.ts";
+import type { AvatarImage, AvatarSettings } from "../../shared/piggery/avatar.ts";
 import { chooseFiles, clipboardImageFiles } from "../composer/attachments.tsx";
 import { FileDropZone, useFileDrop } from "../composer/attachments-drop.tsx";
 import type { ImageMetadata } from "../composer/attachment.ts";
 import { AVATAR, Avatar } from "../kit/avatar.tsx";
-import { useAvatarDelete, useAvatarUpload } from "../kit/avatar-pictures.ts";
 import { Button } from "../kit/button.tsx";
 import { ConfirmDialog } from "../kit/confirm.tsx";
 import { AVATAR_LG, RADIUS, SPACING, text } from "../kit/theme.ts";
@@ -17,13 +15,13 @@ export type AvatarChange = (current: AvatarSettings) => AvatarSettings | null;
 
 export type AvatarCommit = (change: AvatarChange) => Promise<boolean | null>;
 
+export type PictureUse = { names: string[] };
+
 const PREVIEW = 96;
 
 const TILE = 112;
 
 const ACCEPT = "image/png,image/jpeg,image/webp";
-
-const HINT = "Square 1:1. Keep the subject centred with about 15% margin on each side, because the circle cuts the corners. At least 128 px, 512 px or larger recommended. PNG, JPEG or WebP up to 5 MB.";
 
 const dom = globalThis as { document?: Document };
 
@@ -37,21 +35,64 @@ function kilobytes(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
+async function encodeFrom(source: Promise<AvatarSource>, librarySize: number): Promise<{ image: EncodedAvatar } | { problem: string }> {
+  try {
+    const encoded = await encodeAvatar(await source, librarySize);
+    return encoded.ok ? { image: encoded.image } : { problem: encoded.error };
+  } catch {
+    return { problem: "That picture could not be read." };
+  }
+}
+
+export function usePastedAvatar(): { pasted: EncodedAvatar | null; problem: string | null; busy: boolean; dismiss: () => void } {
+  const [pasted, setPasted] = useState<EncodedAvatar | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const page = dom.document;
+    if (!canEncodeAvatars || !page) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const files = clipboardImageFiles(event.clipboardData);
+      if (files.length === 0) return;
+      event.preventDefault();
+      setBusy(true);
+      setProblem(null);
+      void encodeFrom(Promise.resolve(sourceOfFile(files[0])), 0).then((result) => {
+        setBusy(false);
+        if ("image" in result) setPasted(result.image);
+        else setProblem(result.problem);
+      });
+    };
+    page.addEventListener("paste", onPaste);
+    return () => page.removeEventListener("paste", onPaste);
+  }, []);
+  return {
+    pasted,
+    problem,
+    busy,
+    dismiss: () => {
+      setPasted(null);
+      setProblem(null);
+    },
+  };
+}
+
 function DropSink({ onSource }: { onSource: (source: Promise<AvatarSource>) => void }) {
   useFileDrop({ onFiles: (images: ImageMetadata[]) => images[0] && onSource(sourceOfDropped(images[0])), onGenericFiles: (files: File[]) => files[0] && onSource(Promise.resolve(sourceOfFile(files[0]))) }, { disabled: false });
   return null;
 }
 
-function Preview({ theme, image, busy, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; busy: boolean; onAdd: (label: string) => void; onCancel: () => void }) {
+export function Preview({ theme, image, colour, busy, ready = true, destination, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; colour: string; busy: boolean; ready?: boolean; destination?: ReactNode; onAdd: (label: string) => void; onCancel: () => void }) {
   const [label, setLabel] = useState("");
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[3], padding: SPACING[3], borderWidth: 1, borderColor: theme.colors.border, borderRadius: RADIUS.lg, backgroundColor: theme.colors.surface1, flexWrap: "wrap" }}>
-      <Avatar theme={theme} name={label || "Preview"} colour={theme.colors.accent} size={PREVIEW} imageUri={image.uri} />
-      <Avatar theme={theme} name={label || "Preview"} colour={theme.colors.accent} size={AVATAR} imageUri={image.uri} />
+      <Avatar theme={theme} name={label || "Preview"} colour={colour} size={PREVIEW} imageUri={image.uri} />
+      <Avatar theme={theme} name={label || "Preview"} colour={colour} size={AVATAR} imageUri={image.uri} />
       <View style={{ flex: 1, minWidth: 200, gap: SPACING[2] }}>
         <Text style={text(theme, "label")}>
           {[image.name, `${FORMAT_NAMES[image.mimeType] ?? image.mimeType} · ${kilobytes(image.bytes)}`].filter(Boolean).join(" · ")}
         </Text>
+        {destination}
         <TextInput
           value={label}
           onChangeText={setLabel}
@@ -61,7 +102,7 @@ function Preview({ theme, image, busy, onAdd, onCancel }: { theme: PluginTheme; 
           style={[text(theme, "rowTitle"), { borderWidth: 1, borderColor: theme.colors.border, borderRadius: RADIUS.md, paddingHorizontal: SPACING[2], paddingVertical: SPACING[1.5] }]}
         />
         <View style={{ flexDirection: "row", gap: SPACING[2] }}>
-          <Button theme={theme} label="Add to library" icon="Check" tone="primary" busy={busy} onPress={() => onAdd(label.trim())} />
+          <Button theme={theme} label="Add to library" icon="Check" tone="primary" busy={busy} disabled={!ready} onPress={() => onAdd(label.trim())} />
           <Button theme={theme} label="Cancel" disabled={busy} onPress={onCancel} />
         </View>
       </View>
@@ -69,7 +110,7 @@ function Preview({ theme, image, busy, onAdd, onCancel }: { theme: PluginTheme; 
   );
 }
 
-function Tile({ theme, image, index, users, onRename, onDelete }: { theme: PluginTheme; image: AvatarImage; index: number; users: string[]; onRename: (label: string) => void; onDelete: () => void }) {
+function Tile({ theme, image, index, colour, users, onRename, onDelete }: { theme: PluginTheme; image: AvatarImage; index: number; colour: string; users: string[]; onRename: (label: string) => void; onDelete: () => void }) {
   const [draft, setDraft] = useState<string | null>(null);
   const commitLabel = () => {
     if (draft !== null && draft.trim() !== (image.label ?? "")) onRename(draft.trim());
@@ -77,7 +118,7 @@ function Tile({ theme, image, index, users, onRename, onDelete }: { theme: Plugi
   };
   return (
     <View style={{ width: TILE, alignItems: "center", gap: SPACING[1], padding: SPACING[1.5], borderRadius: RADIUS.md, borderWidth: 1, borderColor: theme.colors.border }}>
-      <Avatar theme={theme} name={pictureName(image, index)} colour={theme.colors.foregroundMuted} size={AVATAR_LG} imageId={image.id} />
+      <Avatar theme={theme} name={pictureName(image, index)} colour={colour} size={AVATAR_LG} imageId={image.id} />
       <TextInput
         value={draft ?? image.label ?? ""}
         onChangeText={setDraft}
@@ -96,130 +137,111 @@ function Tile({ theme, image, index, users, onRename, onDelete }: { theme: Plugi
   );
 }
 
-export function AvatarLibrary({ theme, values, usersOf, commit }: { theme: PluginTheme; values: AvatarSettings; usersOf: (imageId: string) => string[]; commit: AvatarCommit }) {
-  const toast = useToast();
-  const upload = useAvatarUpload();
-  const remove = useAvatarDelete();
+export function RoleLibrary({
+  theme,
+  title,
+  roleName,
+  colour,
+  images,
+  maxImages,
+  people,
+  withoutPicture,
+  usersOf,
+  onAdd,
+  onRename,
+  onDelete,
+  onReshuffle,
+}: {
+  theme: PluginTheme;
+  title: string;
+  roleName: string;
+  colour: string;
+  images: readonly AvatarImage[];
+  maxImages: number;
+  people: number | null;
+  withoutPicture: number;
+  usersOf: (imageId: string) => string[];
+  onAdd: (image: EncodedAvatar, label: string) => Promise<string | null>;
+  onRename: (imageId: string, label: string) => void;
+  onDelete: (imageId: string) => Promise<boolean>;
+  onReshuffle: () => Promise<void>;
+}) {
   const [pending, setPending] = useState<EncodedAvatar | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<{ image: AvatarImage; index: number } | null>(null);
-  const count = values.images.length;
+  const count = images.length;
   const latest = useRef({ count, busy });
   latest.current = { count, busy };
   const prepare = async (source: Promise<AvatarSource>) => {
     if (latest.current.busy) return;
     setBusy(true);
     setProblem(null);
-    try {
-      const encoded = await encodeAvatar(await source, latest.current.count);
-      if (encoded.ok) setPending(encoded.image);
-      else setProblem(encoded.error);
-    } catch {
-      setProblem("That picture could not be read.");
-    } finally {
-      setBusy(false);
-    }
+    const result = await encodeFrom(source, latest.current.count);
+    setBusy(false);
+    if ("image" in result) setPending(result.image);
+    else setProblem(result.problem);
   };
-  useEffect(() => {
-    const page = dom.document;
-    if (!canEncodeAvatars || !page) return;
-    const onPaste = (event: ClipboardEvent) => {
-      const files = clipboardImageFiles(event.clipboardData);
-      if (files.length === 0) return;
-      event.preventDefault();
-      void prepare(Promise.resolve(sourceOfFile(files[0])));
-    };
-    page.addEventListener("paste", onPaste);
-    return () => page.removeEventListener("paste", onPaste);
-  }, []);
   const choose = async () => {
     const files = await chooseFiles(ACCEPT);
     if (files[0]) await prepare(Promise.resolve(sourceOfFile(files[0])));
   };
   const add = async (image: EncodedAvatar, label: string) => {
     setBusy(true);
-    try {
-      const stored = await upload(image.data, image.mimeType);
-      if (!stored.ok) return setProblem(stored.error);
-      const result: { outcome: "added" | "present" | "full" } = { outcome: "added" };
-      const saved = await commit((current) => {
-        if (current.images.some((entry) => entry.id === stored.id)) {
-          result.outcome = "present";
-          return null;
-        }
-        if (current.images.length >= MAX_AVATAR_IMAGES) {
-          result.outcome = "full";
-          return null;
-        }
-        result.outcome = "added";
-        return { ...current, images: [...current.images, label ? { id: stored.id, label } : { id: stored.id }] };
-      });
-      if (saved === false) return setProblem("Could not save the library. Try again.");
-      setPending(null);
-      if (result.outcome === "full") setProblem(`The library holds at most ${MAX_AVATAR_IMAGES} pictures. Delete one to add another.`);
-      else toast.show(result.outcome === "present" ? "That picture is already in the library" : "Picture added");
-    } finally {
-      setBusy(false);
-    }
+    const failed = await onAdd(image, label);
+    setBusy(false);
+    if (failed) setProblem(failed);
+    else setPending(null);
   };
-  const rename = (imageId: string, label: string) =>
-    void commit((current) => ({ ...current, images: current.images.map((entry) => (entry.id !== imageId ? entry : label ? { ...entry, label } : { id: entry.id })) })).then((saved) => saved === false && toast.error("Could not save the label."));
   const destroy = async (imageId: string) => {
     setBusy(true);
-    try {
-      const saved = await commit((current) => (current.images.some((entry) => entry.id === imageId) ? removeAvatarImage(current, imageId) : null));
-      if (saved === false) return toast.error("Could not delete the picture. Try again.");
-      setDeleting(null);
-      const gone = await remove(imageId);
-      toast.show(gone.ok ? "Picture deleted" : "Picture removed from the library; its file stays until the next clean-up");
-    } finally {
-      setBusy(false);
-    }
+    if (await onDelete(imageId)) setDeleting(null);
+    setBusy(false);
   };
+  const reshuffle = async () => {
+    setBusy(true);
+    await onReshuffle();
+    setBusy(false);
+  };
+  const showInitials = (n: number) => (n === 1 ? "1 shows their initials" : `${n} show their initials`);
+  const shortage = people === null ? null : count === 0 ? (people === 0 ? null : people === 1 ? "No pictures yet, so they show their initials." : `No pictures yet, so all ${people} show their initials.`) : withoutPicture > 0 ? `${count} ${count === 1 ? "picture" : "pictures"} for ${people} people, so ${showInitials(withoutPicture)}.` : null;
   const body = (
     <View style={{ gap: SPACING[2] }}>
-      <Text style={text(theme, "label")}>
-        Pictures · {count} of {MAX_AVATAR_IMAGES}
-      </Text>
-      <Text style={text(theme, "meta")}>{HINT}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], flexWrap: "wrap" }}>
+        <Text style={[text(theme, "rowTitle"), { color: colour, fontWeight: "600" }]}>{title}</Text>
+        <Text style={text(theme, "label")}>
+          {count} of {maxImages} pictures{people === null ? "" : ` · ${people} ${people === 1 ? "person" : "people"}`}
+        </Text>
+        <View style={{ flex: 1 }} />
+        <Button theme={theme} label="Reshuffle" icon="Shuffle" busy={busy && !pending && !deleting} disabled={count === 0 || !people} onPress={() => void reshuffle()} />
+      </View>
+      {shortage ? <Text style={text(theme, "label", "statusWarning")}>{shortage}</Text> : null}
       {canEncodeAvatars ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], flexWrap: "wrap" }}>
-          <Button theme={theme} label="Add picture" icon="ImagePlus" busy={busy && !pending} disabled={count >= MAX_AVATAR_IMAGES || pending !== null} onPress={() => void choose()} />
-          <Text style={text(theme, "label")}>or paste or drop one here</Text>
+          <Button theme={theme} label="Add picture" icon="ImagePlus" busy={busy && !pending && !deleting} disabled={count >= maxImages || pending !== null} onPress={() => void choose()} />
+          <Text style={text(theme, "label")}>or drop one here</Text>
         </View>
-      ) : (
-        <Text style={text(theme, "meta")}>Upload pictures from Paseo desktop or web. Pictures already in the library show here too.</Text>
-      )}
+      ) : null}
       {problem ? <Text style={text(theme, "meta", "statusDanger")}>{problem}</Text> : null}
-      {pending ? <Preview theme={theme} image={pending} busy={busy} onAdd={(label) => void add(pending, label)} onCancel={() => setPending(null)} /> : null}
+      {pending ? <Preview theme={theme} image={pending} colour={colour} busy={busy} onAdd={(label) => void add(pending, label)} onCancel={() => setPending(null)} /> : null}
       {count > 0 ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACING[2] }}>
-          {values.images.map((image, index) => (
-            <Tile
-              key={image.id}
-              theme={theme}
-              image={image}
-              index={index}
-              users={usersOf(image.id)}
-              onRename={(label) => rename(image.id, label)}
-              onDelete={() => (usersOf(image.id).length > 0 ? setDeleting({ image, index }) : void destroy(image.id))}
-            />
+          {images.map((image, index) => (
+            <Tile key={image.id} theme={theme} image={image} index={index} colour={colour} users={usersOf(image.id)} onRename={(label) => onRename(image.id, label)} onDelete={() => (usersOf(image.id).length > 0 ? setDeleting({ image, index }) : void destroy(image.id))} />
           ))}
         </View>
       ) : null}
       <ConfirmDialog theme={theme} title="Delete picture?" icon="Trash2" tone="danger" confirmLabel="Delete" busy={busy} open={deleting !== null} onConfirm={() => deleting && void destroy(deleting.image.id)} onClose={() => setDeleting(null)}>
-        <Text style={text(theme, "meta")}>
-          {deleting ? `${pictureName(deleting.image, deleting.index)} is in use by ${usersOf(deleting.image.id).join(", ")}. They go back to an icon or their initials.` : ""}
-        </Text>
+        <Text style={text(theme, "meta")}>{deleting ? `${pictureName(deleting.image, deleting.index)} is in use by ${usersOf(deleting.image.id).join(", ")}. They get another free ${roleName} picture, or their initials if none is left.` : ""}</Text>
       </ConfirmDialog>
     </View>
   );
-  if (!canEncodeAvatars) return body;
+  const framed = <View style={{ padding: SPACING[3], borderWidth: 1, borderColor: theme.colors.border, borderRadius: RADIUS.lg }}>{body}</View>;
+  if (!canEncodeAvatars) return framed;
   return (
     <FileDropZone theme={theme}>
       <DropSink onSource={(source) => void prepare(source)} />
-      {body}
+      {framed}
     </FileDropZone>
   );
 }

@@ -1,147 +1,145 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { AVATAR_POOL, AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGE_BYTES, assignAvatars, avatarPool, avatarUploadError, centreSquare, imageRef, removeAvatarImage, reshuffleAvatars, type AvatarImage, type AvatarPerson } from "./avatar.ts";
-
-const AUTO: AvatarSettings = { mode: "auto", seed: 0, picks: {}, assigned: {}, images: [] };
+import { AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGE_BYTES, MAX_AVATAR_IMAGES, addAvatarImage, assignAvatars, avatarUploadError, centreSquare, imageInUse, migrateAvatarSettings, removeAvatarImage, reshuffleAvatars, type AvatarPerson } from "./avatar.ts";
+import type { RoleKey } from "./palette.ts";
 
 function crew(role: string, count: number, prefix = role): AvatarPerson[] {
   return Array.from({ length: count }, (_, index) => ({ id: `${prefix}-${index}`, role, joinedAt: 1000 + index }));
 }
 
-function library(...ids: string[]): AvatarImage[] {
-  return ids.map((id) => ({ id }));
+function pictures(prefix: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `${prefix}${index}`);
+}
+
+function withPictures(libraries: Partial<Record<RoleKey, string[]>>): AvatarSettings {
+  let settings: AvatarSettings = { ...DEFAULT_AVATAR_SETTINGS, mode: "on" };
+  for (const [role, ids] of Object.entries(libraries) as [RoleKey, string[]][]) {
+    for (const id of ids) {
+      const change = addAvatarImage(settings, role, { id });
+      if (!change.ok) throw new Error(change.error);
+      settings = change.settings;
+    }
+  }
+  return settings;
 }
 
 function avatarsOf(people: readonly AvatarPerson[], settings: AvatarSettings): ReadonlyMap<string, string> {
   return assignAvatars(people, settings).avatars;
 }
 
-function iconsOf(assigned: ReadonlyMap<string, string>, people: readonly AvatarPerson[]): (string | undefined)[] {
-  return people.map((person) => assigned.get(person.id));
+function picturesOf(avatars: ReadonlyMap<string, string>, people: readonly AvatarPerson[]): (string | undefined)[] {
+  return people.map((person) => avatars.get(person.id));
 }
 
 test("avatars stay off until the user opts in, and the human and pseudo ids never get one", () => {
   const people = [...crew("peer", 3), { id: "pat", role: "human" }, { id: "notify", role: "peer" }, { id: "x", role: undefined }];
   assert.deepEqual(AvatarSettings.parse({}), DEFAULT_AVATAR_SETTINGS);
-  assert.deepEqual(AvatarSettings.parse({ mode: "auto", seed: 3, picks: { "peer-0": "Cat" } }).assigned, {});
-  assert.equal(avatarsOf(people, DEFAULT_AVATAR_SETTINGS).size, 0);
-  const assigned = avatarsOf(people, AUTO);
-  assert.deepEqual([...assigned.keys()].sort(), ["peer-0", "peer-1", "peer-2"]);
+  const settings = withPictures({ peer: pictures("p", 5) });
+  assert.equal(avatarsOf(people, { ...settings, mode: "off" }).size, 0);
+  assert.deepEqual([...avatarsOf(people, settings).keys()].sort(), ["peer-0", "peer-1", "peer-2"]);
 });
 
-test("in auto mode people of one role never share an avatar while the pool lasts", () => {
-  const supervisors = [...crew("supervisor", 4), ...crew("chair", 4)];
-  const leads = crew("lead", 12);
-  const assigned = avatarsOf([...supervisors, ...leads], { ...AUTO, images: library("a", "b") });
-  for (const group of [supervisors, leads]) {
-    const icons = iconsOf(assigned, group);
-    assert.ok(icons.every((icon) => icon !== undefined));
-    assert.equal(new Set(icons).size, group.length);
+test("each role draws only from its own library, people of one role never share a picture, and an empty library shows initials", () => {
+  const supervisors = [...crew("supervisor", 2), ...crew("chair", 2)];
+  const leads = crew("lead", 3);
+  const peers = crew("peer", 2);
+  const settings = withPictures({ supervisor: pictures("s", 4), lead: pictures("l", 5) });
+  const avatars = avatarsOf([...supervisors, ...leads, ...peers], settings);
+  for (const [group, prefix] of [[supervisors, "s"], [leads, "l"]] as const) {
+    const shown = picturesOf(avatars, group);
+    assert.ok(shown.every((id) => id?.startsWith(prefix)));
+    assert.equal(new Set(shown).size, group.length);
   }
+  assert.deepEqual(picturesOf(avatars, peers), [undefined, undefined]);
 });
 
-test("the same people get the same avatars whatever order they are listed in", () => {
-  const people = [...crew("peer", 9), ...crew("lead", 5)];
-  const first = avatarsOf(people, AUTO);
-  const again = avatarsOf([...people].reverse(), AUTO);
-  assert.deepEqual([...again].sort(), [...first].sort());
+test("the same people get the same pictures whatever order they are listed in", () => {
+  const people = [...crew("peer", 6), ...crew("lead", 3)];
+  const settings = withPictures({ peer: pictures("p", 8), lead: pictures("l", 8) });
+  assert.deepEqual([...avatarsOf([...people].reverse(), settings)].sort(), [...avatarsOf(people, settings)].sort());
 });
 
-test("people joining or leaving never move anyone else's avatar, and a leaver's avatar is free again", () => {
-  const team = crew("peer", AVATAR_POOL.length);
-  const saved = assignAvatars(team, AUTO).settings;
+test("when a role has more people than pictures the earliest arrivals keep unique ones and the overflow shows initials", () => {
+  const peers = crew("peer", 5);
+  const shown = picturesOf(avatarsOf(peers, withPictures({ peer: pictures("p", 3) })), peers);
+  assert.equal(new Set(shown.slice(0, 3)).size, 3);
+  assert.deepEqual(shown.slice(3), [undefined, undefined]);
+});
+
+test("people joining or leaving never move anyone else's picture, and a leaver's picture is free again", () => {
+  const team = crew("peer", 4);
+  const saved = assignAvatars(team, withPictures({ peer: pictures("p", 4) })).settings;
   const [leaver, ...stayers] = team;
-  const newcomer = { id: "newcomer", role: "peer", joinedAt: 1 };
-  const after = assignAvatars([newcomer, ...stayers], saved);
-  assert.deepEqual(iconsOf(after.avatars, stayers), stayers.map((person) => saved.assigned[person.id]));
+  const after = assignAvatars([{ id: "newcomer", role: "peer", joinedAt: 1 }, ...stayers], saved);
+  assert.deepEqual(picturesOf(after.avatars, stayers), stayers.map((person) => saved.assigned[person.id]));
   assert.equal(after.avatars.get("newcomer"), saved.assigned[leaver.id]);
 });
 
-test("when a role outgrows the pool the earliest arrivals keep unique avatars and the overflow shows initials", () => {
-  const images = library("a", "b");
-  const peers = crew("peer", AVATAR_POOL.length + images.length + 3);
-  const assigned = avatarsOf(peers, { ...AUTO, images });
-  const icons = iconsOf(assigned, peers);
-  const poolSize = AVATAR_POOL.length + images.length;
-  assert.equal(new Set(icons.slice(0, poolSize)).size, poolSize);
-  assert.deepEqual(icons.slice(poolSize), [undefined, undefined, undefined]);
-});
-
-test("a manual pick beats auto and takes the avatar away from its holder, and picks that left the pool fall back", () => {
-  const peers = crew("peer", 6);
-  const saved = assignAvatars(peers, AUTO).settings;
-  const autoIcon = saved.assigned["peer-1"];
-  assert.ok(autoIcon);
-  const picks = { "peer-0": autoIcon, "peer-2": "NotAnIcon" };
-  const mixed = assignAvatars(peers, { ...saved, picks });
-  assert.equal(mixed.avatars.get("peer-0"), autoIcon);
-  assert.notEqual(mixed.avatars.get("peer-1"), autoIcon);
-  assert.ok(mixed.avatars.get("peer-2"));
-  assert.equal(new Set(iconsOf(mixed.avatars, peers)).size, peers.length);
-  const manual = avatarsOf(peers, { ...AUTO, mode: "manual", picks });
-  assert.deepEqual([...manual], [["peer-0", autoIcon]]);
-});
-
-test("the pool is the library's images first, then the icons, and picks may name either", () => {
-  const images = library("a", "b");
-  assert.deepEqual(avatarPool({ ...AUTO, images }), [imageRef("a"), imageRef("b"), ...AVATAR_POOL]);
+test("an upload after assignment moves nobody, and the next person without a picture gets it", () => {
   const peers = crew("peer", 3);
-  const manual = { ...AUTO, images, mode: "manual" as const, picks: { "peer-0": imageRef("b"), "peer-1": "Cat", "peer-2": imageRef("gone") } };
-  assert.deepEqual([...avatarsOf(peers, manual)], [["peer-0", imageRef("b")], ["peer-1", "Cat"]]);
-});
-
-test("an upload after assignment changes no existing entry, and the next person to need one gets an image first", () => {
-  const peers = crew("peer", 4);
-  const saved = assignAvatars(peers, AUTO).settings;
-  const images = library("a");
-  const uploaded = { ...saved, images };
-  const afterUpload = assignAvatars(peers, uploaded);
-  assert.equal(afterUpload.changed, false);
-  assert.equal(afterUpload.settings, uploaded);
-  const withNewcomer = assignAvatars([...peers, { id: "newcomer", role: "peer", joinedAt: 9000 }], uploaded);
-  assert.equal(withNewcomer.avatars.get("newcomer"), imageRef("a"));
+  const saved = assignAvatars(peers, withPictures({ peer: pictures("p", 2) })).settings;
+  const added = addAvatarImage(saved, "peer", { id: "fresh" });
+  assert.ok(added.ok);
+  const afterUpload = assignAvatars(peers, added.settings);
+  assert.deepEqual(picturesOf(afterUpload.avatars, peers.slice(0, 2)), peers.slice(0, 2).map((person) => saved.assigned[person.id]));
+  assert.equal(afterUpload.avatars.get("peer-2"), "fresh");
+  assert.equal(addAvatarImage(added.settings, "peer", { id: "fresh" }).ok, false);
+  assert.equal(addAvatarImage(withPictures({ lead: pictures("l", MAX_AVATAR_IMAGES) }), "lead", { id: "one-more" }).ok, false);
 });
 
 test("the result settles: run again on its own output, by a second writer after a reload, or by a writer that sees fewer people, it changes nothing", () => {
   const people = [...crew("peer", 5), ...crew("lead", 2)];
-  const start = { ...AUTO, images: library("a", "b") };
+  const start = withPictures({ peer: pictures("p", 5), lead: pictures("l", 2) });
   const first = assignAvatars(people, start);
   assert.equal(first.changed, true);
   const again = assignAvatars(people, first.settings);
   assert.equal(again.changed, false);
   assert.equal(again.settings, first.settings);
-  const rival = assignAvatars(people, start);
-  assert.deepEqual(rival.settings, first.settings);
+  assert.deepEqual(assignAvatars(people, start).settings, first.settings);
   assert.equal(assignAvatars(people.slice(2), first.settings).changed, false);
 });
 
-test("reshuffle always changes the assignment, rebuilds it images first, and then holds it", () => {
-  for (const people of [crew("lead", 1), [...crew("peer", 5), ...crew("lead", 2)]]) {
-    const saved = assignAvatars(people, AUTO).settings;
-    const before = avatarsOf(people, saved);
-    const reshuffled = reshuffleAvatars(people, saved);
-    const after = avatarsOf(people, reshuffled);
-    assert.notDeepEqual([...after].sort(), [...before].sort());
-    assert.equal(assignAvatars(people, reshuffled).changed, false);
-  }
-  const peers = crew("peer", 4);
-  const onIcons = { ...assignAvatars(peers, AUTO).settings, images: library("a", "b") };
-  const reshuffled = reshuffleAvatars(peers, onIcons);
-  assert.deepEqual(new Set(iconsOf(avatarsOf(peers, reshuffled), peers.slice(0, 2))), new Set([imageRef("a"), imageRef("b")]));
+test("reshuffling a role always changes that role's pictures and leaves every other role alone", () => {
+  const peers = crew("peer", 3);
+  const leads = crew("lead", 3);
+  const people = [...peers, ...leads];
+  const first = assignAvatars(people, withPictures({ peer: pictures("p", 6), lead: pictures("l", 3) })).settings;
+  const saved = { ...first, libraries: { ...first.libraries, lead: { ...first.libraries.lead, images: pictures("l", 9).map((id) => ({ id })) } } };
+  const reshuffled = reshuffleAvatars(people, saved, "peer");
+  const after = avatarsOf(people, reshuffled);
+  assert.notDeepEqual(picturesOf(after, peers), peers.map((person) => saved.assigned[person.id]));
+  assert.deepEqual(picturesOf(after, leads), leads.map((person) => saved.assigned[person.id]));
+  assert.equal(assignAvatars(people, reshuffled).changed, false);
 });
 
-test("deleting an image clears every pick and assignment of it, and only its holders get a new avatar", () => {
-  const people = [...crew("peer", 4), ...crew("lead", 2)];
-  const saved = assignAvatars(people, { ...AUTO, images: library("a", "b", "c"), picks: { "peer-3": imageRef("b") }, assigned: { "lead-0": imageRef("b") } }).settings;
-  const settings = removeAvatarImage(saved, "b");
-  assert.deepEqual(settings.images.map((image) => image.id), ["a", "c"]);
-  assert.ok(!JSON.stringify(settings).includes(imageRef("b")));
-  const after = assignAvatars(people, settings).avatars;
-  const holders = ["peer-3", "lead-0"];
-  for (const person of people) {
-    if (holders.includes(person.id)) assert.ok(after.get(person.id) && after.get(person.id) !== imageRef("b"));
-    else assert.equal(after.get(person.id), saved.assigned[person.id]);
-  }
+test("removing a picture from a role frees only its holders there, and the file stays in use while another role has it", () => {
+  const peers = crew("peer", 3);
+  const leads = crew("lead", 1);
+  const people = [...peers, ...leads];
+  const saved = assignAvatars(people, withPictures({ peer: ["shared", "p1", "p2"], lead: ["shared"] })).settings;
+  const holder = peers.find((person) => saved.assigned[person.id] === "shared");
+  assert.ok(holder);
+  const removed = removeAvatarImage(saved, "peer", "shared");
+  assert.equal(imageInUse(removed, "shared"), true);
+  const after = avatarsOf(people, removed);
+  for (const person of peers) if (person !== holder) assert.equal(after.get(person.id), saved.assigned[person.id]);
+  assert.notEqual(after.get(holder.id), "shared");
+  assert.equal(after.get("lead-0"), "shared");
+  const gone = removeAvatarImage(removed, "lead", "shared");
+  assert.equal(imageInUse(gone, "shared"), false);
+  assert.ok(!Object.values(gone.assigned).includes("shared"));
+});
+
+test("a version 1 document migrates: its mode maps to on or off, its pictures join every role, and icon picks and assignments are dropped", () => {
+  const human = AvatarSettings.parse(migrateAvatarSettings({ mode: "manual", seed: 0, picks: {}, assigned: {}, images: [] }, 1));
+  assert.deepEqual(human, { ...DEFAULT_AVATAR_SETTINGS, mode: "on" });
+  const old = { mode: "auto", seed: 4, picks: { "peer-0": "Cat", "peer-1": "image:a" }, assigned: { "peer-2": "image:a", "lead-0": "Dog", "lead-1": "image:gone" }, images: [{ id: "a", label: "Ada" }] };
+  const migrated = AvatarSettings.parse(migrateAvatarSettings(old, 1));
+  assert.equal(migrated.mode, "on");
+  assert.deepEqual(migrated.libraries.executor, { images: [{ id: "a", label: "Ada" }], seed: 4 });
+  assert.deepEqual(migrated.assigned, { "peer-2": "a" });
+  assert.equal(AvatarSettings.parse(migrateAvatarSettings({ mode: "off" }, 1)).mode, "off");
+  assert.deepEqual(AvatarSettings.parse(migrateAvatarSettings("garbage", 1)), DEFAULT_AVATAR_SETTINGS);
 });
 
 test("an upload is a PNG, JPEG or WebP of at most 5 MB, decodable, and at least 128 px on its short side, into a library of at most 64", () => {

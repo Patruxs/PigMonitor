@@ -1,14 +1,14 @@
 import { useSettings } from "@getpaseo/plugin/client";
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { assignAvatars, avatarPeopleOf, DEFAULT_AVATAR_SETTINGS, type AvatarPerson, type AvatarRef, type AvatarSettlement } from "../../shared/piggery/avatar.ts";
+import { assignAvatars, avatarPeopleOf, DEFAULT_AVATAR_SETTINGS, type AvatarPerson, type AvatarSettlement } from "../../shared/piggery/avatar.ts";
 import type { View as PigView } from "../../shared/piggery/view.ts";
 import { avatarSettings } from "../../shared/rpc.ts";
 
-const NO_AVATARS: ReadonlyMap<string, AvatarRef> = new Map();
+const NO_AVATARS: ReadonlyMap<string, string> = new Map();
 
 const SAVE_DELAY_MS = 1000;
 
-const AvatarsContext = createContext<ReadonlyMap<string, AvatarRef>>(NO_AVATARS);
+const AvatarsContext = createContext<ReadonlyMap<string, string>>(NO_AVATARS);
 
 export function useSettledAvatars(people: readonly AvatarPerson[]): AvatarSettlement {
   const stored = useSettings(avatarSettings);
@@ -36,6 +36,6 @@ export function StoredAvatars({ view, children }: { view: PigView | null; childr
   return <AvatarsContext.Provider value={view ? settled.avatars : NO_AVATARS}>{children}</AvatarsContext.Provider>;
 }
 
-export function useAvatarRef(id: string): AvatarRef | undefined {
+export function useAvatarImage(id: string): string | undefined {
   return useContext(AvatarsContext).get(id);
 }
