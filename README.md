@@ -7,7 +7,7 @@ A short tour of PigMonitor in Paseo (suggested file: docs/media/pigmonitor.mp4).
 
 ## Install
 
-You need Paseo 0.9.1 or newer, piggery on the Paseo daemon's PATH, and Node 22.5 or newer.
+You need Paseo 0.11.0 or newer, piggery on the Paseo daemon's PATH, and Node 22.5 or newer.
 
 Install:
 
