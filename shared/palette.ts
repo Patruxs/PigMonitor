@@ -10,21 +10,21 @@ export const THEME_TOKENS = ["surface0", "surface1", "surface2", "border", "fore
 export type ThemeToken = (typeof THEME_TOKENS)[number];
 
 export const MAX_TEAM_HUES = 8;
-export const DEFAULT_TEAM_HUES = ["#fbbf24", "#fb923c", "#f87171", "#a3e635", "#e879f9", "#818cf8", "#22d3ee", "#facc15"];
+export const DEFAULT_TEAM_HUES = ["#f4c96e", "#e07d5e", "#e66c7a", "#9dc17d", "#bc89b3", "#74c3d9", "#76a2cd", "#80bfbe"];
 
 export const DEFAULT_PALETTE: PaletteValues = {
-  working: "statusSuccess",
-  waiting: "statusWarning",
+  working: "#9dc17d",
+  waiting: "#f4c96e",
   idle: "foregroundMuted",
-  gone: "statusDanger",
-  supervisor: "#a78bfa",
-  lead: "#38bdf8",
-  peer: "#34d399",
-  executor: "#2dd4bf",
-  advisor: "#f472b6",
-  mail: "#f472b6",
-  mailHeld: "#fb923c",
-  team: "#a78bfa",
+  gone: "#e66c7a",
+  supervisor: "#bc89b3",
+  lead: "#76a2cd",
+  peer: "#80bfbe",
+  executor: "#e07d5e",
+  advisor: "#d6deed",
+  mail: "#bc89b3",
+  mailHeld: "#e07d5e",
+  team: "#74c3d9",
   teamHues: DEFAULT_TEAM_HUES.join(", "),
 };
 

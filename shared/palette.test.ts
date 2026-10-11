@@ -2,21 +2,21 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DEFAULT_PALETTE, DEFAULT_TEAM_HUES, exportPalette, importPalette, mergePalette, resetPalette, resetPaletteValue, setPaletteValue, teamHuesOf, valueError, withAlpha } from "./palette.ts";
 
-test("the defaults are the colours PigMonitor drew before the palette", () => {
+test("the defaults are the deepened Nord palette", () => {
   assert.deepEqual(DEFAULT_PALETTE, {
-    working: "statusSuccess",
-    waiting: "statusWarning",
+    working: "#9dc17d",
+    waiting: "#f4c96e",
     idle: "foregroundMuted",
-    gone: "statusDanger",
-    supervisor: "#a78bfa",
-    lead: "#38bdf8",
-    peer: "#34d399",
-    executor: "#2dd4bf",
-    advisor: "#f472b6",
-    mail: "#f472b6",
-    mailHeld: "#fb923c",
-    team: "#a78bfa",
-    teamHues: "#fbbf24, #fb923c, #f87171, #a3e635, #e879f9, #818cf8, #22d3ee, #facc15",
+    gone: "#e66c7a",
+    supervisor: "#bc89b3",
+    lead: "#76a2cd",
+    peer: "#80bfbe",
+    executor: "#e07d5e",
+    advisor: "#d6deed",
+    mail: "#bc89b3",
+    mailHeld: "#e07d5e",
+    team: "#74c3d9",
+    teamHues: "#f4c96e, #e07d5e, #e66c7a, #9dc17d, #bc89b3, #74c3d9, #76a2cd, #80bfbe",
   });
 });
 
