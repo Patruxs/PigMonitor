@@ -2,7 +2,7 @@
 
 ## `piggery ps --view`
 
-`shared/view.ts` types the JSON that `piggery ps --view` prints (piggery's `internal/view` package, in Go). The plugin draws what that document says: the rows, their order and groups, their words and counts, the default folds, the tabs and the actions each row allows. Nothing in the plugin decides what to show. `readView` refuses a document whose `version` is not `VIEW_VERSION`; piggery bumps the version only for an incompatible change.
+`shared/piggery/view.ts` types the JSON that `piggery ps --view` prints (piggery's `internal/view` package, in Go). The plugin draws what that document says: the rows, their order and groups, their words and counts, the default folds, the tabs and the actions each row allows. Nothing in the plugin decides what to show. `readView` refuses a document whose `version` is not `VIEW_VERSION`; piggery bumps the version only for an incompatible change.
 
 The field names are piggery's, so they can't be renamed here. The less obvious ones:
 
