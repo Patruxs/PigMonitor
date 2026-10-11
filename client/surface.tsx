@@ -2,30 +2,29 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useRpc, useSettings, useWorkspace, type PluginSurfaceProps, type PluginWorkspacePanelProps } from "@getpaseo/plugin/client";
 import { Icon, Modal, ScrollView } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, PanResponder, Pressable, ScrollView as NativeScrollView, Text, View, type PressableStateCallbackType } from "react-native";
-import { basenameOf, countStatuses, countsText, sentenceOf } from "../shared/events.ts";
-import { foldsOf, goneOpen as goneIsOpen, isHidden, NO_FOLDS, prune, setGone, setHidden, setTab, setTeam, showAll, teamOpen, type Folds } from "../shared/folds.ts";
-import { snapshot, tail, viewSettings } from "../shared/rpc.ts";
+import { Animated, PanResponder, Pressable, ScrollView as NativeScrollView, Text, View } from "react-native";
+import { basenameOf, countStatuses, sentenceOf } from "../shared/events.ts";
+import { foldsOf, isHidden, NO_FOLDS, prune, setHidden, setTab, setTeam, showAll, teamOpen, type Folds } from "../shared/folds.ts";
+import { snapshot, viewSettings } from "../shared/rpc.ts";
 import { keptAxisSteps } from "../shared/axis.ts";
-import { agoText, clockText, readView, related, type Block, type Column, type Detail, type Dir, type EventRow, type Head, type Row, type Status, type TailKind, type Tone, type View as PigView } from "../shared/view.ts";
+import { clockText, readView, related, type Column, type Detail, type Dir, type EventRow, type Row, type Status, type Tone, type View as PigView } from "../shared/view.ts";
 import { DetailDialog, type Index } from "./dialog.tsx";
 import { barColours, PastSegments } from "./gantt.tsx";
 import { piecesIn, uncoveredIn, type Segment } from "../shared/segments.ts";
 import { Header } from "./header.tsx";
 import { conversationsOf, HiddenProjects, SessionsPane } from "./sessions.tsx";
 import type { Navigation } from "./native.tsx";
-import { AvatarStack, Legend, Pill, RoleAvatar, RolePill, StatusPill, tint } from "./kit/chat.tsx";
+import { AvatarStack, Legend, Pill, RoleAvatar, RolePill, tint } from "./kit/chat.tsx";
 import { Chip } from "./kit/badge.tsx";
 import { paint, statusColour, StoredPalette, teamColour, usePalette } from "./palette.tsx";
-import { Disclosure } from "./kit/disclosure.tsx";
 import { PressRow } from "./kit/press.tsx";
 import { Notice } from "./kit/notice.tsx";
-import { AgentCard, AgentRow, columnsFor, Tail, type Columns } from "./kit/row.tsx";
+import { AgentCard, columnsFor, type Columns } from "./kit/row.tsx";
 import { Rows } from "./kit/rows.tsx";
 import { MultiSelect, Select } from "./kit/select.tsx";
 import { TabBar } from "./kit/tab-bar.tsx";
-import { ASIDE, BAR, CARD_RADIUS, CHAT_SPLIT_MIN, DOT, CHEVRON_SLOT, ICON_SIZE, ORG_CARD, INDENT, RADIUS, ROW_MIN, ROW_ONE, SPACING, text } from "./kit/theme.ts";
-import { BUSY_MS, QUIET_MS, pollEvery, useNow, usePoll } from "./poll.ts";
+import { CARD_RADIUS, CHAT_SPLIT_MIN, DOT, ICON_SIZE, ORG_CARD, RADIUS, ROW_MIN, ROW_ONE, SPACING, text } from "./kit/theme.ts";
+import { pollEvery, useNow, usePoll } from "./poll.ts";
 
 function useView(dir: string | undefined) {
   const call = useRpc(snapshot);
@@ -54,99 +53,11 @@ function dirsOf(view: PigView, dir: string | undefined): Dir[] {
   return [...mine.filter(own), ...mine.filter((d) => !own(d))];
 }
 
-const STATUS_ORDER: Record<string, number> = { working: 0, waiting: 1, idle: 2, gone: 3 };
-
-function InfoButton({ theme, label, onPress }: { theme: PluginTheme; label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={SPACING[2]}>
-      <Icon name="Info" size={ICON_SIZE.md} color={theme.colors.foregroundMuted} />
-    </Pressable>
-  );
-}
-
-function TeamHead({ theme, head, rows, open, onToggle, onInfo, narrow }: { theme: PluginTheme; head: Head; rows: Row[]; open: boolean; onToggle: () => void; onInfo: () => void; narrow: boolean }) {
-  const members = rows.filter((r) => r.kind === "member");
-  const live = members.filter((m) => m.status !== "gone");
-  const summary = countsText(countStatuses(rows)) || head.counts?.join(" · ") || "";
-  return (
-    <Disclosure theme={theme} open={open} onToggle={onToggle} onBody={narrow ? onInfo : undefined} label={head.name} left={0} aside={narrow ? undefined : <InfoButton theme={theme} label={`About ${head.name}`} onPress={onInfo} />}>
-      <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: tint(theme.colors.accent, "1f"), alignItems: "center", justifyContent: "center" }}>
-        <Icon name="Users" size={ICON_SIZE.sm} color={theme.colors.accent} />
-      </View>
-      <Text style={[text(theme, "rowTitle"), { fontWeight: "600", flexShrink: 1 }]} numberOfLines={1}>
-        {head.name}
-      </Text>
-      {head.template ? <Pill theme={theme} label={head.template} /> : null}
-      {!open && members.length > 0 ? <AvatarStack theme={theme} people={(live.length > 0 ? live : members).map((m) => ({ id: m.id, name: m.name, role: m.role, dim: m.dim }))} /> : null}
-      {head.flags?.length ? (
-        <Text style={[text(theme, "meta", "statusWarning"), { flexShrink: 1 }]} numberOfLines={1}>
-          {head.flags.join(" · ")}
-        </Text>
-      ) : null}
-      {!open && summary ? (
-        <Text style={[text(theme, "label"), { flexShrink: 1 }]} numberOfLines={1}>
-          {summary}
-        </Text>
-      ) : null}
-    </Disclosure>
-  );
-}
-
-function QuietLine({ theme, row, icon, open, onToggle, onInfo, left, columns }: { theme: PluginTheme; row: Row; icon?: string; open: boolean; onToggle: () => void; onInfo: () => void; left: number; columns: Columns }) {
-  const narrow = columns === "none";
-  return (
-    <Disclosure theme={theme} open={open} onToggle={onToggle} onBody={narrow ? onInfo : undefined} label={row.name} left={left} tail={<Tail theme={theme} row={row} columns={columns} dim />} aside={narrow ? undefined : <InfoButton theme={theme} label={`About ${row.name}`} onPress={onInfo} />}>
-      {icon ? <Icon name={icon} size={ICON_SIZE.md} color={theme.colors.foregroundMuted} /> : null}
-      <Text style={[text(theme, "rowTitle", "foregroundMuted"), { flexShrink: 1, minWidth: 0 }]} numberOfLines={1}>
-        {row.name}
-      </Text>
-      {row.closed ? <Text style={[text(theme, "label"), { flexShrink: 0 }]}>{row.closed}</Text> : null}
-    </Disclosure>
-  );
-}
-
-const indentOf = (row: Row) => CHEVRON_SLOT + row.depth * INDENT;
-
 interface Handlers {
   folds: Folds;
   change: (next: Folds) => void;
   open: (id: string) => void;
   columns: Columns;
-}
-
-function renderBlock(theme: PluginTheme, block: Block, key: string, h: Handlers) {
-  const { folds, change, open } = h;
-  const narrow = h.columns === "none";
-  const agent = (row: Row) => <AgentRow key={row.id} theme={theme} row={row} left={indentOf(row)} slot={narrow ? 0 : ASIDE} columns={h.columns} onPress={() => open(row.id)} />;
-  const member = agent;
-  const gone = (row: Row, teamId: string) => {
-    const isOpen = goneIsOpen(folds, teamId);
-    return <QuietLine key={row.id} theme={theme} row={row} open={isOpen} left={CHEVRON_SLOT} onToggle={() => change(setGone(folds, teamId, !isOpen))} onInfo={() => open(row.id)} columns={h.columns} />;
-  };
-  const head = block.head;
-  if (head) {
-    const isOpen = teamOpen(folds, head.id, head.open);
-    const goneOpen = goneIsOpen(folds, head.id);
-    return [
-      <TeamHead key={`${key}-head`} theme={theme} head={head} rows={block.rows} open={isOpen} onToggle={() => change(setTeam(folds, head.id, !isOpen, head.open))} onInfo={() => open(head.detail)} narrow={narrow} />,
-      ...(isOpen ? block.rows.filter((r) => !r.folded || goneOpen).map((r) => (r.kind === "gone" ? gone(r, head.id) : member(r))) : []),
-      isOpen && block.no_members ? (
-        <View key={`${key}-none`} style={{ minHeight: ROW_MIN, justifyContent: "center", paddingLeft: CHEVRON_SLOT }}>
-          <Text style={text(theme, "meta")}>No members yet. Open an agent session in its directory and ask the gate to admit it.</Text>
-        </View>
-      ) : null,
-    ];
-  }
-  const [first, ...rest] = block.rows;
-  if (first?.kind === "team") {
-    const teamId = first.team ?? first.id;
-    const isOpen = teamOpen(folds, teamId, first.open === true);
-    return [
-      <QuietLine key={first.id} theme={theme} row={first} icon={first.closed ? "Archive" : "Users"} open={isOpen} left={0} onToggle={() => change(setTeam(folds, teamId, !isOpen, first.open === true))} onInfo={() => open(first.id)} columns={h.columns} />,
-      ...(isOpen ? rest.map(member) : []),
-    ];
-  }
-  return block.rows.map(agent);
 }
 
 interface Member {
