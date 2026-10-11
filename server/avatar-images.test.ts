@@ -55,7 +55,7 @@ test("an id that is not a stored picture's hash cannot reach any other file", wi
 test("a picture any role's library still uses, or that settings cannot tell about, is kept; an unused one is deleted and then reads as missing", withStore(async (store, dir, _root, settings) => {
   const saved = store.upload(PNG.toString("base64"), "image/png");
   assert.ok(saved.ok);
-  settings.now = { ...DEFAULT_AVATAR_SETTINGS, libraries: { ...DEFAULT_AVATAR_SETTINGS.libraries, executor: { images: [{ id: saved.id }], seed: 0 } } };
+  settings.now = { ...DEFAULT_AVATAR_SETTINGS, libraries: { ...DEFAULT_AVATAR_SETTINGS.libraries, executor: { images: [{ id: saved.id }] } } };
   assert.equal((await store.delete(saved.id)).ok, false);
   settings.now = null;
   assert.equal((await store.delete(saved.id)).ok, false);

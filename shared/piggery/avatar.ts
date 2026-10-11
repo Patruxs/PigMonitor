@@ -15,9 +15,9 @@ export const MIN_AVATAR_IMAGE_SIDE = 128;
 
 export const AVATAR_IMAGE_SIDE = 256;
 
-export const AVATAR_SETTINGS_VERSION = 2;
+export const AVATAR_SETTINGS_VERSION = 3;
 
-export const AVATAR_MODES = ["off", "on"] as const;
+export const AVATAR_MODES = ["auto", "manual"] as const;
 
 export type AvatarMode = (typeof AVATAR_MODES)[number];
 
@@ -25,31 +25,31 @@ export const AvatarImage = z.object({ id: z.string() });
 
 export type AvatarImage = z.output<typeof AvatarImage>;
 
-const RoleLibrary = z.object({ images: z.array(AvatarImage).default([]), seed: z.number().int().default(0) });
+const RoleLibrary = z.object({ images: z.array(AvatarImage).default([]) });
 
 export type RoleLibrary = z.output<typeof RoleLibrary>;
 
-const EMPTY_LIBRARY: RoleLibrary = { images: [], seed: 0 };
+const EMPTY_LIBRARY: RoleLibrary = { images: [] };
 
 function emptyLibraries(): Record<RoleKey, RoleLibrary> {
   return { supervisor: EMPTY_LIBRARY, lead: EMPTY_LIBRARY, peer: EMPTY_LIBRARY, executor: EMPTY_LIBRARY, advisor: EMPTY_LIBRARY };
 }
 
 export const AvatarSettings = z.object({
-  mode: z.enum(AVATAR_MODES).default("off"),
+  mode: z.enum(AVATAR_MODES).default("manual"),
   libraries: z.object(Object.fromEntries(AVATAR_ROLES.map((role) => [role, RoleLibrary.default(EMPTY_LIBRARY)])) as Record<RoleKey, z.ZodDefault<typeof RoleLibrary>>).default(emptyLibraries),
   assigned: z.record(z.string(), z.string()).default({}),
 });
 
 export type AvatarSettings = z.output<typeof AvatarSettings>;
 
-export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = { mode: "off", libraries: emptyLibraries(), assigned: {} };
+export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = { mode: "manual", libraries: emptyLibraries(), assigned: {} };
 
 export type AvatarPerson = { id: string; role: string | undefined; joinedAt?: number; name?: string; team?: string };
 
 export type AvatarGroup = { role: RoleKey; people: AvatarPerson[] };
 
-export type AvatarSettlement = { settings: AvatarSettings; avatars: ReadonlyMap<string, string>; changed: boolean };
+export type AvatarSettlement = { settings: AvatarSettings; avatars: ReadonlyMap<string, string>; changed: boolean; needsPick: ReadonlySet<string> };
 
 export type AvatarChange = { ok: true; settings: AvatarSettings } | { ok: false; error: string };
 
@@ -58,8 +58,6 @@ export type AvatarUpload = { mimeType: string; bytes: number; size: { width: num
 export type CropRect = { x: number; y: number; side: number };
 
 const ROLE_RANK: Record<RoleKey, number> = { supervisor: 0, lead: 1, peer: 2, executor: 3, advisor: 4 };
-
-const RESHUFFLE_TRIES = 64;
 
 export function avatarPeopleOf(view: View): AvatarPerson[] {
   const people: AvatarPerson[] = [];
@@ -82,8 +80,8 @@ function byArrival(a: AvatarPerson, b: AvatarPerson): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-function firstFree(id: string, seed: number, imageIds: readonly string[], taken: ReadonlySet<string>): string | undefined {
-  const start = imageIds.length === 0 ? 0 : spread(`${seed}:${id}`) % imageIds.length;
+function firstFree(id: string, imageIds: readonly string[], taken: ReadonlySet<string>): string | undefined {
+  const start = imageIds.length === 0 ? 0 : spread(id) % imageIds.length;
   for (let step = 0; step < imageIds.length; step++) {
     const imageId = imageIds[(start + step) % imageIds.length];
     if (!taken.has(imageId)) return imageId;
@@ -114,35 +112,67 @@ export function imageInUse(settings: AvatarSettings, imageId: string): boolean {
 }
 
 export function assignAvatars(people: readonly AvatarPerson[], settings: AvatarSettings): AvatarSettlement {
-  const avatars = new Map<string, string>();
-  if (settings.mode === "off") return { settings, avatars, changed: false };
   const groups = groupByRole(people);
+  return settings.mode === "manual" ? showPicks(groups, settings) : settleAuto(groups, settings);
+}
+
+function showPicks(groups: readonly AvatarGroup[], settings: AvatarSettings): AvatarSettlement {
+  const avatars = new Map<string, string>();
+  const needsPick = new Set<string>();
+  for (const { role, people: group } of groups) {
+    const imageIds = imageIdsOf(settings.libraries[role]);
+    for (const person of group) {
+      const picked = settings.assigned[person.id];
+      if (imageIds.length === 1) avatars.set(person.id, imageIds[0]);
+      else if (picked !== undefined && imageIds.includes(picked)) avatars.set(person.id, picked);
+      else if (imageIds.length > 1) needsPick.add(person.id);
+    }
+  }
+  return { settings, avatars, changed: false, needsPick };
+}
+
+function settleAuto(groups: readonly AvatarGroup[], settings: AvatarSettings): AvatarSettlement {
+  const avatars = new Map<string, string>();
   const present = new Set(groups.flatMap((group) => group.people.map((person) => person.id)));
   const assigned: Record<string, string> = {};
   for (const [id, imageId] of Object.entries(settings.assigned)) if (!present.has(id) && imageInUse(settings, imageId)) assigned[id] = imageId;
   for (const { role, people: group } of groups) {
-    const library = settings.libraries[role];
-    const imageIds = imageIdsOf(library);
+    const imageIds = imageIdsOf(settings.libraries[role]);
     const taken = new Set<string>();
+    const duplicates: [AvatarPerson, string][] = [];
     const unassigned: AvatarPerson[] = [];
     for (const person of group) {
       const kept = settings.assigned[person.id];
-      if (kept !== undefined && imageIds.includes(kept) && !taken.has(kept)) {
+      if (kept === undefined || !imageIds.includes(kept)) unassigned.push(person);
+      else if (taken.has(kept)) duplicates.push([person, kept]);
+      else {
         avatars.set(person.id, kept);
         taken.add(kept);
         assigned[person.id] = kept;
-      } else unassigned.push(person);
+      }
+    }
+    for (const [person, kept] of duplicates) {
+      const imageId = firstFree(person.id, imageIds, taken) ?? kept;
+      avatars.set(person.id, imageId);
+      taken.add(imageId);
+      assigned[person.id] = imageId;
     }
     for (const person of unassigned) {
-      const imageId = firstFree(person.id, library.seed, imageIds, taken);
+      const imageId = firstFree(person.id, imageIds, taken);
       if (imageId === undefined) break;
       avatars.set(person.id, imageId);
       taken.add(imageId);
       assigned[person.id] = imageId;
     }
   }
-  if (sameEntries(assigned, settings.assigned)) return { settings, avatars, changed: false };
-  return { settings: { ...settings, assigned }, avatars, changed: true };
+  const needsPick: ReadonlySet<string> = new Set();
+  if (sameEntries(assigned, settings.assigned)) return { settings, avatars, changed: false, needsPick };
+  return { settings: { ...settings, assigned }, avatars, changed: true, needsPick };
+}
+
+export function pickAvatar(settings: AvatarSettings, personId: string, imageId: string | null): AvatarSettings {
+  const { [personId]: _previous, ...others } = settings.assigned;
+  return { ...settings, assigned: imageId === null ? others : { ...others, [personId]: imageId } };
 }
 
 function sameEntries(a: Readonly<Record<string, string>>, b: Readonly<Record<string, string>>): boolean {
@@ -152,31 +182,6 @@ function sameEntries(a: Readonly<Record<string, string>>, b: Readonly<Record<str
 
 function withLibrary(settings: AvatarSettings, role: RoleKey, library: RoleLibrary): AvatarSettings {
   return { ...settings, libraries: { ...settings.libraries, [role]: library } };
-}
-
-export type ReshuffleBlock = "off" | "nobody" | "no-pictures" | "one-picture";
-
-export function reshuffleBlock(people: readonly AvatarPerson[], settings: AvatarSettings, role: RoleKey): ReshuffleBlock | null {
-  if (settings.mode === "off") return "off";
-  const pictures = settings.libraries[role].images.length;
-  if (pictures === 0) return "no-pictures";
-  if (!groupByRole(people).some((group) => group.role === role)) return "nobody";
-  return pictures === 1 ? "one-picture" : null;
-}
-
-export function reshuffleAvatars(people: readonly AvatarPerson[], settings: AvatarSettings, role: RoleKey): AvatarSettings {
-  const group = groupByRole(people).find((candidate) => candidate.role === role)?.people ?? [];
-  const ids = new Set(group.map((person) => person.id));
-  const library = settings.libraries[role];
-  const others = Object.fromEntries(Object.entries(settings.assigned).filter(([id]) => !ids.has(id)));
-  const rebuilt = (seed: number) => assignAvatars(people, { ...withLibrary(settings, role, { ...library, seed }), assigned: others });
-  const roleKey = (avatars: ReadonlyMap<string, string>) => group.map((person) => avatars.get(person.id) ?? "").join("\n");
-  const current = roleKey(assignAvatars(people, settings).avatars);
-  for (let step = 1; step <= RESHUFFLE_TRIES; step++) {
-    const next = rebuilt(library.seed + step);
-    if (roleKey(next.avatars) !== current) return next.settings;
-  }
-  return rebuilt(library.seed + 1).settings;
 }
 
 export function addAvatarImage(settings: AvatarSettings, role: RoleKey, image: AvatarImage): AvatarChange {
@@ -197,25 +202,31 @@ function recordOf(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-export function migrateAvatarSettings(values: unknown, fromVersion: number): unknown {
-  if (fromVersion >= AVATAR_SETTINGS_VERSION) return values;
+function fromVersion1(values: unknown): Record<string, unknown> {
   const old = recordOf(values);
   const images = (Array.isArray(old.images) ? old.images : []).flatMap((entry) => {
     const parsed = AvatarImage.safeParse(entry);
     return parsed.success ? [parsed.data] : [];
   });
   const kept = new Set(images.map((image) => image.id));
-  const seed = typeof old.seed === "number" && Number.isInteger(old.seed) ? old.seed : 0;
   const assigned: Record<string, string> = {};
   for (const [id, ref] of Object.entries(recordOf(old.assigned))) {
     const imageId = typeof ref === "string" && ref.startsWith("image:") ? ref.slice("image:".length) : null;
     if (imageId !== null && kept.has(imageId)) assigned[id] = imageId;
   }
-  return {
-    mode: old.mode === "auto" || old.mode === "manual" ? "on" : "off",
-    libraries: Object.fromEntries(AVATAR_ROLES.map((role) => [role, { images, seed }])),
-    assigned,
-  };
+  return { mode: old.mode === "auto" || old.mode === "manual" ? "on" : "off", libraries: Object.fromEntries(AVATAR_ROLES.map((role) => [role, { images }])), assigned };
+}
+
+function fromVersion2(values: unknown): Record<string, unknown> {
+  const old = recordOf(values);
+  return { ...old, mode: old.mode === "on" ? "auto" : "manual" };
+}
+
+export function migrateAvatarSettings(values: unknown, fromVersion: number): unknown {
+  let migrated = values;
+  if (fromVersion < 2) migrated = fromVersion1(migrated);
+  if (fromVersion < 3) migrated = fromVersion2(migrated);
+  return migrated;
 }
 
 export function avatarUploadError(upload: AvatarUpload, librarySize: number): string | null {

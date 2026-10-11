@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGE_BYTES, MAX_AVATAR_IMAGES, addAvatarImage, assignAvatars, avatarUploadError, centreSquare, imageInUse, migrateAvatarSettings, removeAvatarImage, reshuffleAvatars, reshuffleBlock, type AvatarPerson } from "./avatar.ts";
+import { AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGE_BYTES, MAX_AVATAR_IMAGES, addAvatarImage, assignAvatars, avatarUploadError, centreSquare, imageInUse, migrateAvatarSettings, pickAvatar, removeAvatarImage, type AvatarPerson } from "./avatar.ts";
 import type { RoleKey } from "./palette.ts";
 
 function crew(role: string, count: number, prefix = role): AvatarPerson[] {
@@ -12,7 +12,7 @@ function pictures(prefix: string, count: number): string[] {
 }
 
 function withPictures(libraries: Partial<Record<RoleKey, string[]>>): AvatarSettings {
-  let settings: AvatarSettings = { ...DEFAULT_AVATAR_SETTINGS, mode: "on" };
+  let settings: AvatarSettings = { ...DEFAULT_AVATAR_SETTINGS, mode: "auto" };
   for (const [role, ids] of Object.entries(libraries) as [RoleKey, string[]][]) {
     for (const id of ids) {
       const change = addAvatarImage(settings, role, { id });
@@ -31,12 +31,12 @@ function picturesOf(avatars: ReadonlyMap<string, string>, people: readonly Avata
   return people.map((person) => avatars.get(person.id));
 }
 
-test("avatars stay off until the user opts in, and the human and pseudo ids never get one", () => {
+test("the human and pseudo ids never get a picture in either mode, and a new document starts in Manual", () => {
   const people = [...crew("peer", 3), { id: "pat", role: "human" }, { id: "notify", role: "peer" }, { id: "x", role: undefined }];
   assert.deepEqual(AvatarSettings.parse({}), DEFAULT_AVATAR_SETTINGS);
-  const settings = withPictures({ peer: pictures("p", 5) });
-  assert.equal(avatarsOf(people, { ...settings, mode: "off" }).size, 0);
-  assert.deepEqual([...avatarsOf(people, settings).keys()].sort(), ["peer-0", "peer-1", "peer-2"]);
+  assert.equal(DEFAULT_AVATAR_SETTINGS.mode, "manual");
+  const settings = withPictures({ peer: pictures("p", 1) });
+  for (const mode of ["auto", "manual"] as const) assert.ok([...avatarsOf(people, { ...settings, mode }).keys()].every((id) => id.startsWith("peer-")));
 });
 
 test("each role draws only from its own library, people of one role never share a picture, and an empty library shows initials", () => {
@@ -73,6 +73,8 @@ test("people joining or leaving never move anyone else's picture, and a leaver's
   const after = assignAvatars([{ id: "newcomer", role: "peer", joinedAt: 1 }, ...stayers], saved);
   assert.deepEqual(picturesOf(after.avatars, stayers), stayers.map((person) => saved.assigned[person.id]));
   assert.equal(after.avatars.get("newcomer"), saved.assigned[leaver.id]);
+  assert.equal(after.settings.assigned.newcomer, saved.assigned[leaver.id]);
+  assert.equal(new Set(after.avatars.values()).size, after.avatars.size);
 });
 
 test("an upload after assignment moves nobody, and the next person without a picture gets it", () => {
@@ -99,35 +101,6 @@ test("the result settles: run again on its own output, by a second writer after 
   assert.equal(assignAvatars(people.slice(2), first.settings).changed, false);
 });
 
-test("reshuffling a role always changes that role's pictures and leaves every other role alone, and is refused up front exactly when it could change nothing", () => {
-  const peers = crew("peer", 3);
-  const leads = crew("lead", 3);
-  const people = [...peers, ...leads];
-  const first = assignAvatars(people, withPictures({ peer: pictures("p", 6), lead: pictures("l", 3) })).settings;
-  const saved = { ...first, libraries: { ...first.libraries, lead: { ...first.libraries.lead, images: pictures("l", 9).map((id) => ({ id })) } } };
-  const reshuffled = reshuffleAvatars(people, saved, "peer");
-  const after = avatarsOf(people, reshuffled);
-  assert.notDeepEqual(picturesOf(after, peers), peers.map((person) => saved.assigned[person.id]));
-  assert.deepEqual(picturesOf(after, leads), leads.map((person) => saved.assigned[person.id]));
-  assert.equal(assignAvatars(people, reshuffled).changed, false);
-  const unchangeable: [string, AvatarPerson[], AvatarSettings][] = [
-    ["off", peers, { ...withPictures({ peer: pictures("p", 3) }), mode: "off" }],
-    ["no-pictures", peers, withPictures({})],
-    ["nobody", leads, withPictures({ peer: pictures("p", 3) })],
-    ["one-picture", peers, withPictures({ peer: ["only"] })],
-  ];
-  for (const [block, crowd, settings] of unchangeable) {
-    const settled = assignAvatars(crowd, settings).settings;
-    assert.equal(reshuffleBlock(crowd, settled, "peer"), block);
-    assert.deepEqual(avatarsOf(crowd, reshuffleAvatars(crowd, settled, "peer")), avatarsOf(crowd, settled), block);
-  }
-  for (const [crowd, count] of [[crew("peer", 1), 2], [peers, 2]] as const) {
-    const settled = assignAvatars(crowd, withPictures({ peer: pictures("p", count) })).settings;
-    assert.equal(reshuffleBlock(crowd, settled, "peer"), null);
-    assert.notDeepEqual(avatarsOf(crowd, reshuffleAvatars(crowd, settled, "peer")), avatarsOf(crowd, settled));
-  }
-});
-
 test("removing a picture from a role frees only its holders there, and the file stays in use while another role has it", () => {
   const peers = crew("peer", 3);
   const leads = crew("lead", 1);
@@ -146,15 +119,63 @@ test("removing a picture from a role frees only its holders there, and the file 
   assert.ok(!Object.values(gone.assigned).includes("shared"));
 });
 
-test("a version 1 document migrates: its mode maps to on or off, its pictures join every role, and icon picks and assignments are dropped", () => {
-  const human = AvatarSettings.parse(migrateAvatarSettings({ mode: "manual", seed: 0, picks: {}, assigned: {}, images: [] }, 1));
-  assert.deepEqual(human, { ...DEFAULT_AVATAR_SETTINGS, mode: "on" });
-  const old = { mode: "auto", seed: 4, picks: { "peer-0": "Cat", "peer-1": "image:a" }, assigned: { "peer-2": "image:a", "lead-0": "Dog", "lead-1": "image:gone" }, images: [{ id: "a", label: "Ada" }] };
-  const migrated = AvatarSettings.parse(migrateAvatarSettings(old, 1));
-  assert.equal(migrated.mode, "on");
-  assert.deepEqual(migrated.libraries.executor, { images: [{ id: "a" }], seed: 4 });
-  assert.deepEqual(migrated.assigned, { "peer-2": "a" });
-  assert.equal(AvatarSettings.parse(migrateAvatarSettings({ mode: "off" }, 1)).mode, "off");
+test("Manual shows a role's only picture on everyone, and with two or more shows only picks, initials until then", () => {
+  const supervisors = crew("supervisor", 2);
+  const peers = crew("peer", 3);
+  const people = [...supervisors, ...peers];
+  const manual = { ...withPictures({ supervisor: ["s0"], peer: pictures("p", 3) }), mode: "manual" as const };
+  const before = assignAvatars(people, manual);
+  assert.deepEqual(picturesOf(before.avatars, supervisors), ["s0", "s0"]);
+  assert.deepEqual(picturesOf(before.avatars, peers), [undefined, undefined, undefined]);
+  assert.deepEqual([...before.needsPick].sort(), ["peer-0", "peer-1", "peer-2"]);
+  assert.equal(before.changed, false);
+  const picked = pickAvatar(pickAvatar(manual, "peer-0", "p2"), "peer-1", "p2");
+  const after = assignAvatars(people, picked);
+  assert.deepEqual(picturesOf(after.avatars, peers), ["p2", "p2", undefined]);
+  assert.deepEqual([...after.needsPick], ["peer-2"]);
+  assert.equal(assignAvatars(people, pickAvatar(picked, "peer-0", null)).avatars.get("peer-0"), undefined);
+});
+
+test("switching Auto to Manual keeps what everyone shows, and back to Auto keeps the picks and fills the gaps", () => {
+  const peers = crew("peer", 3);
+  const auto = assignAvatars(peers, withPictures({ peer: pictures("p", 5) }));
+  const manual = assignAvatars(peers, { ...auto.settings, mode: "manual" });
+  assert.deepEqual([...manual.avatars].sort(), [...auto.avatars].sort());
+  const edited = pickAvatar(pickAvatar(manual.settings, "peer-1", "p4"), "peer-2", null);
+  const backToAuto = assignAvatars(peers, { ...edited, mode: "auto" });
+  assert.equal(backToAuto.avatars.get("peer-0"), auto.avatars.get("peer-0"));
+  assert.equal(backToAuto.avatars.get("peer-1"), "p4");
+  assert.ok(backToAuto.avatars.get("peer-2"));
+  assert.equal(new Set(backToAuto.avatars.values()).size, peers.length);
+});
+
+test("in Auto a pick that duplicates an earlier arrival's gives way to a free picture, or stays a duplicate when none is free", () => {
+  const peers = crew("peer", 2);
+  const duplicated = pickAvatar(pickAvatar(withPictures({ peer: ["p0", "p1"] }), "peer-0", "p0"), "peer-1", "p0");
+  assert.deepEqual(picturesOf(avatarsOf(peers, duplicated), peers), ["p0", "p1"]);
+  const full = pickAvatar(pickAvatar(withPictures({ peer: ["p0"] }), "peer-0", "p0"), "peer-1", "p0");
+  assert.deepEqual(picturesOf(avatarsOf(peers, full), peers), ["p0", "p0"]);
+});
+
+test("old documents migrate to the newest version: the Human's version 2 document comes out as Auto with every picture where it was, and a version 1 document still loads", () => {
+  const people = [...crew("supervisor", 1), ...crew("lead", 2), ...crew("peer", 5)];
+  const shown = { "supervisor-0": "s0", "lead-0": "l0", "peer-0": "p2", "peer-1": "p0", "peer-2": "p3", "peer-3": "p1" };
+  const human = {
+    mode: "on",
+    libraries: { supervisor: { images: [{ id: "s0" }], seed: 2 }, lead: { images: [{ id: "l0" }], seed: 0 }, peer: { images: pictures("p", 4).map((id) => ({ id })), seed: 5 }, executor: { images: [], seed: 0 }, advisor: { images: [], seed: 0 } },
+    assigned: shown,
+  };
+  const migrated = AvatarSettings.parse(migrateAvatarSettings(human, 2));
+  assert.equal(migrated.mode, "auto");
+  const settled = assignAvatars(people, migrated);
+  assert.equal(settled.changed, false);
+  assert.deepEqual(Object.fromEntries(settled.avatars), shown);
+  assert.equal(AvatarSettings.parse(migrateAvatarSettings({ ...human, mode: "off" }, 2)).mode, "manual");
+  const old = { mode: "auto", seed: 4, picks: { "peer-0": "Cat" }, assigned: { "peer-2": "image:a", "lead-0": "Dog" }, images: [{ id: "a", label: "Ada" }] };
+  const fromOne = AvatarSettings.parse(migrateAvatarSettings(old, 1));
+  assert.equal(fromOne.mode, "auto");
+  assert.deepEqual(fromOne.libraries.executor, { images: [{ id: "a" }] });
+  assert.deepEqual(fromOne.assigned, { "peer-2": "a" });
   assert.deepEqual(AvatarSettings.parse(migrateAvatarSettings("garbage", 1)), DEFAULT_AVATAR_SETTINGS);
 });
 

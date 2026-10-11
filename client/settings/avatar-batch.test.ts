@@ -5,7 +5,7 @@ import { applyBatch } from "./avatar-batch.ts";
 
 function withPeerImages(count: number): AvatarSettings {
   const images = Array.from({ length: count }, (_, index) => ({ id: `old${index}` }));
-  return { ...DEFAULT_AVATAR_SETTINGS, libraries: { ...DEFAULT_AVATAR_SETTINGS.libraries, peer: { images, seed: 0 } } };
+  return { ...DEFAULT_AVATAR_SETTINGS, libraries: { ...DEFAULT_AVATAR_SETTINGS.libraries, peer: { images } } };
 }
 
 test("a batch carries on past bad files, skips what the role already has, and reports in the order given", () => {

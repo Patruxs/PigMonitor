@@ -3,7 +3,7 @@ import { useRpc, useSettings, type SettingsState } from "@getpaseo/plugin/client
 import { useToast } from "@getpaseo/plugin/client/react-native";
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
-import { AVATAR_ROLES, AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGES, addAvatarImage, assignAvatars, avatarPeopleOf, groupByRole, imageInUse, removeAvatarImage, reshuffleAvatars, reshuffleBlock, type AvatarMode, type AvatarPerson, type ReshuffleBlock } from "../../shared/piggery/avatar.ts";
+import { AVATAR_ROLES, AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGES, addAvatarImage, avatarPeopleOf, groupByRole, imageInUse, pickAvatar, removeAvatarImage, type AvatarMode, type AvatarPerson } from "../../shared/piggery/avatar.ts";
 import type { RoleKey } from "../../shared/piggery/palette.ts";
 import { readView } from "../../shared/piggery/view.ts";
 import { avatarSettings, snapshot } from "../../shared/rpc.ts";
@@ -18,20 +18,21 @@ import { useSettledAvatars } from "../piggery/avatars.tsx";
 import { resolvePalette, useStoredPalette } from "../piggery/palette.tsx";
 import { useAvatarBatches } from "./avatar-batch-run.ts";
 import { canEncodeAvatars, type EncodedAvatar } from "./avatar-encode.ts";
-import { Preview, RoleLibrary, usePastedAvatar, type ReshuffleOutcome } from "./avatar-library.tsx";
+import { Preview, RoleLibrary, usePastedAvatar } from "./avatar-library.tsx";
+import { RolePeople } from "./avatar-people.tsx";
 
 type Change = (current: AvatarSettings) => AvatarSettings | null;
 
 type Commit = (change: Change) => Promise<AvatarSettings | null | false>;
 
 const MODES: { id: AvatarMode; label: string }[] = [
-  { id: "off", label: "Off" },
-  { id: "on", label: "On" },
+  { id: "auto", label: "Auto" },
+  { id: "manual", label: "Manual" },
 ];
 
 const MODE_HINTS: Record<AvatarMode, string> = {
-  off: "Everyone shows their initials. You can still prepare each role's pictures.",
-  on: "Everyone gets a picture from their role's library, each used once per role. When a role has more people than pictures, the latest arrivals show their initials.",
+  auto: "Everyone gets a picture from their role's library by itself, each used once per role, and newcomers get a free one. When a role has more people than pictures, the latest arrivals show their initials.",
+  manual: "You pick each person's picture. A role with one picture gives it to everyone; a role with several lists its people under its pictures, and a picture can be shared.",
 };
 
 const HINT = "Square 1:1. Keep the subject centred with about 15% margin on each side, because the circle cuts the corners. At least 128 px, 512 px or larger recommended. PNG, JPEG or WebP up to 5 MB.";
@@ -42,14 +43,6 @@ const ROLE_TITLES: Record<RoleKey, string> = {
   peer: "Peer",
   executor: "Executor",
   advisor: "Advisor",
-};
-
-const RESHUFFLE_HINTS: Record<ReshuffleBlock | "unlisted", string> = {
-  off: "Turn avatars on to reshuffle.",
-  unlisted: "Reshuffle needs the team list, which hasn't loaded.",
-  "no-pictures": "Add pictures to reshuffle.",
-  nobody: "Nobody has this role, so there's nothing to reshuffle.",
-  "one-picture": "With one picture the earliest arrival always gets it. Add another to reshuffle.",
 };
 
 const MAX_SAVE_TRIES = 3;
@@ -143,8 +136,8 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
     return <Text style={text(theme, "meta", state.status === "loading" ? "foregroundMuted" : "statusDanger")}>{state.status === "loading" ? "Loading avatars…" : state.error}</Text>;
   }
   const values: AvatarSettings = state.values;
-  const on = values.mode === "on";
-  const listed = on && view !== null && !known.error;
+  const manual = values.mode === "manual";
+  const listed = view !== null && !known.error;
   const colours = Object.fromEntries(AVATAR_ROLES.map((role) => [role, palette[role]])) as Record<RoleKey, string>;
   const groupOf = (role: RoleKey) => groups.find((group) => group.role === role)?.people ?? NO_PEOPLE;
   const usersOf = (role: RoleKey, imageId: string) => groupOf(role).filter((person) => settled.avatars.get(person.id) === imageId).map(nameOf);
@@ -177,18 +170,13 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
     toast.show(gone.ok ? "Picture deleted" : "Picture removed; its file stays until the next clean-up");
     return true;
   };
-  const roleResult = (role: RoleKey, avatars: ReadonlyMap<string, string>) => groupOf(role).map((person) => avatars.get(person.id) ?? "").join("\n");
-  const reshuffle = async (role: RoleKey): Promise<ReshuffleOutcome> => {
-    const before = roleResult(role, settled.avatars);
-    const saved = await commit((current) => reshuffleAvatars(people, current, role));
-    if (saved === false) return "failed";
-    if (saved === null || roleResult(role, assignAvatars(people, saved).avatars) === before) return "same";
-    return "changed";
-  };
-  const reshuffleHint = (role: RoleKey): string | null => {
-    if (on && !listed) return RESHUFFLE_HINTS.unlisted;
-    const block = reshuffleBlock(people, values, role);
-    return block === null ? null : RESHUFFLE_HINTS[block];
+  const pick = (personId: string, imageId: string | null) =>
+    void commit((current) => pickAvatar(current, personId, imageId)).then((saved) => saved === false && toast.error("Could not save the pick. Try again."));
+  const deleteConsequence = (role: RoleKey) => {
+    const left = values.libraries[role].images.length - 1;
+    if (!manual) return `They get another free ${ROLE_TITLES[role]} picture, or their initials if none is left.`;
+    if (left >= 2) return "They show their initials until you pick another picture for them.";
+    return left === 1 ? `They get the remaining ${ROLE_TITLES[role]} picture.` : "They show their initials.";
   };
   const addPasted = async (role: RoleKey) => {
     if (!paste.pasted) return;
@@ -203,11 +191,11 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
       <View style={{ marginHorizontal: -SPACING[4] }}>
         <SectionTitle theme={theme} icon="SmilePlus" title="Avatars" />
       </View>
-      <TabBar theme={theme} tabs={MODES} active={values.mode} onPick={(mode) => mode !== values.mode && void commit((current) => ({ ...current, mode })).then((saved) => (saved === false ? toast.error("Could not save the avatars. Try again.") : toast.show(mode === "on" ? "Avatars on" : "Avatars off")))} />
+      <TabBar theme={theme} tabs={MODES} active={values.mode} onPick={(mode) => mode !== values.mode && void commit((current) => ({ ...current, mode })).then((saved) => (saved === false ? toast.error("Could not save the avatars. Try again.") : toast.show(mode === "auto" ? "Avatars picked automatically" : "Avatars picked by hand")))} />
       <Text style={text(theme, "meta")}>{MODE_HINTS[values.mode]}</Text>
       <Text style={text(theme, "meta")}>{HINT}</Text>
       <Text style={text(theme, "meta")}>{canEncodeAvatars ? "Add pictures in a role below, drop them onto it, or paste one or several anywhere here and choose their role." : "Upload pictures from Paseo desktop or web. Pictures already in the libraries show here too."}</Text>
-      {on && !listed ? <Text style={text(theme, "meta", known.error ? "statusWarning" : "foregroundMuted")}>{known.error ? `Can't list the team members: ${known.error.message}` : "Reading piggery…"}</Text> : null}
+      {!listed ? <Text style={text(theme, "meta", known.error ? "statusWarning" : "foregroundMuted")}>{known.error ? `Can't list the team members: ${known.error.message}` : "Reading piggery…"}</Text> : null}
       {paste.busy ? <Text style={text(theme, "meta", "foregroundMuted")}>Preparing the pasted picture…</Text> : null}
       {paste.problem || pasteProblem ? <Text style={text(theme, "meta", "statusDanger")}>{paste.problem ?? pasteProblem}</Text> : null}
       {paste.pasted ? (
@@ -237,6 +225,7 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
       ) : null}
       {AVATAR_ROLES.map((role) => {
         const members = groupOf(role);
+        const images = values.libraries[role].images;
         return (
           <RoleLibrary
             key={role}
@@ -244,19 +233,20 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
             title={ROLE_TITLES[role]}
             roleName={ROLE_TITLES[role]}
             colour={colours[role]}
-            images={values.libraries[role].images}
+            images={images}
             maxImages={MAX_AVATAR_IMAGES}
             people={listed ? members.length : null}
             withoutPicture={members.filter((person) => !settled.avatars.has(person.id)).length}
             usersOf={(imageId) => usersOf(role, imageId)}
             onAdd={(image) => addTo(role, image)}
             onDelete={(imageId) => deleteFrom(role, imageId)}
-            reshuffleHint={reshuffleHint(role)}
-            onReshuffle={() => reshuffle(role)}
+            deleteConsequence={deleteConsequence(role)}
             batch={batches.progress[role]}
             onBatch={(items) => batches.run(role, items)}
             onDismissBatch={() => batches.dismiss(role)}
-          />
+          >
+            {manual && listed && images.length >= 2 && members.length > 0 ? <RolePeople theme={theme} people={members} images={images} colour={colours[role]} picks={settled.avatars} needsPick={settled.needsPick} onPick={(personId, imageId) => pick(personId, imageId)} onClear={(personId) => pick(personId, null)} /> : null}
+          </RoleLibrary>
         );
       })}
     </View>

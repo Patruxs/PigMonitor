@@ -24,10 +24,6 @@ const dom = globalThis as { document?: Document };
 
 const FORMAT_NAMES: Record<string, string> = { "image/webp": "WebP", "image/jpeg": "JPEG", "image/png": "PNG" };
 
-export type ReshuffleOutcome = "changed" | "same" | "failed";
-
-const RESHUFFLE_NOTE_MS = 4000;
-
 function kilobytes(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
@@ -159,8 +155,8 @@ export function RoleLibrary({
   usersOf,
   onAdd,
   onDelete,
-  reshuffleHint,
-  onReshuffle,
+  deleteConsequence,
+  children,
   batch,
   onBatch,
   onDismissBatch,
@@ -176,8 +172,8 @@ export function RoleLibrary({
   usersOf: (imageId: string) => string[];
   onAdd: (image: EncodedAvatar) => Promise<string | null>;
   onDelete: (imageId: string) => Promise<boolean>;
-  reshuffleHint: string | null;
-  onReshuffle: () => Promise<ReshuffleOutcome>;
+  deleteConsequence: string;
+  children?: ReactNode;
   batch: BatchProgress | undefined;
   onBatch: (items: NamedSource[]) => void;
   onDismissBatch: () => void;
@@ -186,10 +182,6 @@ export function RoleLibrary({
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<{ image: AvatarImage; index: number } | null>(null);
-  const [shuffling, setShuffling] = useState(false);
-  const [shuffled, setShuffled] = useState<ReshuffleOutcome | null>(null);
-  const noteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(noteTimer.current), []);
   const count = images.length;
   const latest = useRef({ count, busy });
   latest.current = { count, busy };
@@ -219,16 +211,6 @@ export function RoleLibrary({
     if (await onDelete(imageId)) setDeleting(null);
     setBusy(false);
   };
-  const reshuffle = async () => {
-    clearTimeout(noteTimer.current);
-    setShuffled(null);
-    setShuffling(true);
-    const outcome = await onReshuffle();
-    setShuffling(false);
-    setShuffled(outcome);
-    noteTimer.current = setTimeout(() => setShuffled(null), RESHUFFLE_NOTE_MS);
-  };
-  const reshuffleNote = shuffled === "changed" ? { words: `${title} reshuffled`, colour: "statusSuccess" as const } : shuffled === "same" ? { words: "Same result, try again", colour: "foregroundMuted" as const } : shuffled === "failed" ? { words: "Could not reshuffle. Try again.", colour: "statusDanger" as const } : null;
   const showInitials = (n: number) => (n === 1 ? "1 shows their initials" : `${n} show their initials`);
   const shortage = people === null ? null : count === 0 ? (people === 0 ? null : people === 1 ? "No pictures yet, so they show their initials." : `No pictures yet, so all ${people} show their initials.`) : withoutPicture > 0 ? `${count} ${count === 1 ? "picture" : "pictures"} for ${people} people, so ${showInitials(withoutPicture)}.` : null;
   const body = (
@@ -238,12 +220,8 @@ export function RoleLibrary({
         <Text style={text(theme, "label")}>
           {count} of {maxImages} pictures{people === null ? "" : ` · ${people} ${people === 1 ? "person" : "people"}`}
         </Text>
-        <View style={{ flex: 1 }} />
-        {reshuffleNote ? <Text style={text(theme, "label", reshuffleNote.colour)}>{reshuffleNote.words}</Text> : null}
-        <Button theme={theme} label={shuffling ? "Reshuffling…" : "Reshuffle"} icon="Shuffle" busy={shuffling} disabled={reshuffleHint !== null} onPress={() => void reshuffle()} />
       </View>
-      {reshuffleHint ? <Text style={[text(theme, "label"), { alignSelf: "flex-end" }]}>{reshuffleHint}</Text> : null}
-      {shortage ? <Text style={text(theme, "label", "statusWarning")}>{shortage}</Text> : null}
+      {shortage && !children ? <Text style={text(theme, "label", "statusWarning")}>{shortage}</Text> : null}
       {canEncodeAvatars ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], flexWrap: "wrap" }}>
           <Button theme={theme} label="Add picture" icon="ImagePlus" busy={busy && !pending && !deleting} disabled={count >= maxImages || pending !== null || batch?.running === true} onPress={() => void choose()} />
@@ -260,8 +238,9 @@ export function RoleLibrary({
           ))}
         </View>
       ) : null}
+      {children}
       <ConfirmDialog theme={theme} title="Delete picture?" icon="Trash2" tone="danger" confirmLabel="Delete" busy={busy} open={deleting !== null} onConfirm={() => deleting && void destroy(deleting.image.id)} onClose={() => setDeleting(null)}>
-        <Text style={text(theme, "meta")}>{deleting ? `This picture is in use by ${usersOf(deleting.image.id).join(", ")}. They get another free ${roleName} picture, or their initials if none is left.` : ""}</Text>
+        <Text style={text(theme, "meta")}>{deleting ? `This picture is in use by ${usersOf(deleting.image.id).join(", ")}. ${deleteConsequence}` : ""}</Text>
       </ConfirmDialog>
     </View>
   );
