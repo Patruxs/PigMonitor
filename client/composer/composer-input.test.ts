@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createQueueDrainer, isMacLike, resolveComposerKey, resolvePrimaryActionKind, restoreComposerIfEmpty, rewoundImageOf, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer-input.ts";
+import { createQueueDrainer, resolveComposerKey, resolvePrimaryActionKind, restoreComposerIfEmpty, rewoundImageOf, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer-input.ts";
 
 function memoryQueue(initial: QueuedComposerMessage[]): QueueWriter & { items: () => QueuedComposerMessage[] } {
   let state = new Map([["a", initial]]);
@@ -109,10 +109,6 @@ test("after a resume the participant's queue drains to the new agent, not the ol
   for (const listener of [...fresh.listeners]) listener("idle");
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual({ sent, oldWatched: old.listeners.size }, { sent: ["agent-2:next task"], oldWatched: 0 });
-});
-
-test("Apple keyboards use ⌘ for find and focus on a Mac, an iPad and an iPhone alike, and Ctrl elsewhere", () => {
-  assert.deepEqual([{ platform: "MacIntel" }, { platform: "iPad" }, { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)" }, { platform: "Win32" }, { platform: "Linux x86_64" }, undefined].map(isMacLike), [true, true, true, false, false, false]);
 });
 
 test("a rewind puts the prompt's text and images back into an empty composer and leaves a started draft alone", () => {

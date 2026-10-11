@@ -157,10 +157,6 @@ export async function sendQueuedComposerMessageNow(input: { queueKey: string; me
   }
 }
 
-export function isMacLike(nav: { userAgent?: string; platform?: string } | undefined): boolean {
-  return /Macintosh|Mac OS|iPhone|iPad|iPod/i.test(nav?.userAgent ?? "") || /Mac|iPhone|iPad|iPod/i.test(nav?.platform ?? "");
-}
-
 export type ComposerFocus = "input" | "pane" | "outside";
 export type ComposerKeyAction = "focus-input" | "interrupt" | "dictation-cancel" | "dictation-toggle" | "dictation-send" | "mode-cycle";
 
