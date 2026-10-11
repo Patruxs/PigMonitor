@@ -3,7 +3,7 @@ import { useRpc } from "@getpaseo/plugin/client";
 import { Icon, Modal, TextInput as ModalTextInput } from "@getpaseo/plugin/client/react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Platform, Text, type TextStyle } from "react-native";
-import { forgeAttachmentKey, isAttachmentSelectedForForgeItem, toggleForgeAttachment, type ComposerAttachment } from "./composer-logic.ts";
+import { forgeAttachmentKey, isAttachmentSelectedForForgeItem, toggleForgeAttachment, type ComposerAttachment } from "./composer-input.ts";
 import { extractForgeRefs, forgeRefKey, type ForgeRef } from "../../shared/forge-refs.ts";
 import { checkoutRemote, forgeSearch, type ForgeItemData } from "../../shared/rpc.ts";
 import { forgeNumberLabel } from "./attachments.tsx";

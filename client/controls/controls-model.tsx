@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { filterAndRankModelRows, normalizeSearchQuery, providerModelRows, providerQualifiedDescription, resolveDesktopFixedHeight, resolveInitialModelBrowserView, resolveModelBrowserAllView, resolveSelectedModelLabel, LABELS, type ModelBrowserView, type ModelRow, type SelectorProvider } from "./controls-logic.ts";
+import { filterAndRankModelRows, normalizeSearchQuery, providerModelRows, providerQualifiedDescription, resolveDesktopFixedHeight, resolveInitialModelBrowserView, resolveModelBrowserAllView, resolveSelectedModelLabel, LABELS, type ModelBrowserView, type ModelRow, type SelectorProvider } from "./control-options.ts";
 import { Anchored, FONT_BASE, FONT_SM, HeaderRow, hoveredOf, SearchRow, ToolbarGlyph, toolbarStyle, Caret } from "./controls-kit.tsx";
 import { ProviderGlyph } from "./controls-provider-icons.tsx";
 import { hostColours, SPACING } from "../kit/theme.ts";

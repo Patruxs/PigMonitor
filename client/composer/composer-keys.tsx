@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
-import { resolveComposerKey, type ComposerFocus, type ComposerKeyAction } from "./composer-logic.ts";
+import { resolveComposerKey, type ComposerFocus, type ComposerKeyAction } from "./composer-input.ts";
 import type { DictationStatus } from "../../shared/speech.ts";
 import { useChatPaneArea } from "../chat/chat-pane-scope.tsx";
 import { nodeOf } from "./composer-height.ts";

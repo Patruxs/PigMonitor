@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createQueueDrainer, isMacLike, resolveComposerKey, resolvePrimaryActionKind, restoreComposerIfEmpty, rewoundImageOf, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer-logic.ts";
+import { createQueueDrainer, isMacLike, resolveComposerKey, resolvePrimaryActionKind, restoreComposerIfEmpty, rewoundImageOf, sendQueuedComposerMessageNow, submitAgentInput, type QueuedComposerMessage, type QueueWriter } from "./composer-input.ts";
 
 function memoryQueue(initial: QueuedComposerMessage[]): QueueWriter & { items: () => QueuedComposerMessage[] } {
   let state = new Map([["a", initial]]);

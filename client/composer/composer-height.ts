@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { MIN_INPUT_HEIGHT } from "./composer-logic.ts";
+import { MIN_INPUT_HEIGHT } from "./composer-input.ts";
 import { isWeb } from "../kit/platform.ts";
 
 const dom = globalThis as { document?: Document; window?: Window };

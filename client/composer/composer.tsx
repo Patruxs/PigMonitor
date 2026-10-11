@@ -15,7 +15,7 @@ import {
   submitAgentInput,
   type ComposerAttachment,
   type ComposerContent,
-} from "./composer-logic.ts";
+} from "./composer-input.ts";
 import { attachmentChoices, type AttachmentChoiceId } from "./attachment-menu.ts";
 import { type AttachmentData, type ImageData } from "../../shared/rpc.ts";
 import { withTranscript } from "../../shared/speech.ts";

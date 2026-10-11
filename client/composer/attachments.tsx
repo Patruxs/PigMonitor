@@ -1,6 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { ActivityIndicator, View } from "react-native";
-import { fileTypeLabel, forgeAttachmentKey, rasterImageMimeType, type ComposerAttachment, type ImageMetadata } from "./composer-logic.ts";
+import { fileTypeLabel, forgeAttachmentKey, rasterImageMimeType, type ComposerAttachment, type ImageMetadata } from "./composer-input.ts";
 import { forgeOf } from "../../shared/attach.ts";
 import type { ForgeItemData } from "../../shared/rpc.ts";
 import { AttachmentFrame, AttachmentLabel, AttachmentPill, AttachmentThumbnail } from "./attachment-pill.tsx";
