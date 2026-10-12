@@ -3,9 +3,8 @@
 A release is a version in `package.json`, an annotated tag `vX.Y.Z` on main and a GitHub release with notes. Paseo installs from Git, so nothing is published to npm.
 
 1. In `CHANGELOG.md`, rename `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD`, open a new empty `[Unreleased]` above it, and update the two links at the bottom.
-2. Point the README's install command at the new tag: `--ref vX.Y.Z`.
-3. If the plugin now uses a newer Paseo plugin API, raise `requirements.paseo` in `paseo-plugin.json`.
-4. Bump the version in `package.json` and `package-lock.json`, check, and commit:
+2. If the plugin now uses a newer Paseo plugin API, raise `requirements.paseo` in `paseo-plugin.json`.
+3. Bump the version in `package.json` and `package-lock.json`, check, and commit:
 
    ```
    npm version X.Y.Z --no-git-tag-version
@@ -13,7 +12,7 @@ A release is a version in `package.json`, an annotated tag `vX.Y.Z` on main and 
    git commit -am "Release X.Y.Z"
    ```
 
-5. Tag, push and publish the release with the changelog section as its notes:
+4. Tag, push and publish the release with the changelog section as its notes:
 
    ```
    git tag -a vX.Y.Z -m "PigMonitor X.Y.Z"
