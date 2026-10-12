@@ -4,6 +4,8 @@ All notable changes to PigMonitor are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-12
+
 ### Added
 
 - Avatars for solo sessions: Settings → Avatars has a Solo library after the five roles, and solo sessions get its pictures the way a role does, in Auto and in Manual. Your own Paseo session keeps what it shows today.
@@ -42,6 +44,7 @@ First release.
 - Settings for the piggery binary, the piggery database and the colour palette.
 - Looking only reads: `piggery ps --view` and `piggery tail --view` with `--no-start`, and piggery's database opened read-only. Stop, Kill, Switch model, Resume and Release held mail go through piggery, and the destructive ones ask first.
 
-[Unreleased]: https://github.com/Patruxs/PigMonitor/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Patruxs/PigMonitor/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/Patruxs/PigMonitor/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Patruxs/PigMonitor/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Patruxs/PigMonitor/releases/tag/v0.1.0
