@@ -13,6 +13,7 @@ export const ShownItem = z.object({
   tool: z.string().optional(),
   error: z.boolean().optional(),
   from: z.string().optional(),
+  fromId: z.string().optional(),
   to: z.string().optional(),
   ref: z.string().optional(),
   reply: z.string().optional(),

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGE_BYTES, MAX_AVATAR_IMAGES, addAvatarImage, assignAvatars, avatarUploadError, centreSquare, imageInUse, avatarPeopleOf, migrateAvatarSettings, pickAvatar, removeAvatarImage, type AvatarPerson } from "./avatar.ts";
-import type { RoleKey } from "./palette.ts";
+import type { AvatarGroupKey } from "./avatar.ts";
 import type { Row, View } from "./view.ts";
 
 function crew(role: string, count: number, prefix = role): AvatarPerson[] {
@@ -16,9 +16,9 @@ function pictures(prefix: string, count: number): string[] {
   return Array.from({ length: count }, (_, index) => `${prefix}${index}`);
 }
 
-function withPictures(libraries: Partial<Record<RoleKey, string[]>>): AvatarSettings {
+function withPictures(libraries: Partial<Record<AvatarGroupKey, string[]>>): AvatarSettings {
   let settings: AvatarSettings = { ...DEFAULT_AVATAR_SETTINGS, mode: "auto" };
-  for (const [role, ids] of Object.entries(libraries) as [RoleKey, string[]][]) {
+  for (const [role, ids] of Object.entries(libraries) as [AvatarGroupKey, string[]][]) {
     for (const id of ids) {
       const change = addAvatarImage(settings, role, { id });
       if (!change.ok) throw new Error(change.error);
@@ -192,6 +192,8 @@ test("old documents migrate to the newest version: the Human's version 2 documen
   };
   const migrated = AvatarSettings.parse(migrateAvatarSettings(human, 2));
   assert.equal(migrated.mode, "auto");
+  assert.deepEqual(migrated.libraries.solo, { images: [] });
+  assert.deepEqual(AvatarSettings.parse({ mode: "auto", libraries: { peer: { images: [{ id: "p0" }] } }, assigned: {} }).libraries.solo, { images: [] });
   const settled = assignAvatars(people, migrated);
   for (const [id, imageId] of Object.entries(shown)) assert.equal(settled.avatars.get(id), imageId);
   assert.equal(settled.avatars.get("lead-1"), "l0");
@@ -271,6 +273,35 @@ test("the Human's real view gives PigMonitor-9 pictures on the first settle whil
   for (const [id, imageId] of Object.entries(stored)) assert.equal(first.avatars.get(id), imageId);
   assert.deepEqual(Object.keys(first.settings.assigned).sort(), [...Object.keys(stored), "nebula", "avatar-lead", "avatar-logic", "avatar-ui", "avatar-store"].sort());
   assert.equal(assignAvatars(people, first.settings).changed, false);
+});
+
+function soloView(): View {
+  const solo = (id: string, created_at: number, status = "idle", harness = "claude") => ({ ...row("solo", id, { created_at, status: status as Row["status"], harness }), role: null, team: null });
+  return {
+    all: { dirs: [{ path: "/p", label: "p", blocks: [{ rows: [solo("basil", 300), solo("lgtm", 100, "idle", "paseo"), solo("thyme", 200)] }, { head: { id: "t", name: "Team", detail: "", line: true, open: true }, rows: [row("member", "lead", { team: "t", role: "lead", created_at: 50 })] }] }] },
+    closed: { dirs: [{ path: "/q", label: "q", blocks: [{ rows: [solo("sage", 10, "gone"), solo("lgtm-before", 5, "gone", "paseo")] }] }] },
+  } as unknown as View;
+}
+
+test("solo sessions form their own group, distinct while free, shared when one picture, initials when empty, and every one of the Human's own sessions stays out", () => {
+  const people = avatarPeopleOf(soloView());
+  assert.deepEqual(people.filter((person) => person.solo).map((person) => [person.id, person.live]), [["basil", true], ["thyme", true], ["sage", false]]);
+  const two = assignAvatars(people, withPictures({ solo: ["o0", "o1"] }));
+  assert.deepEqual(new Set([two.avatars.get("basil"), two.avatars.get("thyme")]), new Set(["o0", "o1"]));
+  assert.equal(two.avatars.get("lead"), undefined);
+  assert.deepEqual(Object.keys(two.settings.assigned).sort(), ["basil", "thyme"]);
+  const one = avatarsOf(people, withPictures({ solo: ["o0"] }));
+  assert.deepEqual(["basil", "thyme", "sage"].map((id) => one.get(id)), ["o0", "o0", "o0"]);
+  assert.equal(avatarsOf(people, withPictures({ peer: ["p0"] })).get("basil"), undefined);
+  const manual = assignAvatars(people, { ...withPictures({ solo: ["o0", "o1"] }), mode: "manual" });
+  assert.ok(manual.needsPick.has("basil"));
+});
+
+test("basil's shape from the real view gets the Solo picture", () => {
+  const settled = assignAvatars(avatarPeopleOf(soloView()), withPictures({ solo: ["o0"] }));
+  assert.equal(settled.avatars.get("basil"), "o0");
+  assert.equal(settled.settings.assigned.basil, "o0");
+  for (const human of ["lgtm", "lgtm-before"]) assert.equal(settled.avatars.get(human), undefined);
 });
 
 test("an upload is a PNG, JPEG or WebP of at most 5 MB, decodable, and at least 128 px on its short side, into a library of at most 64", () => {

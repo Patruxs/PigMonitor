@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
-import { MAX_AVATAR_IMAGES, type AvatarSettings } from "../../shared/piggery/avatar.ts";
-import type { RoleKey } from "../../shared/piggery/palette.ts";
+import { MAX_AVATAR_IMAGES, type AvatarSettings, type AvatarGroupKey } from "../../shared/piggery/avatar.ts";
 import { useAvatarUpload } from "../kit/avatar-pictures.ts";
 import { applyBatch, EMPTY_REPORT, type BatchEntry, type BatchReport } from "./avatar-batch.ts";
 import type { ImageMetadata } from "../composer/attachment.ts";
@@ -18,13 +17,13 @@ function merged(a: BatchReport, b: BatchReport): BatchReport {
   return { added: [...a.added, ...b.added], duplicates: [...a.duplicates, ...b.duplicates], refused: [...a.refused, ...b.refused], full: [...a.full, ...b.full] };
 }
 
-export function useAvatarBatches(commit: Commit, settings: AvatarSettings): { progress: Partial<Record<RoleKey, BatchProgress>>; run: (role: RoleKey, items: NamedSource[]) => void; dismiss: (role: RoleKey) => void } {
+export function useAvatarBatches(commit: Commit, settings: AvatarSettings): { progress: Partial<Record<AvatarGroupKey, BatchProgress>>; run: (role: AvatarGroupKey, items: NamedSource[]) => void; dismiss: (role: AvatarGroupKey) => void } {
   const upload = useAvatarUpload();
-  const [progress, setProgress] = useState<Partial<Record<RoleKey, BatchProgress>>>({});
-  const queues = useRef(new Map<RoleKey, Queue>());
+  const [progress, setProgress] = useState<Partial<Record<AvatarGroupKey, BatchProgress>>>({});
+  const queues = useRef(new Map<AvatarGroupKey, Queue>());
   const latest = useRef({ commit, settings });
   latest.current = { commit, settings };
-  const publish = (role: RoleKey, queue: Queue) => setProgress((shown) => ({ ...shown, [role]: { ...queue.progress } }));
+  const publish = (role: AvatarGroupKey, queue: Queue) => setProgress((shown) => ({ ...shown, [role]: { ...queue.progress } }));
   const entryOf = async (item: NamedSource, room: number, seen: Set<string>): Promise<BatchEntry> => {
     if (room <= 0) return { name: item.name, full: true };
     try {
@@ -38,7 +37,7 @@ export function useAvatarBatches(commit: Commit, settings: AvatarSettings): { pr
       return { name: item.name, error: "That picture could not be read." };
     }
   };
-  const work = async (role: RoleKey, queue: Queue) => {
+  const work = async (role: AvatarGroupKey, queue: Queue) => {
     queue.running = true;
     while (queue.pending.length > 0) {
       const seen = new Set(latest.current.settings.libraries[role].images.map((image) => image.id));

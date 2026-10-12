@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import net from "node:net";
 import path from "node:path";
+import { PERSON_HARNESS } from "../shared/piggery/view.ts";
 
 export interface Identity {
   id: string;
@@ -40,7 +41,7 @@ const CONNECT_TIMEOUT_MS = 4000;
 const CALL_TIMEOUT_MS = 8000;
 
 function harness() {
-  return { harness: "paseo", mode: "interactive", harness_ref: HARNESS_REF, tool_prefix: "", model: "", thinking: "", capabilities: ["wake"] };
+  return { harness: PERSON_HARNESS, mode: "interactive", harness_ref: HARNESS_REF, tool_prefix: "", model: "", thinking: "", capabilities: ["wake"] };
 }
 
 export function identityFile(home: string): string {

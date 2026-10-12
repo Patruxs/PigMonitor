@@ -1,9 +1,13 @@
 import { z } from "zod";
 import { roleColour } from "./mail.ts";
 import type { RoleKey } from "./palette.ts";
-import type { View } from "./view.ts";
+import { PERSON_HARNESS, type View } from "./view.ts";
 
 export const AVATAR_ROLES = ["supervisor", "lead", "peer", "executor", "advisor"] as const satisfies readonly RoleKey[];
+
+export const AVATAR_GROUPS = [...AVATAR_ROLES, "solo"] as const;
+
+export type AvatarGroupKey = (typeof AVATAR_GROUPS)[number];
 
 export const MAX_AVATAR_IMAGES = 64;
 
@@ -31,13 +35,13 @@ export type RoleLibrary = z.output<typeof RoleLibrary>;
 
 const EMPTY_LIBRARY: RoleLibrary = { images: [] };
 
-function emptyLibraries(): Record<RoleKey, RoleLibrary> {
-  return { supervisor: EMPTY_LIBRARY, lead: EMPTY_LIBRARY, peer: EMPTY_LIBRARY, executor: EMPTY_LIBRARY, advisor: EMPTY_LIBRARY };
+function emptyLibraries(): Record<AvatarGroupKey, RoleLibrary> {
+  return { supervisor: EMPTY_LIBRARY, lead: EMPTY_LIBRARY, peer: EMPTY_LIBRARY, executor: EMPTY_LIBRARY, advisor: EMPTY_LIBRARY, solo: EMPTY_LIBRARY };
 }
 
 export const AvatarSettings = z.object({
   mode: z.enum(AVATAR_MODES).default("auto"),
-  libraries: z.object(Object.fromEntries(AVATAR_ROLES.map((role) => [role, RoleLibrary.default(EMPTY_LIBRARY)])) as Record<RoleKey, z.ZodDefault<typeof RoleLibrary>>).default(emptyLibraries),
+  libraries: z.object(Object.fromEntries(AVATAR_GROUPS.map((group) => [group, RoleLibrary.default(EMPTY_LIBRARY)])) as Record<AvatarGroupKey, z.ZodDefault<typeof RoleLibrary>>).default(emptyLibraries),
   assigned: z.record(z.string(), z.string()).default({}),
 });
 
@@ -45,9 +49,9 @@ export type AvatarSettings = z.output<typeof AvatarSettings>;
 
 export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = { mode: "auto", libraries: emptyLibraries(), assigned: {} };
 
-export type AvatarPerson = { id: string; role: string | undefined; joinedAt?: number; name?: string; team?: string; teamId?: string; live?: boolean };
+export type AvatarPerson = { id: string; role: string | undefined; joinedAt?: number; name?: string; team?: string; teamId?: string; live?: boolean; solo?: boolean };
 
-export type AvatarGroup = { role: RoleKey; people: AvatarPerson[] };
+export type AvatarGroup = { role: AvatarGroupKey; people: AvatarPerson[] };
 
 export type AvatarSettlement = { settings: AvatarSettings; avatars: ReadonlyMap<string, string>; changed: boolean; needsPick: ReadonlySet<string> };
 
@@ -57,7 +61,7 @@ export type AvatarUpload = { mimeType: string; bytes: number; size: { width: num
 
 export type CropRect = { x: number; y: number; side: number };
 
-const ROLE_RANK: Record<RoleKey, number> = { supervisor: 0, lead: 1, peer: 2, executor: 3, advisor: 4 };
+const GROUP_RANK: Record<AvatarGroupKey, number> = { supervisor: 0, lead: 1, peer: 2, executor: 3, advisor: 4, solo: 5 };
 
 export function avatarPeopleOf(view: View): AvatarPerson[] {
   const teamNames = new Map<string, string>();
@@ -77,6 +81,11 @@ export function avatarPeopleOf(view: View): AvatarPerson[] {
     for (const dir of list.dirs)
       for (const block of dir.blocks)
         for (const row of block.rows) {
+          if (row.kind === "solo") {
+            if (row.harness === PERSON_HARNESS) continue;
+            people.push({ id: row.id, role: undefined, joinedAt: row.created_at, name: row.name, live: list === view.all && row.status !== "gone", solo: true });
+            continue;
+          }
           if (row.kind !== "member") continue;
           const live = list === view.all && row.status !== "gone" && !(row.team !== undefined && closedTeams.has(row.team));
           people.push({ id: row.id, role: row.role, joinedAt: row.created_at, name: row.name, team: row.team === undefined ? block.head?.name : teamNames.get(row.team), teamId: row.team, live });
@@ -123,22 +132,28 @@ function imageIdsOf(library: RoleLibrary): string[] {
   return [...new Set(library.images.map((image) => image.id))];
 }
 
+function groupKeyOf(person: AvatarPerson): AvatarGroupKey | null {
+  if (person.solo) return person.role === undefined ? "solo" : null;
+  const paint = roleColour(person.role, person.id);
+  return paint.kind === "role" ? paint.value : null;
+}
+
 export function groupByRole(people: readonly AvatarPerson[]): AvatarGroup[] {
-  const groups = new Map<RoleKey, AvatarPerson[]>();
+  const groups = new Map<AvatarGroupKey, AvatarPerson[]>();
   const seen = new Set<string>();
   for (const person of people) {
-    const paint = roleColour(person.role, person.id);
-    if (paint.kind !== "role" || seen.has(person.id)) continue;
+    const key = groupKeyOf(person);
+    if (key === null || seen.has(person.id)) continue;
     seen.add(person.id);
-    const group = groups.get(paint.value);
+    const group = groups.get(key);
     if (group) group.push(person);
-    else groups.set(paint.value, [person]);
+    else groups.set(key, [person]);
   }
-  return [...groups].sort(([a], [b]) => ROLE_RANK[a] - ROLE_RANK[b]).map(([role, group]) => ({ role, people: group.sort(byArrival) }));
+  return [...groups].sort(([a], [b]) => GROUP_RANK[a] - GROUP_RANK[b]).map(([role, group]) => ({ role, people: group.sort(byArrival) }));
 }
 
 export function imageInUse(settings: AvatarSettings, imageId: string): boolean {
-  return AVATAR_ROLES.some((role) => settings.libraries[role].images.some((image) => image.id === imageId));
+  return AVATAR_GROUPS.some((group) => settings.libraries[group].images.some((image) => image.id === imageId));
 }
 
 export function assignAvatars(people: readonly AvatarPerson[], settings: AvatarSettings): AvatarSettlement {
@@ -217,18 +232,18 @@ function sameEntries(a: Readonly<Record<string, string>>, b: Readonly<Record<str
   return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
 }
 
-function withLibrary(settings: AvatarSettings, role: RoleKey, library: RoleLibrary): AvatarSettings {
+function withLibrary(settings: AvatarSettings, role: AvatarGroupKey, library: RoleLibrary): AvatarSettings {
   return { ...settings, libraries: { ...settings.libraries, [role]: library } };
 }
 
-export function addAvatarImage(settings: AvatarSettings, role: RoleKey, image: AvatarImage): AvatarChange {
+export function addAvatarImage(settings: AvatarSettings, role: AvatarGroupKey, image: AvatarImage): AvatarChange {
   const library = settings.libraries[role];
-  if (library.images.some((entry) => entry.id === image.id)) return { ok: false, error: "That picture is already in this role's library." };
-  if (library.images.length >= MAX_AVATAR_IMAGES) return { ok: false, error: `A role's library holds at most ${MAX_AVATAR_IMAGES} pictures. Delete one to add another.` };
+  if (library.images.some((entry) => entry.id === image.id)) return { ok: false, error: "That picture is already in this library." };
+  if (library.images.length >= MAX_AVATAR_IMAGES) return { ok: false, error: `A library holds at most ${MAX_AVATAR_IMAGES} pictures. Delete one to add another.` };
   return { ok: true, settings: withLibrary(settings, role, { ...library, images: [...library.images, image] }) };
 }
 
-export function removeAvatarImage(settings: AvatarSettings, role: RoleKey, imageId: string): AvatarSettings {
+export function removeAvatarImage(settings: AvatarSettings, role: AvatarGroupKey, imageId: string): AvatarSettings {
   const library = settings.libraries[role];
   const next = withLibrary(settings, role, { ...library, images: library.images.filter((image) => image.id !== imageId) });
   if (imageInUse(next, imageId)) return next;
@@ -267,7 +282,7 @@ export function migrateAvatarSettings(values: unknown, fromVersion: number): unk
 }
 
 export function avatarUploadError(upload: AvatarUpload, librarySize: number): string | null {
-  if (librarySize >= MAX_AVATAR_IMAGES) return `A role's library holds at most ${MAX_AVATAR_IMAGES} pictures. Delete one to add another.`;
+  if (librarySize >= MAX_AVATAR_IMAGES) return `A library holds at most ${MAX_AVATAR_IMAGES} pictures. Delete one to add another.`;
   if (!(AVATAR_IMAGE_TYPES as readonly string[]).includes(upload.mimeType)) return `That file is ${upload.mimeType || "of an unknown type"}. Use a PNG, JPEG or WebP picture.`;
   if (upload.bytes > MAX_AVATAR_IMAGE_BYTES) return `That picture is ${(upload.bytes / (1024 * 1024)).toFixed(1)} MB. The limit is 5 MB.`;
   if (upload.size === null) return "That picture could not be read. It may be damaged or not really a PNG, JPEG or WebP file.";

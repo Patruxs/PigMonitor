@@ -4,6 +4,10 @@ All notable changes to PigMonitor are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- Avatars for solo sessions: Settings → Avatars has a Solo library after the five roles, and solo sessions get its pictures the way a role does, in Auto and in Manual. Your own Paseo session keeps what it shows today.
+
 ### Changed
 
 - Avatars in Auto: everyone with a role now gets a picture whenever their role's library has one. In a team each picture is used once per role while any is free; after that the least-used ones are shared, so a second Lead with one Lead picture shows it instead of initials. A newly added picture goes to someone who shares one, earliest first, and nobody with a picture of their own moves. Only a role with no pictures shows initials.

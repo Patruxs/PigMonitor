@@ -57,7 +57,7 @@ export function streamOfLog(items: Item[]): StreamItem[] {
       case "run-start":
       case "wake":
       case "mail":
-        out.push({ kind: "piggery", id: `${item.kind}:${key}`, timestamp, prompt: item.outgoing !== true, source: { kind: item.kind, text: item.text, ...(item.from ? { from: item.from } : {}), ...(item.to ? { to: item.to } : {}), ...(item.ref ? { ref: item.ref } : {}), ...(item.reply ? { reply: item.reply } : {}) } });
+        out.push({ kind: "piggery", id: `${item.kind}:${key}`, timestamp, prompt: item.outgoing !== true, source: { kind: item.kind, text: item.text, ...(item.from ? { from: item.from } : {}), ...(item.fromId ? { fromId: item.fromId } : {}), ...(item.to ? { to: item.to } : {}), ...(item.ref ? { ref: item.ref } : {}), ...(item.reply ? { reply: item.reply } : {}) } });
         break;
     }
     if (byResult) for (const made of out.slice(start)) made.turnId = `turn:${turn}`;

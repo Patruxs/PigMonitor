@@ -2,6 +2,8 @@ import { clock24 } from "../format.ts";
 
 export const VIEW_VERSION = 1;
 
+export const PERSON_HARNESS = "paseo";
+
 export type Status = "working" | "idle" | "waiting" | "gone";
 
 export type UnixMs = number;

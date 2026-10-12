@@ -1,5 +1,4 @@
-import { addAvatarImage, type AvatarSettings } from "../../shared/piggery/avatar.ts";
-import type { RoleKey } from "../../shared/piggery/palette.ts";
+import { addAvatarImage, type AvatarSettings, type AvatarGroupKey } from "../../shared/piggery/avatar.ts";
 
 export type BatchEntry = { name: string; id: string } | { name: string; error: string } | { name: string; full: true };
 
@@ -9,7 +8,7 @@ export type BatchReport = { added: string[]; duplicates: string[]; refused: Batc
 
 export const EMPTY_REPORT: BatchReport = { added: [], duplicates: [], refused: [], full: [] };
 
-export function applyBatch(settings: AvatarSettings, role: RoleKey, entries: readonly BatchEntry[]): BatchReport & { settings: AvatarSettings } {
+export function applyBatch(settings: AvatarSettings, role: AvatarGroupKey, entries: readonly BatchEntry[]): BatchReport & { settings: AvatarSettings } {
   let next = settings;
   const report: BatchReport = { added: [], duplicates: [], refused: [], full: [] };
   for (const entry of entries) {

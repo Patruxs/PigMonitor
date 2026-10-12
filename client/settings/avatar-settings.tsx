@@ -3,8 +3,7 @@ import { useRpc, useSettings, type SettingsState } from "@getpaseo/plugin/client
 import { useToast } from "@getpaseo/plugin/client/react-native";
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
-import { AVATAR_ROLES, AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGES, addAvatarImage, avatarPeopleOf, groupByRole, imageInUse, pickAvatar, removeAvatarImage, type AvatarMode, type AvatarPerson } from "../../shared/piggery/avatar.ts";
-import type { RoleKey } from "../../shared/piggery/palette.ts";
+import { AVATAR_GROUPS, AvatarSettings, DEFAULT_AVATAR_SETTINGS, MAX_AVATAR_IMAGES, addAvatarImage, avatarPeopleOf, groupByRole, imageInUse, pickAvatar, removeAvatarImage, type AvatarGroupKey, type AvatarMode, type AvatarPerson } from "../../shared/piggery/avatar.ts";
 import { readView } from "../../shared/piggery/view.ts";
 import { avatarSettings, snapshot } from "../../shared/rpc.ts";
 import { useAvatarDelete, useAvatarUpload } from "../kit/avatar-pictures.ts";
@@ -31,18 +30,19 @@ const MODES: { id: AvatarMode; label: string }[] = [
 ];
 
 const MODE_HINTS: Record<AvatarMode, string> = {
-  auto: "Everyone gets a picture from their role's library by itself, newcomers at once. In a team each picture is used once per role while any is free; after that the least-used ones are shared. Live teams come first. Only a role with no pictures shows initials.",
+  auto: "Everyone gets a picture from their role's library by itself, solo sessions from Solo, newcomers at once. In a team each picture is used once per role while any is free; after that the least-used ones are shared. Live teams come first. Only a role with no pictures shows initials.",
   manual: "You pick each person's picture. A role with one picture gives it to everyone; a role with several lists its people under its pictures, and a picture can be shared.",
 };
 
 const HINT = "Square 1:1. Keep the subject centred with about 15% margin on each side, because the circle cuts the corners. At least 128 px, 512 px or larger recommended. PNG, JPEG or WebP up to 5 MB.";
 
-const ROLE_TITLES: Record<RoleKey, string> = {
+const ROLE_TITLES: Record<AvatarGroupKey, string> = {
   supervisor: "Supervisor",
   lead: "Lead",
   peer: "Peer",
   executor: "Executor",
   advisor: "Advisor",
+  solo: "Solo",
 };
 
 const MAX_SAVE_TRIES = 3;
@@ -97,19 +97,19 @@ function useCommit(state: SettingsState<typeof AvatarSettings>): Commit {
   };
 }
 
-function RoleChoice({ theme, role, colours, onPick }: { theme: PluginTheme; role: RoleKey | null; colours: Record<RoleKey, string>; onPick: (role: RoleKey) => void }) {
+function RoleChoice({ theme, role, colours, onPick }: { theme: PluginTheme; role: AvatarGroupKey | null; colours: Record<AvatarGroupKey, string>; onPick: (role: AvatarGroupKey) => void }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[1.5], flexWrap: "wrap" }}>
       <Text style={text(theme, "label")}>Add to</Text>
-      {AVATAR_ROLES.map((key) => (
+      {AVATAR_GROUPS.map((key) => (
         <Pill key={key} theme={theme} label={ROLE_TITLES[key]} colour={colours[key]} filled={role === key} icon={role === key ? "Check" : undefined} onPress={() => onPick(key)} />
       ))}
     </View>
   );
 }
 
-function PasteManyCard({ theme, count, colours, onAdd, onCancel }: { theme: PluginTheme; count: number; colours: Record<RoleKey, string>; onAdd: (role: RoleKey) => void; onCancel: () => void }) {
-  const [role, setRole] = useState<RoleKey | null>(null);
+function PasteManyCard({ theme, count, colours, onAdd, onCancel }: { theme: PluginTheme; count: number; colours: Record<AvatarGroupKey, string>; onAdd: (role: AvatarGroupKey) => void; onCancel: () => void }) {
+  const [role, setRole] = useState<AvatarGroupKey | null>(null);
   return (
     <View style={{ gap: SPACING[2], padding: SPACING[3], borderWidth: 1, borderColor: theme.colors.border, borderRadius: RADIUS.lg, backgroundColor: theme.colors.surface1 }}>
       <Text style={text(theme, "meta", "foreground")}>{count} pictures pasted. Each is centre-cropped and added without a preview; you can delete any afterwards.</Text>
@@ -122,8 +122,8 @@ function PasteManyCard({ theme, count, colours, onAdd, onCancel }: { theme: Plug
   );
 }
 
-function PasteCard({ theme, image, colours, busy, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; colours: Record<RoleKey, string>; busy: boolean; onAdd: (role: RoleKey) => void; onCancel: () => void }) {
-  const [role, setRole] = useState<RoleKey | null>(null);
+function PasteCard({ theme, image, colours, busy, onAdd, onCancel }: { theme: PluginTheme; image: EncodedAvatar; colours: Record<AvatarGroupKey, string>; busy: boolean; onAdd: (role: AvatarGroupKey) => void; onCancel: () => void }) {
+  const [role, setRole] = useState<AvatarGroupKey | null>(null);
   const destination = <RoleChoice theme={theme} role={role} colours={colours} onPick={setRole} />;
   return <Preview theme={theme} image={image} colour={role ? colours[role] : theme.colors.accent} busy={busy} ready={role !== null} destination={destination} onAdd={() => role && onAdd(role)} onCancel={onCancel} />;
 }
@@ -150,10 +150,10 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
   const values: AvatarSettings = state.values;
   const manual = values.mode === "manual";
   const listed = view !== null && !known.error;
-  const colours = Object.fromEntries(AVATAR_ROLES.map((role) => [role, palette[role]])) as Record<RoleKey, string>;
-  const groupOf = (role: RoleKey) => groups.find((group) => group.role === role)?.people.filter((person) => person.live ?? true) ?? NO_PEOPLE;
-  const usersOf = (role: RoleKey, imageId: string) => groupOf(role).filter((person) => settled.avatars.get(person.id) === imageId).map((person) => (person.team ? `${nameOf(person)} (${person.team})` : nameOf(person)));
-  const addTo = async (role: RoleKey, image: EncodedAvatar): Promise<string | null> => {
+  const colours = Object.fromEntries(AVATAR_GROUPS.map((group) => [group, group === "solo" ? palette.muted : palette[group]])) as Record<AvatarGroupKey, string>;
+  const groupOf = (role: AvatarGroupKey) => groups.find((group) => group.role === role)?.people.filter((person) => person.live ?? true) ?? NO_PEOPLE;
+  const usersOf = (role: AvatarGroupKey, imageId: string) => groupOf(role).filter((person) => settled.avatars.get(person.id) === imageId).map((person) => (person.team ? `${nameOf(person)} (${person.team})` : nameOf(person)));
+  const addTo = async (role: AvatarGroupKey, image: EncodedAvatar): Promise<string | null> => {
     const stored = await upload(image.data, image.mimeType);
     if (!stored.ok) return stored.error;
     const refusal: { error: string | null } = { error: null };
@@ -167,7 +167,7 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
     toast.show(`Picture added to ${ROLE_TITLES[role]}`);
     return null;
   };
-  const deleteFrom = async (role: RoleKey, imageId: string): Promise<boolean> => {
+  const deleteFrom = async (role: AvatarGroupKey, imageId: string): Promise<boolean> => {
     const saved = await commit((current) => (current.libraries[role].images.some((image) => image.id === imageId) ? removeAvatarImage(current, role, imageId) : null));
     if (saved === false) {
       toast.error("Could not delete the picture. Try again.");
@@ -184,13 +184,13 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
   };
   const pick = (personId: string, imageId: string | null) =>
     void commit((current) => pickAvatar(current, personId, imageId)).then((saved) => saved === false && toast.error("Could not save the pick. Try again."));
-  const deleteConsequence = (role: RoleKey) => {
+  const deleteConsequence = (role: AvatarGroupKey) => {
     const left = values.libraries[role].images.length - 1;
     if (!manual) return left === 0 ? "They show their initials." : `They get another ${ROLE_TITLES[role]} picture, a free one if any is left.`;
     if (left >= 2) return "They show their initials until you pick another picture for them.";
     return left === 1 ? `They get the remaining ${ROLE_TITLES[role]} picture.` : "They show their initials.";
   };
-  const addPasted = async (role: RoleKey) => {
+  const addPasted = async (role: AvatarGroupKey) => {
     if (!paste.pasted) return;
     setPasteBusy(true);
     const failed = await addTo(role, paste.pasted);
@@ -235,7 +235,7 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
           onCancel={paste.dismiss}
         />
       ) : null}
-      {AVATAR_ROLES.map((role) => {
+      {AVATAR_GROUPS.map((role) => {
         const members = groupOf(role);
         const images = values.libraries[role].images;
         return (

@@ -119,7 +119,7 @@ export function LogStream({ theme, id, refresh, working, workingSince, cwd, view
       if (source.kind === "run-start") return <Quiet theme={theme} icon="Play" label={`Session started${source.text ? ` · ${source.text}` : ""}`} />;
       if (source.kind === "wake") return <Quiet theme={theme} icon="Bell" label={source.text} />;
       if (source.kind === "turn-end") return null;
-      return <MailBubble theme={theme} mail={source} at={item.timestamp.getTime()} role={source.from ? value?.roles?.[source.from] : undefined} senderId={source.from ? value?.ids?.[source.from] : undefined} now={now} />;
+      return <MailBubble theme={theme} mail={source} at={item.timestamp.getTime()} role={source.from ? value?.roles?.[source.from] : undefined} senderId={source.fromId ?? (source.from ? value?.ids?.[source.from] : undefined)} now={now} />;
     },
     [theme, value, now],
   );

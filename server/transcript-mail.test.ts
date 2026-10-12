@@ -10,6 +10,7 @@ test("the person's mail becomes their bubbles with the send state, the session's
   const items = mergeMail([], [msg({ seq: 1, from: "ME", to: "W" }), msg({ seq: 2, from: "W", to: "ME", reply_seq: 1 }), msg({ seq: 3, from: "ME", to: "W", acked_at: 5 }), msg({ seq: 4, from: "ME", to: "W", held: "limit" })], "W", "ME");
   assert.deepEqual(items.map((i) => [i.kind, i.ref, i.note ?? i.reply]), [["user", "#1", "Sent"], ["mail", "#2", "#1"], ["user", "#3", "Read"], ["user", "#4", "Held"]]);
   assert.equal(items[1].from, "worker");
+  assert.equal(items[1].fromId, "W");
 });
 
 test("each mail shows once, where the worker first saw it or sent it, else where it was sent", () => {

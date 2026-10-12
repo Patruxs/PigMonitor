@@ -9,7 +9,7 @@ export function mergeMail(items: Item[], messages: MailMessage[], self: string, 
   const mailItem = (m: MailMessage, at: number): ShownItem => {
     const ref = `#${m.seq}`;
     if (m.from === person) return { i: 0, kind: "user", at, text: m.body, ref, note: m.held ? "Held" : m.acked_at ? "Read" : "Sent", run: "mail" };
-    return { i: 0, kind: "mail", at, text: m.body, from: m.from_name, ...(m.from === self ? { to: m.to_name, outgoing: true } : {}), ref, ...(m.reply_seq !== undefined ? { reply: `#${m.reply_seq}` } : {}), run: "mail" };
+    return { i: 0, kind: "mail", at, text: m.body, from: m.from_name, fromId: m.from, ...(m.from === self ? { to: m.to_name, outgoing: true } : {}), ref, ...(m.reply_seq !== undefined ? { reply: `#${m.reply_seq}` } : {}), run: "mail" };
   };
   const byRef = new Map(messages.map((m) => [`#${m.seq}`, m]));
   const placed = new Set<string>();
