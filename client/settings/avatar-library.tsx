@@ -151,7 +151,7 @@ export function RoleLibrary({
   images,
   maxImages,
   people,
-  withoutPicture,
+  shared,
   usersOf,
   onAdd,
   onDelete,
@@ -168,7 +168,7 @@ export function RoleLibrary({
   images: readonly AvatarImage[];
   maxImages: number;
   people: number | null;
-  withoutPicture: number;
+  shared: boolean;
   usersOf: (imageId: string) => string[];
   onAdd: (image: EncodedAvatar) => Promise<string | null>;
   onDelete: (imageId: string) => Promise<boolean>;
@@ -211,8 +211,8 @@ export function RoleLibrary({
     if (await onDelete(imageId)) setDeleting(null);
     setBusy(false);
   };
-  const showInitials = (n: number) => (n === 1 ? "1 shows their initials" : `${n} show their initials`);
-  const shortage = people === null ? null : count === 0 ? (people === 0 ? null : people === 1 ? "No pictures yet, so they show their initials." : `No pictures yet, so all ${people} show their initials.`) : withoutPicture > 0 ? `Some teams have more people here than ${count === 1 ? "the 1 picture" : `${count} pictures`}, so ${showInitials(withoutPicture)}.` : null;
+  const shortage = people === null || count > 0 ? null : people === 0 ? null : people === 1 ? "No pictures yet, so they show their initials." : `No pictures yet, so all ${people} show their initials.`;
+  const sharing = shared && people !== null ? `${count} ${count === 1 ? "picture" : "pictures"} for ${people} people, some are shared.` : null;
   const body = (
     <View style={{ gap: SPACING[2] }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], flexWrap: "wrap" }}>
@@ -222,6 +222,7 @@ export function RoleLibrary({
         </Text>
       </View>
       {shortage && !children ? <Text style={text(theme, "label", "statusWarning")}>{shortage}</Text> : null}
+      {sharing ? <Text style={text(theme, "label")}>{sharing}</Text> : null}
       {canEncodeAvatars ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: SPACING[2], flexWrap: "wrap" }}>
           <Button theme={theme} label="Add picture" icon="ImagePlus" busy={busy && !pending && !deleting} disabled={count >= maxImages || pending !== null || batch?.running === true} onPress={() => void choose()} />

@@ -4,6 +4,10 @@ All notable changes to PigMonitor are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Changed
+
+- Avatars in Auto: everyone with a role now gets a picture whenever their role's library has one. In a team each picture is used once per role while any is free; after that the least-used ones are shared, so a second Lead with one Lead picture shows it instead of initials. A newly added picture goes to someone who shares one, earliest first, and nobody with a picture of their own moves. Only a role with no pictures shows initials.
+
 ## [0.2.0] - 2026-10-11
 
 ### Added

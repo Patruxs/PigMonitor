@@ -99,13 +99,24 @@ function byArrival(a: AvatarPerson, b: AvatarPerson): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-function firstFree(id: string, imageIds: readonly string[], taken: ReadonlySet<string>): string | undefined {
-  const start = imageIds.length === 0 ? 0 : spread(id) % imageIds.length;
+function holdersOf(holders: ReadonlyMap<string, number>, imageId: string): number {
+  return holders.get(imageId) ?? 0;
+}
+
+function leastUsed(id: string, imageIds: readonly string[], holders: ReadonlyMap<string, number>): string | undefined {
+  if (imageIds.length === 0) return undefined;
+  const fewest = Math.min(...imageIds.map((imageId) => holdersOf(holders, imageId)));
+  const start = spread(id) % imageIds.length;
   for (let step = 0; step < imageIds.length; step++) {
     const imageId = imageIds[(start + step) % imageIds.length];
-    if (!taken.has(imageId)) return imageId;
+    if (holdersOf(holders, imageId) === fewest) return imageId;
   }
   return undefined;
+}
+
+function freePicture(id: string, imageIds: readonly string[], holders: ReadonlyMap<string, number>): string | undefined {
+  const imageId = leastUsed(id, imageIds, holders);
+  return imageId !== undefined && holdersOf(holders, imageId) === 0 ? imageId : undefined;
 }
 
 function imageIdsOf(library: RoleLibrary): string[] {
@@ -166,34 +177,28 @@ function settleAuto(groups: readonly AvatarGroup[], settings: AvatarSettings): A
   const live = new Set(groups.flatMap((group) => group.people.filter((person) => person.live ?? true).map((person) => person.id)));
   const assigned: Record<string, string> = {};
   for (const [id, imageId] of Object.entries(settings.assigned)) if (!live.has(id) && imageInUse(settings, imageId)) assigned[id] = imageId;
-  const give = (person: AvatarPerson, imageId: string, taken: Set<string>) => {
+  const give = (person: AvatarPerson, imageId: string, holders: Map<string, number>) => {
     avatars.set(person.id, imageId);
-    taken.add(imageId);
+    holders.set(imageId, holdersOf(holders, imageId) + 1);
     if (live.has(person.id)) assigned[person.id] = imageId;
   };
   for (const { role, people: group } of groups) {
     const imageIds = imageIdsOf(settings.libraries[role]);
+    if (imageIds.length === 0) continue;
     for (const team of teamsOf(group)) {
-      const taken = new Set<string>();
+      const holders = new Map<string, number>();
       for (const claimingLive of [true, false]) {
-        const duplicates: [AvatarPerson, string][] = [];
+        const repeats: [AvatarPerson, string][] = [];
         const unassigned: AvatarPerson[] = [];
         for (const person of team) {
           if (live.has(person.id) !== claimingLive) continue;
           const kept = settings.assigned[person.id];
           if (kept === undefined || !imageIds.includes(kept)) unassigned.push(person);
-          else if (taken.has(kept)) duplicates.push([person, kept]);
-          else give(person, kept, taken);
+          else if (holdersOf(holders, kept) > 0) repeats.push([person, kept]);
+          else give(person, kept, holders);
         }
-        for (const [person, kept] of duplicates) {
-          const imageId = firstFree(person.id, imageIds, taken) ?? (claimingLive ? kept : undefined);
-          if (imageId !== undefined) give(person, imageId, taken);
-        }
-        for (const person of unassigned) {
-          const imageId = firstFree(person.id, imageIds, taken);
-          if (imageId === undefined) break;
-          give(person, imageId, taken);
-        }
+        for (const [person, kept] of repeats) give(person, freePicture(person.id, imageIds, holders) ?? (claimingLive ? kept : leastUsed(person.id, imageIds, holders) ?? kept), holders);
+        for (const person of unassigned) give(person, leastUsed(person.id, imageIds, holders) ?? imageIds[0], holders);
       }
     }
   }

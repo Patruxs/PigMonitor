@@ -31,7 +31,7 @@ const MODES: { id: AvatarMode; label: string }[] = [
 ];
 
 const MODE_HINTS: Record<AvatarMode, string> = {
-  auto: "Everyone gets a picture from their role's library by itself, each used once per role in a team, and newcomers get a free one. Live teams come first; when a team has more people in a role than pictures, its latest arrivals show their initials.",
+  auto: "Everyone gets a picture from their role's library by itself, newcomers at once. In a team each picture is used once per role while any is free; after that the least-used ones are shared. Live teams come first. Only a role with no pictures shows initials.",
   manual: "You pick each person's picture. A role with one picture gives it to everyone; a role with several lists its people under its pictures, and a picture can be shared.",
 };
 
@@ -48,6 +48,18 @@ const ROLE_TITLES: Record<RoleKey, string> = {
 const MAX_SAVE_TRIES = 3;
 
 const NO_PEOPLE: AvatarPerson[] = [];
+
+function sharesInTeam(members: readonly AvatarPerson[], avatars: ReadonlyMap<string, string>): boolean {
+  const seen = new Set<string>();
+  return members.some((person) => {
+    const imageId = avatars.get(person.id);
+    if (imageId === undefined) return false;
+    const key = `${person.teamId ?? ""}\n${imageId}`;
+    if (seen.has(key)) return true;
+    seen.add(key);
+    return false;
+  });
+}
 
 function nameOf(person: AvatarPerson): string {
   return person.name ?? person.id;
@@ -174,7 +186,7 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
     void commit((current) => pickAvatar(current, personId, imageId)).then((saved) => saved === false && toast.error("Could not save the pick. Try again."));
   const deleteConsequence = (role: RoleKey) => {
     const left = values.libraries[role].images.length - 1;
-    if (!manual) return `They get another free ${ROLE_TITLES[role]} picture, or their initials if none is left.`;
+    if (!manual) return left === 0 ? "They show their initials." : `They get another ${ROLE_TITLES[role]} picture, a free one if any is left.`;
     if (left >= 2) return "They show their initials until you pick another picture for them.";
     return left === 1 ? `They get the remaining ${ROLE_TITLES[role]} picture.` : "They show their initials.";
   };
@@ -236,7 +248,7 @@ export function AvatarSettingsSection({ theme }: { theme: PluginTheme }) {
             images={images}
             maxImages={MAX_AVATAR_IMAGES}
             people={listed ? members.length : null}
-            withoutPicture={members.filter((person) => !settled.avatars.has(person.id)).length}
+            shared={!manual && sharesInTeam(members, settled.avatars)}
             usersOf={(imageId) => usersOf(role, imageId)}
             onAdd={(image) => addTo(role, image)}
             onDelete={(imageId) => deleteFrom(role, imageId)}

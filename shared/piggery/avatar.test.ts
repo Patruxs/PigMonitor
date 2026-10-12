@@ -45,7 +45,7 @@ test("the human and pseudo ids never get a picture in either mode, and a new doc
   for (const mode of ["auto", "manual"] as const) assert.ok([...avatarsOf(people, { ...settings, mode }).keys()].every((id) => id.startsWith("peer-")));
 });
 
-test("each role draws only from its own library, people of one role in a team never share a picture, and an empty library shows initials", () => {
+test("each role draws only from its own library, people of one role in a team never share a picture while one is free, and an empty library shows initials", () => {
   const supervisors = [...crew("supervisor", 2), ...crew("chair", 2)];
   const leads = crew("lead", 3);
   const peers = crew("peer", 2);
@@ -65,11 +65,22 @@ test("the same people get the same pictures whatever order they are listed in", 
   assert.deepEqual([...avatarsOf([...people].reverse(), settings)].sort(), [...avatarsOf(people, settings)].sort());
 });
 
-test("when a role has more people than pictures the earliest arrivals keep unique ones and the overflow shows initials", () => {
-  const peers = crew("peer", 5);
-  const shown = picturesOf(avatarsOf(peers, withPictures({ peer: pictures("p", 3) })), peers);
-  assert.equal(new Set(shown.slice(0, 3)).size, 3);
-  assert.deepEqual(shown.slice(3), [undefined, undefined]);
+test("with more people than pictures everyone still gets one: distinct while any is free, then repeats on the least-used pictures", () => {
+  const peers = crew("peer", 6);
+  const shown = picturesOf(avatarsOf(peers, withPictures({ peer: pictures("p", 4) })), peers);
+  assert.equal(new Set(shown.slice(0, 4)).size, 4);
+  assert.ok(shown.every((id) => id !== undefined));
+  assert.notEqual(shown[4], shown[5]);
+  const leads = crew("lead", 2);
+  assert.deepEqual(picturesOf(avatarsOf(leads, withPictures({ lead: ["l0"] })), leads), ["l0", "l0"]);
+});
+
+test("the PigMonitor-5 shape: a second live Lead in a team whose Lead library has one picture shows it too", () => {
+  const leads = inTeam("pm5", [{ id: "lead", role: "lead", joinedAt: 1 }, { id: "piggery-audit-challenger", role: "lead", joinedAt: 2 }]);
+  const settings = { ...withPictures({ lead: ["l0"] }), assigned: { [leads[0].id]: "l0" } };
+  const settled = assignAvatars(leads, settings);
+  assert.deepEqual(picturesOf(settled.avatars, leads), ["l0", "l0"]);
+  assert.deepEqual(settled.settings.assigned, { [leads[0].id]: "l0", [leads[1].id]: "l0" });
 });
 
 test("people joining or leaving a live team never move anyone else's picture, and a newcomer takes a free one at once", () => {
@@ -81,16 +92,24 @@ test("people joining or leaving a live team never move anyone else's picture, an
   assert.equal(after.avatars.get("newcomer"), saved.assigned[leaver.id]);
   assert.equal(after.settings.assigned.newcomer, saved.assigned[leaver.id]);
   assert.equal(new Set(after.avatars.values()).size, after.avatars.size);
+  const six = inTeam("t", crew("peer", 6));
+  const full = assignAvatars(six, withPictures({ peer: pictures("p", 4) })).settings;
+  const seventh = { id: "seventh", role: "peer", joinedAt: 9000, teamId: "t", live: true };
+  const joined = assignAvatars([...six, seventh], full);
+  assert.deepEqual(picturesOf(joined.avatars, six), six.map((person) => full.assigned[person.id]));
+  const before = new Map<string, number>();
+  for (const person of six) before.set(full.assigned[person.id], (before.get(full.assigned[person.id]) ?? 0) + 1);
+  assert.equal(before.get(joined.avatars.get("seventh") ?? ""), Math.min(...before.values()));
 });
 
-test("an upload after assignment moves nobody, and the next person without a picture gets it", () => {
-  const peers = crew("peer", 3);
-  const saved = assignAvatars(peers, withPictures({ peer: pictures("p", 2) })).settings;
+test("an upload never moves anyone with a unique picture; each new picture goes to one repeat holder, earliest sharer first", () => {
+  const peers = crew("peer", 6);
+  const saved = assignAvatars(peers, withPictures({ peer: pictures("p", 4) })).settings;
   const added = addAvatarImage(saved, "peer", { id: "fresh" });
   assert.ok(added.ok);
   const afterUpload = assignAvatars(peers, added.settings);
-  assert.deepEqual(picturesOf(afterUpload.avatars, peers.slice(0, 2)), peers.slice(0, 2).map((person) => saved.assigned[person.id]));
-  assert.equal(afterUpload.avatars.get("peer-2"), "fresh");
+  assert.equal(afterUpload.avatars.get("peer-4"), "fresh");
+  for (const person of peers) if (person.id !== "peer-4") assert.equal(afterUpload.avatars.get(person.id), saved.assigned[person.id]);
   assert.equal(addAvatarImage(added.settings, "peer", { id: "fresh" }).ok, false);
   assert.equal(addAvatarImage(withPictures({ lead: pictures("l", MAX_AVATAR_IMAGES) }), "lead", { id: "one-more" }).ok, false);
 });
@@ -174,8 +193,9 @@ test("old documents migrate to the newest version: the Human's version 2 documen
   const migrated = AvatarSettings.parse(migrateAvatarSettings(human, 2));
   assert.equal(migrated.mode, "auto");
   const settled = assignAvatars(people, migrated);
-  assert.equal(settled.changed, false);
-  assert.deepEqual(Object.fromEntries(settled.avatars), shown);
+  for (const [id, imageId] of Object.entries(shown)) assert.equal(settled.avatars.get(id), imageId);
+  assert.equal(settled.avatars.get("lead-1"), "l0");
+  assert.ok(settled.avatars.get("peer-4"));
   assert.equal(AvatarSettings.parse(migrateAvatarSettings({ ...human, mode: "off" }, 2)).mode, "manual");
   const old = { mode: "auto", seed: 4, picks: { "peer-0": "Cat" }, assigned: { "peer-2": "image:a", "lead-0": "Dog" }, images: [{ id: "a", label: "Ada" }] };
   const fromOne = AvatarSettings.parse(migrateAvatarSettings(old, 1));
@@ -185,7 +205,7 @@ test("old documents migrate to the newest version: the Human's version 2 documen
   assert.deepEqual(AvatarSettings.parse(migrateAvatarSettings("garbage", 1)), DEFAULT_AVATAR_SETTINGS);
 });
 
-test("two live teams may show the same picture, but never twice among one team's people of a role", () => {
+test("two live teams may show the same picture, but never twice among one team's people of a role while one is free", () => {
   const red = inTeam("red", crew("peer", 3));
   const blue = inTeam("blue", crew("peer", 3));
   const avatars = avatarsOf([...red, ...blue], withPictures({ peer: pictures("p", 3) }));
@@ -193,14 +213,14 @@ test("two live teams may show the same picture, but never twice among one team's
   assert.deepEqual(new Set(picturesOf(avatars, red)), new Set(picturesOf(avatars, blue)));
 });
 
-test("ended members never block a live one: a gone teammate's picture goes to the live peer, and a closed team's members change nothing elsewhere", () => {
+test("ended members never block a live one: the live peer claims a gone teammate's picture first, and a closed team's members change nothing elsewhere", () => {
   const ended = inTeam("t", crew("peer", 1, "old"), false);
   const live = inTeam("t", [{ id: "new", role: "peer", joinedAt: 5000 }]);
   const closed = inTeam("c", crew("peer", 2, "closed"), false);
   const settings = { ...withPictures({ peer: ["p0"] }), assigned: { [ended[0].id]: "p0", [closed[0].id]: "p0" } };
   const settled = assignAvatars([...ended, ...live, ...closed], settings);
   assert.equal(settled.avatars.get(live[0].id), "p0");
-  assert.equal(settled.avatars.get(ended[0].id), undefined);
+  assert.equal(settled.avatars.get(ended[0].id), "p0");
   assert.equal(settled.avatars.get(closed[0].id), "p0");
   assert.deepEqual(settled.settings.assigned, { ...settings.assigned, [live[0].id]: "p0" });
 });
