@@ -1,0 +1,105 @@
+name: Registry update
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to list, such as v0.2.2
+        required: true
+        type: string
+
+concurrency:
+  group: registry-update
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  propose:
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PASEO_REGISTRY_TOKEN }}
+      TAG: ${{ inputs.tag || github.event.release.tag_name }}
+      UPSTREAM: getpaseo/plugins
+      RECORD: plugins/patruxs/pigmonitor.json
+    steps:
+      - name: Check the token
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Set the PASEO_REGISTRY_TOKEN secret to a classic token with the public_repo scope."
+            exit 1
+          fi
+
+      - name: Resolve the release commit
+        id: release
+        run: |
+          refs=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$TAG" "refs/tags/$TAG^{}")
+          commit=$(awk -v peeled="refs/tags/$TAG^{}" '$2 == peeled { print $1 }' <<< "$refs")
+          commit=${commit:-$(awk -v tag="refs/tags/$TAG" '$2 == tag { print $1 }' <<< "$refs")}
+          if [ -z "$commit" ]; then
+            echo "::error::Tag $TAG does not exist in $GITHUB_REPOSITORY."
+            exit 1
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: getpaseo/plugins
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Pin the release in the record
+        id: pin
+        env:
+          COMMIT: ${{ steps.release.outputs.commit }}
+        run: |
+          listed=$(jq -r .artifact.commit "$RECORD")
+          if [ "$listed" = "$COMMIT" ]; then
+            echo "The registry already pins $TAG ($COMMIT)."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          jq --arg listed "$listed" --arg commit "$COMMIT" --arg tag "$TAG" \
+            'walk(if type == "string" then gsub($listed; $commit) else . end) | .artifact.tag = $tag' \
+            "$RECORD" > record.json
+          mv record.json "$RECORD"
+          git diff -- "$RECORD"
+          echo "listed_tag=$(git show HEAD:"$RECORD" | jq -r '.artifact.tag // .artifact.commit')" >> "$GITHUB_OUTPUT"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Validate with the registry's checks
+        if: steps.pin.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update patruxs/pigmonitor to $TAG" -- "$RECORD"
+          node scripts/validate.ts --online --changed
+
+      - name: Open the registry pull request
+        if: steps.pin.outputs.changed == 'true'
+        env:
+          LISTED_TAG: ${{ steps.pin.outputs.listed_tag }}
+        run: |
+          branch="pigmonitor-$TAG"
+          if [ -n "$(gh pr list -R "$UPSTREAM" --head "$branch" --author "@me" --state open --json url --jq '.[].url')" ]; then
+            echo "A pull request for $TAG is already open."
+            exit 0
+          fi
+          fork=$(gh api -X POST "repos/$UPSTREAM/forks" --jq .full_name)
+          gh auth setup-git
+          for attempt in 1 2 3 4 5 6; do
+            git push --force "https://github.com/$fork.git" "HEAD:refs/heads/$branch" && break
+            [ "$attempt" = 6 ] && exit 1
+            sleep 10
+          done
+          gh pr create -R "$UPSTREAM" --base main --head "${fork%%/*}:$branch" \
+            --title "Update PigMonitor to $TAG" \
+            --body "Updates \`patruxs/pigmonitor\` from $LISTED_TAG to [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG). Ready for review."
