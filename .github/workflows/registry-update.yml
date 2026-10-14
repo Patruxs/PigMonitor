@@ -5,9 +5,10 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
-      tag:
-        description: Release tag to list, such as v0.2.2
+      ref:
+        description: Release tag or branch to list, such as v0.2.2 or main
         required: true
+        default: main
         type: string
 
 concurrency:
@@ -23,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.PASEO_REGISTRY_TOKEN }}
-      TAG: ${{ inputs.tag || github.event.release.tag_name }}
+      REF: ${{ inputs.ref || github.event.release.tag_name }}
       UPSTREAM: getpaseo/plugins
       RECORD: plugins/patruxs/pigmonitor.json
     steps:
@@ -34,17 +35,32 @@ jobs:
             exit 1
           fi
 
-      - name: Resolve the release commit
+      - name: Resolve the commit to list
         id: release
         run: |
-          refs=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$TAG" "refs/tags/$TAG^{}")
-          commit=$(awk -v peeled="refs/tags/$TAG^{}" '$2 == peeled { print $1 }' <<< "$refs")
-          commit=${commit:-$(awk -v tag="refs/tags/$TAG" '$2 == tag { print $1 }' <<< "$refs")}
+          refs=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$REF" "refs/tags/$REF^{}" "refs/heads/$REF")
+          commit=$(awk -v peeled="refs/tags/$REF^{}" '$2 == peeled { print $1 }' <<< "$refs")
+          commit=${commit:-$(awk -v tag="refs/tags/$REF" '$2 == tag { print $1 }' <<< "$refs")}
+          if [ -n "$commit" ]; then
+            tag=$REF
+            label=$REF
+            link="https://github.com/$GITHUB_REPOSITORY/releases/tag/$REF"
+          else
+            commit=$(awk -v branch="refs/heads/$REF" '$2 == branch { print $1 }' <<< "$refs")
+            tag=
+            label=${commit:0:12}
+            link="https://github.com/$GITHUB_REPOSITORY/commit/$commit"
+          fi
           if [ -z "$commit" ]; then
-            echo "::error::Tag $TAG does not exist in $GITHUB_REPOSITORY."
+            echo "::error::No tag or branch named $REF in $GITHUB_REPOSITORY."
             exit 1
           fi
-          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          {
+            echo "commit=$commit"
+            echo "tag=$tag"
+            echo "label=$label"
+            echo "link=$link"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         with:
@@ -60,39 +76,43 @@ jobs:
         id: pin
         env:
           COMMIT: ${{ steps.release.outputs.commit }}
+          TAG: ${{ steps.release.outputs.tag }}
+          LABEL: ${{ steps.release.outputs.label }}
         run: |
           listed=$(jq -r .artifact.commit "$RECORD")
           if [ "$listed" = "$COMMIT" ]; then
-            echo "The registry already pins $TAG ($COMMIT)."
+            echo "The registry already pins $LABEL ($COMMIT)."
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           jq --arg listed "$listed" --arg commit "$COMMIT" --arg tag "$TAG" \
-            'walk(if type == "string" then gsub($listed; $commit) else . end) | .artifact.tag = $tag' \
+            'walk(if type == "string" then gsub($listed; $commit) else . end) | if $tag == "" then del(.artifact.tag) else .artifact.tag = $tag end' \
             "$RECORD" > record.json
           mv record.json "$RECORD"
           git diff -- "$RECORD"
-          echo "listed_tag=$(git show HEAD:"$RECORD" | jq -r '.artifact.tag // .artifact.commit')" >> "$GITHUB_OUTPUT"
+          echo "listed=$(git show HEAD:"$RECORD" | jq -r '.artifact.tag // .artifact.commit[:12]')" >> "$GITHUB_OUTPUT"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Validate with the registry's checks
         if: steps.pin.outputs.changed == 'true'
+        env:
+          LABEL: ${{ steps.release.outputs.label }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Update patruxs/pigmonitor to $TAG" -- "$RECORD"
+          git commit -m "Update patruxs/pigmonitor to $LABEL" -- "$RECORD"
           node scripts/validate.ts --online --changed
 
-      - name: Open the registry pull request
+      - name: Open or refresh the registry pull request
         if: steps.pin.outputs.changed == 'true'
         env:
-          LISTED_TAG: ${{ steps.pin.outputs.listed_tag }}
+          LISTED: ${{ steps.pin.outputs.listed }}
+          LABEL: ${{ steps.release.outputs.label }}
+          LINK: ${{ steps.release.outputs.link }}
         run: |
-          branch="pigmonitor-$TAG"
-          if [ -n "$(gh pr list -R "$UPSTREAM" --head "$branch" --author "@me" --state open --json url --jq '.[].url')" ]; then
-            echo "A pull request for $TAG is already open."
-            exit 0
-          fi
+          branch=pigmonitor-update
+          title="Update PigMonitor to $LABEL"
+          body="Updates \`patruxs/pigmonitor\` from $LISTED to [$LABEL]($LINK). Ready for review."
           fork=$(gh api -X POST "repos/$UPSTREAM/forks" --jq .full_name)
           gh auth setup-git
           for attempt in 1 2 3 4 5 6; do
@@ -100,6 +120,9 @@ jobs:
             [ "$attempt" = 6 ] && exit 1
             sleep 10
           done
-          gh pr create -R "$UPSTREAM" --base main --head "${fork%%/*}:$branch" \
-            --title "Update PigMonitor to $TAG" \
-            --body "Updates \`patruxs/pigmonitor\` from $LISTED_TAG to [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG). Ready for review."
+          open=$(gh pr list -R "$UPSTREAM" --head "$branch" --author "@me" --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh pr edit "$open" -R "$UPSTREAM" --title "$title" --body "$body"
+          else
+            gh pr create -R "$UPSTREAM" --base main --head "${fork%%/*}:$branch" --title "$title" --body "$body"
+          fi

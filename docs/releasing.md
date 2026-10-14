@@ -22,10 +22,11 @@ A release is a version in `package.json`, an annotated tag `vX.Y.Z` on main and 
    gh release create vX.Y.Z --title "PigMonitor X.Y.Z" --notes-file /tmp/notes.md
    ```
 
-5. The listing on [paseo.sh/plugins](https://paseo.sh/plugins) updates on its own. Publishing the release runs `.github/workflows/registry-update.yml`, which pins the release commit in our record in the [registry](https://github.com/getpaseo/plugins), checks it with the registry's validator and opens a pull request there from a fork. The listing changes once the registry's reviewer merges it. Prereleases are skipped. To run it again or list another tag:
+5. The listing on [paseo.sh/plugins](https://paseo.sh/plugins) updates on its own. Publishing the release runs `.github/workflows/registry-update.yml`, which pins the release commit in our record in the [registry](https://github.com/getpaseo/plugins), checks it with the registry's validator and opens a pull request there from a fork. The listing changes once the registry's reviewer merges it. Prereleases are skipped. A later run updates our open pull request instead of opening another. To list another tag, or the current main after a change to the listing alone (the description in `paseo-plugin.json`, `OVERVIEW.md` or the screenshots), which needs no release:
 
    ```
-   gh workflow run registry-update.yml -f tag=vX.Y.Z
+   gh workflow run registry-update.yml -f ref=vX.Y.Z
+   gh workflow run registry-update.yml -f ref=main
    ```
 
    The workflow needs the `PASEO_REGISTRY_TOKEN` secret: a classic token with only the `public_repo` scope, since fine-grained tokens cannot open pull requests on a repository you do not own.
