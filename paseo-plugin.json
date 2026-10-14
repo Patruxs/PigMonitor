@@ -1,7 +1,7 @@
 {
   "id": "pigmonitor",
   "name": "PigMonitor",
-  "description": "PigMonitor in Paseo: teams, workers and sessions, as piggery top shows them",
+  "description": "Pig-cam for your piggery: catch your pigs working, napping, or squealing for help.",
   "media": ["docs/media/overview.png", "docs/media/graph.png", "docs/media/sessions.png"],
   "requirements": { "paseo": ">=0.11.0" }
 }
